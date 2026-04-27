@@ -96,6 +96,10 @@ workbox.precaching.precacheAndRoute(
       revision: "1",
     },
     {
+      url: "https://www.gstatic.com/firebasejs/ui/6.0.2/firebase-ui-auth.css",
+      revision: "1",
+    },
+    {
       url: "https://cdn.datatables.net/2.3.4/css/dataTables.dataTables.css",
       revision: "1",
     },
@@ -141,6 +145,18 @@ workbox.precaching.precacheAndRoute(
     },
     {
       url: "https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.13.0/sql-wasm.wasm",
+      revision: "1",
+    },
+    {
+      url: "https://www.gstatic.com/firebasejs/10.5.0/firebase-app-compat.js",
+      revision: "1",
+    },
+    {
+      url: "https://www.gstatic.com/firebasejs/10.5.0/firebase-auth-compat.js",
+      revision: "1",
+    },
+    {
+      url: "https://www.gstatic.com/firebasejs/ui/6.0.2/firebase-ui-auth.js",
       revision: "1",
     },
     {
