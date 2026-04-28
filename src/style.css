@@ -16,12 +16,12 @@ input::-webkit-inner-spin-button {
 }
 
 .quran-text .swal-text {
-    font-family: 'Uthmanic Warsh'!important;
-    font-size: 22px;
+  font-family: 'Uthmanic Warsh' !important;
+  font-size: 22px;
 }
 
 .swal-text {
-  text-align: center!important;
+  text-align: center !important;
 }
 
 .UndoCountdown::after {
@@ -263,6 +263,10 @@ th.header-rotated>div>span {
 }
 
 /* flatpickr */
+.flatpickr-current-month input.cur-year {
+  text-align: left !important;
+}
+
 .flatpickr-calendar {
 
   .dayContainer,
