@@ -7,7 +7,7 @@ import "./vfs_fonts.js";
 
 import flatpickr from "flatpickr";
 import "flatpickr/dist/l10n/ar-dz";
-import "./flatpickr-hijri-calendar";
+import "./flatpickr-hijri-calendar.js";
 import { DateTime } from "luxon";
 import "flatpickr/dist/flatpickr.css";
 import "flatpickr-hijri-calendar/dist/flatpickr-hijri-calendar.css";
