@@ -958,7 +958,7 @@ async function init() {
 async function downloadQuranDB() {
   return await fetchAndPutIntoIndexedDBFile(
     QURAN_DB_KEY,
-    "src/assets/quran.sqlite",
+    "/quran.sqlite",
     async (db) => {
       quran_db = db;
       await initializeAyatdata(db);
@@ -1185,7 +1185,7 @@ async function createNewDB() {
   if (
     !(await fetchAndPutIntoIndexedDBFile(
       PROJECT_DB_KEY,
-      "src/assets/default.sqlite3",
+      "/default.sqlite3",
       (db) => {
         project_db = db;
       },
