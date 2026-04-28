@@ -1,0 +1,7 @@
+{
+  "name": "quran-students-tracks",
+  "compatibility_date": "2026-04-28",
+  "assets": {
+    "directory": "./dist"
+  }
+}
