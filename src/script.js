@@ -300,9 +300,11 @@ function codeJwt(payload) {
 
 function loginStatusElement(updateTime) {
   if (!currentUser) {
-    return `
+    const googleSigninBtn2 = googleSigninBtn.cloneNode(true);
+    googleSigninBtn2.id = "googleSigninBtn2";
+    loginStatus.innerHTML = `
             <div>
-              ${googleSigninBtn.outerHTML}
+              ${googleSigninBtn2.outerHTML}
               <p class="card-text">${
                 updateTime
                   ? `آخر تحديث من هذا الجهاز:${updateTime}`
@@ -310,9 +312,13 @@ function loginStatusElement(updateTime) {
               }</p>
             </div>
           `;
+    document
+      .getElementById("googleSigninBtn2")
+      .addEventListener("click", googleSignin);
+    return;
   }
 
-  return `
+  loginStatus.innerHTML = `
           <div class="card mx-auto" style="width: 18rem;">
             <div class="card-body">
               <h5 class="card-title">${currentUser.name || "غير معروف"}</h5>
@@ -338,14 +344,10 @@ async function initAuth() {
       if (navigator.onLine) {
         searchFileInDrive();
       } else {
-        loginStatus.innerHTML = loginStatusElement(
-          fromNow(localStorage.getItem("lastUpdateTime")),
-        );
+        loginStatusElement(fromNow(localStorage.getItem("lastUpdateTime")));
       }
     } else {
-      loginStatus.innerHTML = loginStatusElement(
-        fromNow(localStorage.getItem("lastUpdateTime")),
-      );
+      loginStatusElement(fromNow(localStorage.getItem("lastUpdateTime")));
     }
   });
 }
@@ -360,9 +362,7 @@ async function logout() {
   await deleteAccessToken(db);
   currentUser = null;
   userIsAuth = false;
-  loginStatus.innerHTML = loginStatusElement(
-    fromNow(localStorage.getItem("lastUpdateTime")),
-  );
+  loginStatusElement(fromNow(localStorage.getItem("lastUpdateTime")));
 }
 
 async function searchFileInDrive(accessToken = null) {
@@ -389,12 +389,12 @@ async function searchFileInDrive(accessToken = null) {
 
   const listResult = await listResponse.json();
   if (!listResult.files || listResult.files.length === 0) {
-    loginStatus.innerHTML = loginStatusElement(null);
+    loginStatusElement(null);
     return [];
   }
   const file = listResult.files[0];
   const date = fromNow(new Date(file.modifiedTime));
-  loginStatus.innerHTML = loginStatusElement(date);
+  loginStatusElement(date);
   return [file, date];
 }
 
@@ -521,7 +521,7 @@ async function uploadDBtoDrive(data) {
   }
 
   const result = await response.json();
-  loginStatus.innerHTML = loginStatusElement(fromNow(new Date()));
+  loginStatusElement(fromNow(new Date()));
   localStorage.setItem("lastUpdateTime", new Date());
   if (fileId) {
     console.log("📤 DB updated on Google Drive:", result.id);
