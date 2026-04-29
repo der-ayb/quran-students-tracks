@@ -145,6 +145,8 @@ const themeSelector = document.getElementById("themeSelector");
 const themeTag = document.getElementById("themeStylesheet");
 const fontSelector = document.getElementById("fontSelect");
 const outTimeInput = document.getElementById("outTimeInput");
+const resumePagesCheck = document.getElementById("resumePagesCheck");
+const signatureCheck = document.getElementById("signatureCheck");
 
 const loadingModalText = document.getElementById("loadingText");
 const loadingModalElement = document.getElementById("loadingModal");
@@ -2470,7 +2472,7 @@ async function loadDayStudentsList() {
     if ($.fn.DataTable.isDataTable("#dayListTable")) {
       $("#dayListTable").DataTable().destroy();
     }
-    document.getElementById("addNewDayBtn").style.display = "block";
+    addNewDayBtn.style.display = "block";
     document.getElementById("dayListTable").style.display = "none";
     return;
   }
@@ -2514,7 +2516,7 @@ async function loadDayStudentsList() {
   studentDayInfos.isObligatory =
     dayResult[0].values[0][dayResult[0].columns.indexOf("isObligatory")];
   document.getElementById("dayListTable").style.display = "block";
-  document.getElementById("addNewDayBtn").style.display = "none";
+  addNewDayBtn.style.display = "none";
 
   try {
     const results = project_db.exec(`
@@ -3722,12 +3724,8 @@ function removeEvalLadder(type, key) {
 async function initBullentinConfigs() {
   const resumePagesCheck = localStorage.getItem("bulletinResumPage");
   const signatureCheck = localStorage.getItem("bulletinSignature");
-  if (resumePagesCheck)
-    document.getElementById("resumePagesCheck").checked =
-      resumePagesCheck === "true";
-  if (signatureCheck)
-    document.getElementById("signatureCheck").checked =
-      signatureCheck === "true";
+  if (resumePagesCheck) resumePagesCheck.checked = resumePagesCheck === "true";
+  if (signatureCheck) signatureCheck.checked = signatureCheck === "true";
 }
 
 async function showTab(tabId = null) {
@@ -3963,8 +3961,8 @@ async function showStudentsBulletins(dates, studentsIDS = null) {
     : {};
 
   const tableWithins = {
-    resumePagesChecked: document.getElementById("resumePagesCheck").checked,
-    withinSignature: document.getElementById("signatureCheck").checked,
+    resumePagesChecked: resumePagesCheck.checked,
+    withinSignature: signatureCheck.checked,
   };
 
   try {
@@ -5455,8 +5453,7 @@ async function showStudentsBulletins2(dates, studentsIDS = null) {
     const studentsWithManyRecords = [];
 
     // First pass: categorize all students by their data length
-    const resumePagesChecked =
-      document.getElementById("resumePagesCheck").checked;
+    const resumePagesChecked = resumePagesCheck.checked;
     allStudentData.forEach((studentReport) => {
       const studentDataRecordsLength = studentReport.data
         .map((i) => JSON.parse(i.detail)?.length ?? 1)
@@ -7334,39 +7331,198 @@ function CreateOnClickUndo(button, actionFunction, removeBtn = false) {
 //   return ctx.measureText(text).width / (10 * 37.8);
 // }
 
-// --- Expose functions to global scope for onclick handlers ---
-window.logout = logout;
-window.googleSignin = googleSignin;
-window.createNewDB = createNewDB;
-window.showApopintmentTimePicker = showApopintmentTimePicker;
-window.updateEvalLadder = updateEvalLadder;
-window.addEvalLadder = addEvalLadder;
-window.initBullentinConfigs = initBullentinConfigs;
-window.checkForUpdates = checkForUpdates;
-window.showTab = showTab;
-window.minimizeModal = minimizeModal;
-window.adjustApointementTimeMinutes = adjustApointementTimeMinutes;
-window.setApointementTimeToNow = setApointementTimeToNow;
-window.removeRequirItem = removeRequirItem;
-window.editRequirement = editRequirement;
-window.addRequirToTable = addRequirToTable;
-window.changeObligatory = changeObligatory;
-window.showRequirementsHistory = showRequirementsHistory;
-window.deleteTableRow = deleteTableRow;
-window.CreateOnClickUndo = CreateOnClickUndo;
-window.markPresence = markPresence;
-window.asyncDB = asyncDB;
-window.showStudentDayModal = showStudentDayModal;
-window.loadClassRoomsList = loadClassRoomsList;
-window.loadStudentsList = loadStudentsList;
-window.statisStudentToggleAll = statisStudentToggleAll;
-window.statisStudentUpdateAll = statisStudentUpdateAll;
-window.showStudentsBulletins = showStudentsBulletins;
-window.showStudentsBulletins2 = showStudentsBulletins2;
-window.showAttendanceStatistics = showAttendanceStatistics;
-window.showResultsStatistics = showResultsStatistics;
-window.showAvanceChart = showAvanceChart;
-window.handleStatisticsSelection = function (value) {
-  statisticType.value = value;
-  statisticType.dispatchEvent(new Event("change"));
-};
+// --- Event Listeners ---
+document.addEventListener("DOMContentLoaded", function () {
+  // Google Sign In Button
+  if (googleSigninBtn) {
+    googleSigninBtn.addEventListener("click", googleSignin);
+  }
+
+  // Create New DB Buttons
+  const createNewDBBtn1 = document.getElementById("createNewDBBtn1");
+  if (createNewDBBtn1) {
+    createNewDBBtn1.addEventListener("click", createNewDB);
+  }
+
+  const createNewDBBtn2 = document.getElementById("createNewDBBtn2");
+  if (createNewDBBtn2) {
+    createNewDBBtn2.addEventListener("click", createNewDB);
+  }
+
+  // Day Date Icon
+  const dayDateIcon = document.getElementById("dayDateIcon");
+  if (dayDateIcon) {
+    dayDateIcon.addEventListener("click", function () {
+      dayDateInput._flatpickr.setDate(
+        new Date().toISOString().slice(0, 10),
+        true,
+      );
+    });
+  }
+
+  // Add New Day Button
+  const addNewDayBtn = document.getElementById("addNewDayBtn");
+  if (addNewDayBtn) {
+    addNewDayBtn.addEventListener("click", showApopintmentTimePicker);
+  }
+
+  // Goal Button (Evaluation Ladder)
+  const goalBtn = document.getElementById("goal");
+  if (goalBtn) {
+    goalBtn.addEventListener("click", function () {
+      document.getElementById("list-retard-list").click();
+    });
+  }
+
+  // Update Eval Ladder Button
+  const updateEvalLadderBtn = document.getElementById("updateEvalLadderBtn");
+  if (updateEvalLadderBtn) {
+    updateEvalLadderBtn.addEventListener("click", updateEvalLadder);
+  }
+
+  // Add Eval Ladder Buttons
+  const addEvalLadderBehaviorBtn = document.getElementById(
+    "addEvalLadderBehaviorBtn",
+  );
+  if (addEvalLadderBehaviorBtn) {
+    addEvalLadderBehaviorBtn.addEventListener("click", function () {
+      addEvalLadder("behavior");
+    });
+  }
+
+  const addEvalLadderClothingBtn = document.getElementById(
+    "addEvalLadderClothingBtn",
+  );
+  if (addEvalLadderClothingBtn) {
+    addEvalLadderClothingBtn.addEventListener("click", function () {
+      addEvalLadder("clothing");
+    });
+  }
+
+  const addEvalLadderHaircutBtn = document.getElementById(
+    "addEvalLadderHaircutBtn",
+  );
+  if (addEvalLadderHaircutBtn) {
+    addEvalLadderHaircutBtn.addEventListener("click", function () {
+      addEvalLadder("haircut");
+    });
+  }
+
+  // Init Bullentin Configs Button
+  const initBullentinConfigsBtn = document.getElementById(
+    "initBullentinConfigsBtn",
+  );
+  if (initBullentinConfigsBtn) {
+    initBullentinConfigsBtn.addEventListener("click", initBullentinConfigs);
+  }
+
+  // Resume Pages Check
+  if (resumePagesCheck) {
+    resumePagesCheck.addEventListener("change", function () {
+      localStorage.setItem("bulletinResumPage", this.checked);
+    });
+  }
+
+  // Signature Check
+  if (signatureCheck) {
+    signatureCheck.addEventListener("change", function () {
+      localStorage.setItem("bulletinSignature", this.checked);
+    });
+  }
+
+  // Check For Updates Button
+  const checkForUpdatesBtn = document.getElementById("checkForUpdatesBtn");
+  if (checkForUpdatesBtn) {
+    checkForUpdatesBtn.addEventListener("click", checkForUpdates);
+  }
+
+  // Show Tab Buttons
+  const showTabHomeBtn = document.getElementById("showTabHomeBtn");
+  if (showTabHomeBtn) {
+    showTabHomeBtn.addEventListener("click", function () {
+      showTab("pills-home");
+    });
+  }
+
+  const showTabStudentsBtn = document.getElementById("showTabStudentsBtn");
+  if (showTabStudentsBtn) {
+    showTabStudentsBtn.addEventListener("click", function () {
+      showTab("pills-students");
+    });
+  }
+
+  const showTabNewDayBtn = document.getElementById("showTabNewDayBtn");
+  if (showTabNewDayBtn) {
+    showTabNewDayBtn.addEventListener("click", function () {
+      showTab("pills-new_day");
+    });
+  }
+
+  const showTabStatisticsBtn = document.getElementById("showTabStatisticsBtn");
+  if (showTabStatisticsBtn) {
+    showTabStatisticsBtn.addEventListener("click", function () {
+      showTab("pills-statistics");
+    });
+  }
+
+  const showTabPreferencesBtn = document.getElementById(
+    "showTabPreferencesBtn",
+  );
+  if (showTabPreferencesBtn) {
+    showTabPreferencesBtn.addEventListener("click", function () {
+      showTab("pills-preferences");
+    });
+  }
+
+  // Minimize Modal Button
+  const minimizeModalBtn = document.getElementById("minimizeModalBtn");
+  if (minimizeModalBtn) {
+    minimizeModalBtn.addEventListener("click", minimizeModal);
+  }
+
+  // Save And Close Button
+  const saveAndCloseBtn = document.getElementById("saveAndCloseBtn");
+  if (saveAndCloseBtn) {
+    saveAndCloseBtn.addEventListener("click", function () {
+      studentDayFormSubmitBtn.dispatchEvent(new Event("click"));
+    });
+  }
+
+  // Time Adjustment Buttons
+  const adjustTimePlus15Btn = document.getElementById("adjustTimePlus15Btn");
+  if (adjustTimePlus15Btn) {
+    adjustTimePlus15Btn.addEventListener("click", function () {
+      adjustApointementTimeMinutes(15);
+    });
+  }
+
+  const setTimeNowBtn = document.getElementById("setTimeNowBtn");
+  if (setTimeNowBtn) {
+    setTimeNowBtn.addEventListener("click", setApointementTimeToNow);
+  }
+
+  const adjustTimeMinus15Btn = document.getElementById("adjustTimeMinus15Btn");
+  if (adjustTimeMinus15Btn) {
+    adjustTimeMinus15Btn.addEventListener("click", function () {
+      adjustApointementTimeMinutes(-15);
+    });
+  }
+
+  // Add New Study Day Button
+  const addNewStudyDayBtn = document.getElementById("addNewStudyDayBtn");
+  if (addNewStudyDayBtn) {
+    addNewStudyDayBtn.addEventListener("click", addNewStudyDay);
+  }
+
+  // Attendance Radio Buttons
+  const attendanceRadios = document.querySelectorAll(
+    'input[name="attendance"]',
+  );
+  attendanceRadios.forEach(function (radio) {
+    radio.addEventListener("change", function () {
+      onChangeAttendanceState(this);
+      studentDayFormSubmitBtn.disabled = false;
+      studentDayFormSubmitBtn.nextElementSibling.disabled = false;
+    });
+  });
+});

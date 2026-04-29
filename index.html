@@ -105,7 +105,7 @@
         <button class="col-2 btn btn-danger btn-sm" id="installBtn1" hidden>تثبيت</button>
       </div>
 
-      <button id="googleSigninBtn" class="google_signin_button mx-auto" onclick="googleSignin()">
+      <button id="googleSigninBtn" class="google_signin_button mx-auto">
         <svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid" viewBox="0 0 256 262">
           <path fill="#4285F4"
             d="M255.878 133.451c0-10.734-.871-18.567-2.756-26.69H130.55v48.448h71.947c-1.45 12.04-9.283 30.172-26.69 42.356l-.244 1.622 38.755 30.023 2.685.268c24.659-22.774 38.875-56.282 38.875-96.027">
@@ -123,7 +123,7 @@
         تسجيل الدخول
       </button>
       <div style="display: flex;" class="btn-group mt-3" role="group" aria-label="Basic example">
-        <button type="button" onclick="createNewDB()" class="btn btn-primary">➕ جديد</button>
+        <button type="button" id="createNewDBBtn1" class="btn btn-primary">➕ جديد</button>
         <label for="importDBbtn" class="btn btn-primary mb-0">
           📥 استيراد
           <input type="file" id="importDBbtn" class="d-none">
@@ -175,8 +175,7 @@
         <div class="date-input-group">
           <span class="date-input-label">التاريخ:</span>
           <input type="text" id="dayDate" class="date-input-field" readonly>
-          <i class="fas fa-calendar-alt date-icon"
-            onclick="dayDateInput._flatpickr.setDate(new Date().toISOString().slice(0, 10), true);;"></i>
+          <i class="fas fa-calendar-alt date-icon" id="dayDateIcon"></i>
         </div>
       </div>
       <p id="dayNoteContainer" class="border px-2 py-2 mx-2 my-2"></p>
@@ -197,7 +196,7 @@
         </thead>
         <tbody></tbody>
       </table>
-      <button id="addNewDayBtn" onclick="showApopintmentTimePicker()" class="btn btn-info mx-auto px-5 my-5"
+      <button id="addNewDayBtn" class="btn btn-info mx-auto px-5 my-5"
         style="display: none;">إضافة يوم ✚</button>
     </div>
 
@@ -213,7 +212,7 @@
       <div class="input-group mt-3">
         <button class="btn btn-secondary dropdown-toggle" data-bs-toggle="dropdown">تخصيص التلاميذ</button>
         <div class="dropdown-menu statisticsStudentsMenu p-2" style="max-height: 60vh; overflow-y: auto;"></div>
-        <select id="statisticType" onchange="handleStatisticsSelection(this.value)" class="form-select text-center"
+        <select id="statisticType" class="form-select text-center"
           aria-label="Default select example">
           <option value="0">-- اختر نوع الإحصاء --</option>
           <option value="attendance">الحضور</option>
@@ -340,7 +339,7 @@
             <h2 class="mb-0">
               <button id="goal" class="btn btn-link btn-block text-start collapsed" type="button"
                 data-bs-toggle="collapse" data-bs-target="#collapseFour" aria-expanded="false"
-                aria-controls="collapseFour" onclick="document.getElementById('list-retard-list').click();">
+                aria-controls="collapseFour">
                 سلم التقييم
               </button>
             </h2>
@@ -361,7 +360,7 @@
                     href="#list-haircut" role="tab" aria-controls="list-haircut">الحلاقة</a>
                   <a class="list-group-item list-group-item-action" id="list-requirment-list" data-bs-toggle="list"
                     href="#list-requirment" role="tab" aria-controls="list-requirment">المطلوب</a>
-                  <button type="button" onclick="updateEvalLadder()" class="btn btn-info mt-1" aria-current="true">
+                  <button type="button" id="updateEvalLadderBtn" class="btn btn-info mt-1" aria-current="true">
                     تحديث
                   </button>
                 </div>
@@ -385,7 +384,7 @@
                   <div class="tab-pane fade" id="list-behavior" role="tabpanel" aria-labelledby="list-behavior-list">
 
                     <div id="behavior-marksList" class=""></div>
-                    <button class="btn btn-sm btn-success w-100 " onclick="addEvalLadder('behavior')">
+                    <button class="btn btn-sm btn-success w-100 " id="addEvalLadderBehaviorBtn">
                       <i class="bi bi-plus-circle"></i> إضافة
                     </button>
 
@@ -393,7 +392,7 @@
                   <div class="tab-pane fade" id="list-clothing" role="tabpanel" aria-labelledby="list-clothing-list">
 
                     <div id="clothing-marksList" class=""></div>
-                    <button class="btn btn-sm btn-success w-100 " onclick="addEvalLadder('clothing')">
+                    <button class="btn btn-sm btn-success w-100 " id="addEvalLadderClothingBtn">
                       <i class="bi bi-plus-circle"></i> إضافة
                     </button>
 
@@ -401,7 +400,7 @@
                   <div class="tab-pane fade" id="list-haircut" role="tabpanel" aria-labelledby="list-haircut-list">
 
                     <div id="haircut-marksList" class=""></div>
-                    <button class="btn btn-sm btn-success w-100 " onclick="addEvalLadder('haircut')">
+                    <button class="btn btn-sm btn-success w-100 " id="addEvalLadderHaircutBtn">
                       <i class="bi bi-plus-circle"></i> إضافة
                     </button>
 
@@ -431,7 +430,7 @@
             <h2 class="mb-0">
               <button class="btn btn-link btn-block text-start collapsed" type="button" data-bs-toggle="collapse"
                 data-bs-target="#collapseSix" aria-expanded="false" aria-controls="collapseSix"
-                onclick="initBullentinConfigs()">
+                id="initBullentinConfigsBtn">
                 كشوف النقاط
               </button>
             </h2>
@@ -441,13 +440,11 @@
 
             <div class="card-body text-start">
               <div class="form-check form-switch">
-                <input class="form-check-input" type="checkbox" role="switch" id="resumePagesCheck" checked
-                  onchange="localStorage.setItem('bulletinResumPage',this.checked)">
+                <input class="form-check-input" type="checkbox" role="switch" id="resumePagesCheck" checked>
                 <label class="form-check-label" for="resumePagesCheck">تقليص الصفحات إذا أمكن</label>
               </div>
               <div class="form-check form-switch">
-                <input class="form-check-input" type="checkbox" role="switch" id="signatureCheck" checked
-                  onchange="localStorage.setItem('bulletinSignature',this.checked)">
+                <input class="form-check-input" type="checkbox" role="switch" id="signatureCheck" checked>
                 <label class="form-check-label" for="signatureCheck">تضمين إمضاء الولي</label>
               </div>
             </div>
@@ -483,7 +480,7 @@
             </div>
 
             <div class="btn-group mt-3" role="group" aria-label="Basic example">
-              <button type="button" onclick="createNewDB()" class="btn btn-primary">➕ جديد</button>
+              <button type="button" id="createNewDBBtn2" class="btn btn-primary">➕ جديد</button>
               <label for="importDBbtn" class="btn btn-primary mb-0">
                 📥 استيراد
                 <input type="file" id="importDBbtn" class="d-none">
@@ -519,7 +516,7 @@
                     <i class="fas fa-envelope me-1"></i>Contact
                   </a>
                 </div>
-                <button class="btn btn-info w-100 mt-3" onclick="checkForUpdates()">
+                <button class="btn btn-info w-100 mt-3" id="checkForUpdatesBtn">
                   <i class="fas fa-sync-alt me-2"></i>التحقق من التحديثات
                 </button>
               </div>
@@ -532,7 +529,7 @@
   </div>
 
   <div class="nav-bar" style="display: none;">
-    <button onclick="showTab('pills-home'); return false;">
+    <button id="showTabHomeBtn">
       <svg fill="#ffffff" width="256px" height="30px" viewBox="0 0 24.00 24.00" xmlns="http://www.w3.org/2000/svg"
         stroke="#ffffff" stroke-width="0.5">
         <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
@@ -548,7 +545,7 @@
         </g>
       </svg>
     </button>
-    <button onclick="showTab('pills-students'); return false;">
+    <button id="showTabStudentsBtn">
       <svg fill="#ffffff" width="256px" height="30px" viewBox="0 0 24.00 24.00" xmlns="http://www.w3.org/2000/svg"
         stroke="#ffffff" stroke-width="0.0024000000000000003">
         <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
@@ -560,7 +557,7 @@
         </g>
       </svg>
     </button>
-    <button onclick="showTab('pills-new_day'); return false;">
+    <button id="showTabNewDayBtn">
       <svg fill="#ffffff" width="256px" height="30px" viewBox="0 0 24.00 24.00" xmlns="http://www.w3.org/2000/svg"
         stroke="#ffffff" stroke-width="0.0024000000000000003">
         <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
@@ -572,7 +569,7 @@
         </g>
       </svg>
     </button>
-    <button onclick="showTab('pills-statistics'); return false;">
+    <button id="showTabStatisticsBtn">
       <svg fill="#ffffff" width="256px" height="30px" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
         <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
         <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
@@ -583,7 +580,7 @@
         </g>
       </svg>
     </button>
-    <button onclick="showTab('pills-preferences'); return false;">
+    <button id="showTabPreferencesBtn">
       <span style="display: none;"
         class="syncBadge position-absolute top-1 start-95 translate-middle p-1 bg-danger border border-light rounded-circle">
         <span class="visually-hidden">New alerts</span>
@@ -724,15 +721,12 @@
           <form id="studentDayForm">
             <div class="mb-3 text-center">
               <div class="btn-group" role="group" aria-label="Basic radio toggle button group">
-                <input type="radio" class="btn-check" name="attendance" id="present" autocomplete="off"
-                  onchange="onChangeAttendanceState(this);studentDayFormSubmitBtn.disabled = false;studentDayFormSubmitBtn.nextElementSibling.disabled = false;">
+                <input type="radio" class="btn-check" name="attendance" id="present" autocomplete="off">
                 <label class="btn btn-outline-primary" for="present">حاضر</label>
                 <input type="radio" class="btn-check" name="attendance" id="UnjustifiedAbsence" autocomplete="off"
-                  onchange="onChangeAttendanceState(this);studentDayFormSubmitBtn.disabled = false;studentDayFormSubmitBtn.nextElementSibling.disabled = false;"
                   checked>
                 <label class="btn btn-outline-primary" for="UnjustifiedAbsence">غياب غير مبرر</label>
-                <input type="radio" class="btn-check" name="attendance" id="JustifiedAbsence" autocomplete="off"
-                  onchange="onChangeAttendanceState(this);studentDayFormSubmitBtn.disabled = false;studentDayFormSubmitBtn.nextElementSibling.disabled = false;">
+                <input type="radio" class="btn-check" name="attendance" id="JustifiedAbsence" autocomplete="off">
                 <label class="btn btn-outline-primary" for="JustifiedAbsence">غياب مبرر</label>
               </div>
             </div>
@@ -998,11 +992,11 @@
         <div class="modal-footer d-flex justify-content-between px-2 py-2">
           <div class="btn-group" role="group">
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إغلاق</button>
-            <button type="button" class="btn btn-secondary" onclick="minimizeModal(); return false;">تصغير</button>
+            <button type="button" class="btn btn-secondary" id="minimizeModalBtn">تصغير</button>
           </div>
           <div class="btn-group" role="group">
             <button id="studentDayFormSubmitBtn" class="btn btn-primary">حفظ</button>
-            <button onclick="studentDayFormSubmitBtn.dispatchEvent(new Event('click'))" class="btn btn-primary"
+            <button id="saveAndCloseBtn" class="btn btn-primary"
               data-bs-dismiss="modal">حفظ و إغلاق</button>
           </div>
         </div>
@@ -1024,18 +1018,18 @@
           <p id="timeDisplay" class="fs-1">00:00</p>
 
           <div class="mb-3">
-            <button class="btn btn-outline-primary p-0  border-0" onclick="adjustApointementTimeMinutes(15)">
+            <button class="btn btn-outline-primary p-0  border-0" id="adjustTimePlus15Btn">
               <i class="fa-regular fa-square-plus fa-3x"></i>
             </button>
-            <button class="btn btn-success mx-2" onclick="setApointementTimeToNow()">الآن</button>
-            <button class="btn btn-outline-primary p-0 border-0" onclick="adjustApointementTimeMinutes(-15)">
+            <button class="btn btn-success mx-2" id="setTimeNowBtn">الآن</button>
+            <button class="btn btn-outline-primary p-0 border-0" id="adjustTimeMinus15Btn">
               <i class="fa-regular fa-square-minus fa-3x"></i>
             </button>
           </div>
 
           <div>
             <button class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
-            <button class="btn btn-primary ms-2" data-bs-dismiss="modal" onclick="addNewStudyDay()">بدء</button>
+            <button class="btn btn-primary ms-2" data-bs-dismiss="modal" id="addNewStudyDayBtn">بدء</button>
           </div>
         </div>
       </div>
@@ -1105,8 +1099,6 @@
 <script src="https://cdn.datatables.net/fixedcolumns/5.0.5/js/fixedColumns.bootstrap5.min.js"></script>
 <script src="https://cdn.datatables.net/fixedheader/4.0.5/js/dataTables.fixedHeader.min.js"></script>
 <script src="https://cdn.datatables.net/fixedheader/4.0.5/js/fixedHeader.bootstrap5.min.js"></script>
-<!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/moment.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/locale/ar-dz.min.js"></script> -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/downloadjs/1.4.8/download.min.js"></script>
 
 <!-- <script src="https://unpkg.com/pdfmake-rtl/build/pdfmake.min.js"></script>
