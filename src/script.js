@@ -328,11 +328,13 @@ function loginStatusElement(updateTime) {
               <p class="card-text">${
                 updateTime ? `آخر تحديث:${updateTime}` : "لم تتم المزامنة بعد"
               }</p>
-              <button onclick="asyncDB()" class="btn btn-sm btn-secondary">🔄 مزامنة</button>
-              <button onclick="logout()" class="btn btn-sm btn-warning">تسجيل الخروج</button>
+              <button id="asyncDBBtn" class="btn btn-sm btn-secondary">🔄 مزامنة</button>
+              <button id="logoutBtn" class="btn btn-sm btn-warning">تسجيل الخروج</button>
             </div>
           </div>
         `;
+  document.getElementById("logoutBtn").addEventListener("click", logout);
+  document.getElementById("asyncDBBtn").addEventListener("click", asyncDB);
 }
 async function initAuth() {
   await openAuthDB().then(async (res) => {
@@ -2218,7 +2220,7 @@ async function showOffCanvas(title, body, side = "top") {
     new bootstrap.Offcanvas(myOffcanvas).show();
 }
 
-async function markPresence(studentId) {
+window.markPresence = async function (studentId) {
   const retard_time = calcRetardTime();
   project_db.run(
     "INSERT OR REPLACE INTO day_evaluations (student_id, day_id, attendance,retard,clothing,haircut,behavior,added_points,moyenne) VALUES (?,?, ?,?, ?,?,?,?,?);",
@@ -2236,7 +2238,7 @@ async function markPresence(studentId) {
   );
   saveToIndexedDB(project_db.export());
   await loadDayStudentsList();
-}
+};
 
 function showApopintmentTimePicker(initialTime = null) {
   setApointementTimeToNow();
@@ -2394,7 +2396,7 @@ function parseRequirment(requir, book, bulletin = false) {
   }
 }
 
-function showRequirementsHistory(student_id, page = 1) {
+window.showRequirementsHistory = function (student_id, page = 1) {
   let requirs = [];
   let requirsDates = [];
   project_db
@@ -2403,7 +2405,7 @@ function showRequirementsHistory(student_id, page = 1) {
         WHERE dr.student_id = ${student_id} ORDER BY dr.day_id DESC
         LIMIT ${page * 5}`,
     )[0]
-    .values.forEach((row) => {
+    ?.values.forEach((row) => {
       requirs.push(row[0]);
       requirsDates.push(row[1]);
     });
@@ -2439,7 +2441,7 @@ function showRequirementsHistory(student_id, page = 1) {
       `,
     "start",
   );
-}
+};
 
 function changeObligatory(switchElement) {
   if (!project_db) {
@@ -2609,7 +2611,8 @@ async function loadDayStudentsList() {
               addedPointsInput.value,
             );
 
-          historyRequirBtn.onclick = () => showRequirementsHistory(student_id);
+          historyRequirBtn.onclick = () =>
+            window.showRequirementsHistory(student_id);
 
           requirsMoyenneInput.value =
             row[result.columns.indexOf("requirsMoyenne")] || "0.00";
@@ -3363,7 +3366,7 @@ function initRequirementFields(detail = null) {
   requirTeacherInput.value = "0";
 }
 
-function editRequirement(button) {
+window.editRequirement = function (button) {
   const row = button.closest("tr");
   if (addQuranSelectionBtn.innerText == "تحديث") {
     requirementsTable
@@ -3435,9 +3438,9 @@ function editRequirement(button) {
     },
     { once: true },
   );
-}
+};
 
-function removeRequirItem(button, student_id = null) {
+window.removeRequirItem = function (button, student_id = null) {
   const row = button.closest("tr");
   const quantity =
     row.firstElementChild.nextElementSibling.nextElementSibling.textContent;
@@ -3488,7 +3491,7 @@ function removeRequirItem(button, student_id = null) {
     }
     requirTeacherInput.value = "0";
   }
-}
+};
 
 function addRequirToTable(row = false) {
   if (
@@ -3502,6 +3505,7 @@ function addRequirToTable(row = false) {
     return;
   }
   const newRow = document.createElement("tr");
+  const removeBtnId = `removeRequirBtn-${requirementsTable.querySelectorAll("tbody tr").length + 1}`;
   newRow.innerHTML = `
     <td>${requireBookInput.value}</td>
     <td>${requirTypeInput.value}</td>
@@ -3526,14 +3530,24 @@ function addRequirToTable(row = false) {
     <td>
     <div class="btn-group-vertical" role="group" aria-label="Vertical button group">
       <button type="button" class="btn btn-success" onclick="editRequirement(this);"><i class="fa-solid fa-pen-to-square"></i></button>
-      <button class="btn btn-danger btn-sm" 
-        onclick="teachersPoints[requirTeacherInput.value] = teachersPoints[requirTeacherInput.value] -
-                Math.floor(parseFloat(this.parentNode.parentNode.previousElementSibling.previousElementSibling.previousElementSibling.previousElementSibling.previousElementSibling.previousElementSibling.previousElementSibling.textContent));
-                removeRequirItem(this);"><i class="fa-solid fa-xmark"></i></button>
+      <button id="${removeBtnId}" class="btn btn-danger btn-sm"><i class="fa-solid fa-xmark"></i></button>
     </div>
     </td>`;
   if (!row) requirementsTable.querySelector("tbody").appendChild(newRow);
   else row.replaceWith(newRow);
+  document.getElementById(removeBtnId).onclick = async (e) => {
+    teachersPoints[requirTeacherInput.value] =
+      teachersPoints[requirTeacherInput.value] -
+      Math.floor(
+        parseFloat(
+          e.target.parentNode.parentNode.previousElementSibling
+            .previousElementSibling.previousElementSibling
+            .previousElementSibling.previousElementSibling
+            .previousElementSibling.previousElementSibling.textContent,
+        ),
+      );
+    removeRequirItem(e.target);
+  };
   requirementsTable.scrollIntoView();
   if (requirTeacherInput.value !== "0") {
     teachersPoints[requirTeacherInput.value] =
@@ -3714,12 +3728,12 @@ function addEvalLadder(type) {
   }
 }
 
-function removeEvalLadder(type, key) {
+window.removeEvalLadder = function (type, key) {
   if (Object.keys(evaluationLaddersValues[type]).length > 2) {
     delete evaluationLaddersValues[type][key];
     displayEvalLadder();
   }
-}
+};
 
 async function initBullentinConfigs() {
   const resumePagesCheck = localStorage.getItem("bulletinResumPage");
@@ -3892,7 +3906,7 @@ async function fillStatistiscStudentsList(uniqueStudent = false) {
       const result = results[0];
       const dropdown = document.querySelector(".statisticsStudentsMenu");
       dropdown.innerHTML =
-        `<button onclick='statisticType.dispatchEvent(new Event("change"))' class="btn btn-sm btn-secondary mb-2 w-100">موافق</button>` +
+        `<button id="fillStudentOkBtn" class="btn btn-sm btn-secondary mb-2 w-100">موافق</button>` +
         (!uniqueStudent
           ? `
         <div class="form-check">
@@ -3901,6 +3915,8 @@ async function fillStatistiscStudentsList(uniqueStudent = false) {
         </div>
         <hr class="my-0">`
           : "");
+      document.getElementById("fillStudentOkBtn").onclick = () =>
+        statisticType.dispatchEvent(new Event("change"));
       statisAllCheckbox = document.getElementById("statisAllCheckbox");
       result.values.forEach((row) => {
         const newItem = document.createElement("div");
