@@ -888,7 +888,7 @@ async function addServiceWorker() {
     onNeedRefresh() {
       swal({
         title: "تم التماس تحديث جديد",
-        text: "هل تريد تحديث التطبيق?",
+        text: "هل تريد تحديث التطبيق ؟",
         icon: "info",
         buttons: ["لا", "نعم"],
       }).then((willReload) => {
@@ -897,41 +897,19 @@ async function addServiceWorker() {
         }
       });
     },
+    onRegistered(r) {
+      document.getElementById("checkForUpdatesBtn").onclick =
+        async function () {
+          if (!navigator.onLine) {
+            showToast("warning", "لا يوجد اتصال بالإنترنت.");
+            return;
+          }
+          await showLoadingModal("جاري التحقق من التحديثات");
+          r.update();
+          hideLoadingModal();
+        };
+    },
   });
-  //service workers
-  let sw_path = null;
-  if ("serviceWorker" in navigator) {
-    // if (!devMode) {
-    //   sw_path = "/sw.js";
-    // } else {
-    //   sw_path = "/sw.js";
-    // }
-  }
-
-  if (sw_path) {
-    navigator.serviceWorker
-      .register(sw_path, { type: "classic" })
-      .then((registration) => {
-        console.log("Service Worker registered:", registration.scope);
-        registration.addEventListener("updatefound", () => {
-          const newWorker = registration.installing;
-          newWorker.addEventListener("statechange", () => {
-            if (
-              newWorker.state === "installed" &&
-              navigator.serviceWorker.controller
-            ) {
-              window.showToast(
-                "info",
-                "تم التماس تحديث جديد، يرجى <button type='button' class='btn btn-dark' onclick='window.location.reload()'>تحديث</button> التطبيق.",
-              );
-            }
-          });
-        });
-      })
-      .catch((error) => {
-        console.error("Service Worker registration failed:", error);
-      });
-  }
 }
 
 // --- Initialization Async ---
@@ -1173,22 +1151,6 @@ async function hideLoadingModal() {
     setLoadingModalText(
       loadingModalShowNumber[loadingModalShowNumber.length - 1],
     );
-  }
-}
-
-// --- check app updates ---
-async function checkForUpdates() {
-  if ("serviceWorker" in navigator) {
-    if (!navigator.onLine) {
-      showToast("warning", "لا يوجد اتصال بالإنترنت.");
-      return;
-    }
-    await showLoadingModal("جاري التحقق من التحديثات");
-    const registration = await navigator.serviceWorker.getRegistration();
-    if (registration) {
-      await registration.update();
-    }
-    hideLoadingModal();
   }
 }
 
@@ -7459,12 +7421,6 @@ document.addEventListener("DOMContentLoaded", function () {
     signatureCheck.addEventListener("change", function () {
       localStorage.setItem("bulletinSignature", this.checked);
     });
-  }
-
-  // Check For Updates Button
-  const checkForUpdatesBtn = document.getElementById("checkForUpdatesBtn");
-  if (checkForUpdatesBtn) {
-    checkForUpdatesBtn.addEventListener("click", checkForUpdates);
   }
 
   // Show Tab Buttons
