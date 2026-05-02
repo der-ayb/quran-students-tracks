@@ -11,6 +11,7 @@ import "./flatpickr-hijri-calendar.js";
 import { DateTime } from "luxon";
 import "flatpickr/dist/flatpickr.css";
 import "flatpickr-hijri-calendar/dist/flatpickr-hijri-calendar.css";
+import { registerSW } from "virtual:pwa-register";
 
 // --- Initialize the application (async) ---
 window._toastQueue = window._toastQueue || [];
@@ -883,19 +884,33 @@ async function exportDB() {
 }
 
 async function addServiceWorker() {
+  const updateSW = registerSW({
+    onNeedRefresh() {
+      swal({
+        title: "تم التماس تحديث جديد",
+        text: "هل تريد تحديث التطبيق?",
+        icon: "info",
+        buttons: ["لا", "نعم"],
+      }).then((willReload) => {
+        if (willReload) {
+          updateSW(true); // This triggers the SW to skip waiting and reload the page
+        }
+      });
+    },
+  });
   //service workers
   let sw_path = null;
   if ("serviceWorker" in navigator) {
-    // if (devMode) {
-    //   sw_path = "./utils/dev-service-worker.js";
+    // if (!devMode) {
+    //   sw_path = "/sw.js";
     // } else {
-    //   sw_path = "./service-worker.js";
+    //   sw_path = "/sw.js";
     // }
   }
 
   if (sw_path) {
     navigator.serviceWorker
-      .register(sw_path)
+      .register(sw_path, { type: "classic" })
       .then((registration) => {
         console.log("Service Worker registered:", registration.scope);
         registration.addEventListener("updatefound", () => {

@@ -9,12 +9,17 @@
     "preview": "vite preview"
   },
   "devDependencies": {
-    "vite": "^8.0.9"
+    "vite": "^8.0.9",
+    "vite-plugin-pwa": "^1.2.0"
   },
   "dependencies": {
-    "firebase": "^12.12.1",
     "flatpickr": "^4.6.13",
     "flatpickr-hijri-calendar": "^1.0.0",
     "luxon": "^3.7.2"
+  },
+  "overrides": {
+    "vite-plugin-pwa": {
+      "vite": "$vite"
+    }
   }
 }
