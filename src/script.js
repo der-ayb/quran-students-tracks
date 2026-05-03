@@ -1501,7 +1501,7 @@ async function loadClassRoomsList() {
                       `;
                   selectedRows.forEach((row) => {
                     element += `
-                        <input type="radio" class="btn-check" name="btnradio" id="classRadio-${row.id}" autocomplete="off" onchange="workingClassroomSelect.value = '${row.id}';workingClassroomSelect.dispatchEvent(new Event('change'));showTab();" ${workingClassroomId == row.id ? "checked" : ""}>
+                        <input type="radio" class="btn-check" name="btnradio" id="classRadio-${row.id}" autocomplete="off" ${workingClassroomId == row.id ? "checked" : ""}>
                         <label class="btn btn-outline-primary" for="classRadio-${row.id}">${row.sex}</label>
                     `;
                   });
@@ -1511,6 +1511,16 @@ async function loadClassRoomsList() {
                     "beforeend",
                     element,
                   );
+                  selectedRows.forEach((row) => {
+                    document.getElementById(`classRadio-${row.id}`).onchange =
+                      () => {
+                        workingClassroomSelect.value = row.id;
+                        workingClassroomSelect.dispatchEvent(
+                          new Event("change"),
+                        );
+                        showTab();
+                      };
+                  });
                 },
               },
               {
@@ -2420,7 +2430,7 @@ window.showRequirementsHistory = function (student_id, page = 1) {
   );
 };
 
-function changeObligatory(switchElement) {
+window.changeObligatory = async function (switchElement) {
   if (!project_db) {
     window.showToast("info", "لا يوجد قاعدة بيانات مفتوحة.");
     return;
@@ -2431,10 +2441,11 @@ function changeObligatory(switchElement) {
       workingDayID,
     ]);
     saveToIndexedDB(project_db.export());
+    showTab("pills-new_day");
   } catch (e) {
     window.showToast("error", "Error: " + e.message);
   }
-}
+};
 
 async function loadDayStudentsList() {
   dayNoteContainer.style.display = "none";
@@ -2496,6 +2507,8 @@ async function loadDayStudentsList() {
     dayResult[0].values[0][dayResult[0].columns.indexOf("isObligatory")];
   document.getElementById("dayListTable").style.display = "block";
   addNewDayBtn.style.display = "none";
+  document.getElementById("JustifiedAbsence").disabled =
+    studentDayInfos.isObligatory ? false : true;
 
   try {
     const results = project_db.exec(`
@@ -3918,12 +3931,12 @@ async function fillStatistiscStudentsList(uniqueStudent = false) {
   }
 }
 
-function statisStudentToggleAll() {
+window.statisStudentToggleAll = function () {
   document.querySelectorAll(".statisStudentItem").forEach((item) => {
     item.checked = statisAllCheckbox.checked;
   });
   reinitStatisticTable();
-}
+};
 
 function statisStudentUpdateAll() {
   const items = document.querySelectorAll(".statisStudentItem");
@@ -6203,38 +6216,48 @@ async function showResultsStatistics() {
     )
     .join(" +\n        ");
 
-  const absenceCTE = `absence_counts AS (
+  const justifiedAbsenceCTE = `jabsence_counts AS (
     SELECT 
       student_id,
-      COUNT(*) as absent_count
+      COUNT(*) as count
     FROM day_evaluations
     WHERE attendance = 0
-    AND day_id IN (SELECT id FROM education_day WHERE date IN (${dates.map((d) => `'${d}'`).join(", ")}))
+    AND day_id IN (SELECT id FROM education_day 
+                    WHERE class_room_id = ${workingClassroomId}
+                    AND date IN (${dates.map((d) => `'${d}'`).join(", ")}))
     GROUP BY student_id
+  )`;
+  const obligatoryDaysCTE = `obligatory_days_count AS (
+    SELECT COUNT(*) 
+    FROM education_day
+    WHERE class_room_id = ${workingClassroomId}
+    AND isObligatory = 0 
+    AND date IN (${dates.map((d) => `'${d}'`).join(", ")})
   )`;
 
   const query = `
     WITH ${dateCtes},
-    ${absenceCTE}
+    ${justifiedAbsenceCTE},
+    ${obligatoryDaysCTE}
     SELECT 
         ROW_NUMBER() OVER (ORDER BY s.id) as "#", 
         s.fname || ' ' || s.lname as "اسم الطالب",
         ${dateColumns},
         COALESCE(ROUND(${sumExpressions}, 2), 0) as "المجموع",
         COALESCE(ROUND(
-            (${sumExpressions}) / (${dates.length} - COALESCE(ac.absent_count, 0))
+            (${sumExpressions}) / (${dates.length} - COALESCE(jac.count, 0) - COALESCE((SELECT * FROM obligatory_days_count), 0))
         , 2), 0) as "المعدل",
         ROW_NUMBER() OVER (
           ORDER BY COALESCE(ROUND(
-              (${sumExpressions}) / (${dates.length} - COALESCE(ac.absent_count, 0))
+              (${sumExpressions}) / (${dates.length} - COALESCE(jac.count, 0) - COALESCE((SELECT * FROM obligatory_days_count), 0))
           , 2), 0) DESC
         ) as "الترتيب"
     FROM students s 
     LEFT JOIN day_evaluations de ON s.id = de.student_id 
     LEFT JOIN day_requirements dr ON dr.student_id = s.id 
-    LEFT JOIN absence_counts ac ON s.id = ac.student_id
+    LEFT JOIN jabsence_counts jac ON s.id = jac.student_id
     WHERE s.id IN (${studentsList})
-    GROUP BY s.id, "اسم الطالب", ac.absent_count
+    GROUP BY s.id, "اسم الطالب", jac.count
     ORDER BY s.id;
 `;
   const buttons = [
