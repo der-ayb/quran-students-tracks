@@ -6850,7 +6850,7 @@ async function showAvanceChart() {
                 buttons: {
                   cancel: "إنهاء",
                   skip: "تخطي",
-                  next: "السؤال",
+                  next: "التالي",
                 },
               },
             ).then((value) => {
