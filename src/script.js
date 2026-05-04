@@ -6828,7 +6828,7 @@ async function showAvanceChart() {
               text: "الإجابة",
               value: "solution",
             },
-            next: "السؤال التالي",
+            next: "التالي",
           },
         },
       ).then((value) => {
@@ -6850,7 +6850,7 @@ async function showAvanceChart() {
                 buttons: {
                   cancel: "إنهاء",
                   skip: "تخطي",
-                  next: "السؤال التالي",
+                  next: "السؤال",
                 },
               },
             ).then((value) => {
