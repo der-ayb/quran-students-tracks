@@ -878,9 +878,28 @@ async function fetchAndPutIntoIndexedDBFile(
 }
 
 // --- Export DB Async ---
-async function exportDB() {
+async function saveDB() {
   const data = project_db.export();
   download(data, "quran_students.sqlite3", "application/x-sqlite3");
+}
+
+async function shareDB() {
+  const data = project_db.export();
+  const file = new File([data], "quran_students.sqlite3", { type: "application/x-sqlite3" });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({
+        title: "قاعدة بيانات طلاب القرآن",
+        text: "هذه قاعدة بيانات طلاب القرآن الخاصة بي، يمكنك فتحها باستخدام تطبيق إدارة طلاب القرآن.",
+        files: [file],
+      });
+    } catch (error) {
+      console.error("Error sharing file:", error);
+      window.showToast("error", "فشل في مشاركة الملف.");
+    }
+  } else {
+    window.showToast("warning", "المشاركة غير مدعومة على هذا الجهاز.");
+  }
 }
 
 async function addServiceWorker() {
@@ -1216,7 +1235,8 @@ async function googleSignin() {
   hideLoadingModal();
 }
 
-document.getElementById("downloadDBbtn").onclick = exportDB;
+document.getElementById("downloadDBbtn").onclick = saveDB;
+document.getElementById("shareDBbtn").onclick = shareDB;
 document.getElementById("importDBbtn").onchange = async (e) => {
   if (e.target.files) {
     if (
@@ -3961,7 +3981,7 @@ async function showStudentsBulletins(dates, studentsIDS = null) {
     return;
   }
 
-  const usedevaluationLaddersValues = {};
+  const usedEvaluationLaddersValues = {};
   const studentsAppends = localStorage.getItem("studentsAppends")
     ? JSON.parse(localStorage.getItem("studentsAppends"))
     : {};
@@ -4104,7 +4124,7 @@ async function showStudentsBulletins(dates, studentsIDS = null) {
       `,
       )[0]
       .values.forEach((row) => {
-        usedevaluationLaddersValues[row[0]] = JSON.parse(row[1]);
+        usedEvaluationLaddersValues[row[0]] = JSON.parse(row[1]);
       });
 
     // Create single PDF with all students
@@ -4121,6 +4141,7 @@ async function showStudentsBulletins(dates, studentsIDS = null) {
     const query = `
         SELECT 
             ed.date as day,
+            ed.isObligatory as is_obligatory,
             s.fname || ' ' || s.lname as student_name,
             dr.detail,
             de.prayer,
@@ -4254,13 +4275,15 @@ async function showStudentsBulletins(dates, studentsIDS = null) {
 
     // First pass: categorize all students by their data length
     allStudentData.forEach((studentReport) => {
-      const studentDataRecordsLength = studentReport.data
-        .map((i) => JSON.parse(i.detail)?.length ?? 1)
+      const recordsCounts = studentReport.data
+        .map((i) => {
+          if (i.is_obligatory === 0 && i.attendance === null) return 0;
+          return JSON.parse(i.detail)?.length ?? 1})
         .reduce((accumulator, currentValue) => accumulator + currentValue, 0);
 
-      if (tableWithins.resumePagesChecked && studentDataRecordsLength <= 20) {
+      if (tableWithins.resumePagesChecked && recordsCounts <= 20) {
         studentsWithFewRecords.push(studentReport);
-      } else if (studentDataRecordsLength < 52) {
+      } else if (recordsCounts < 52) {
         studentsWithManyRecords.push(studentReport);
       } else {
         throw new Error("عدد الصفوف تجاوز الحد الأقصى");
@@ -4299,6 +4322,7 @@ async function showStudentsBulletins(dates, studentsIDS = null) {
     const recordCounts =
       data
         .map((i) => {
+          if (i.is_obligatory === 0 && i.attendance === null) return 0;
           return i.detail ? JSON.parse(i.detail).length : 1;
         })
         .reduce((accumulator, current) => accumulator + current, 0) + 3;
@@ -4537,6 +4561,7 @@ async function showStudentsBulletins(dates, studentsIDS = null) {
 
         // Handle absence
         if (record.attendance !== 1) {
+          if (record.is_obligatory === 0) return;
           const row = createEmptyArray(10); // Create array with correct number of columns
 
           // Set values for the row (RTL order - from right to left)
@@ -4578,16 +4603,16 @@ async function showStudentsBulletins(dates, studentsIDS = null) {
         record.detail = JSON.parse(record.detail || "[]");
         const recordDetailLength = record.detail.length;
         const clothingValue =
-          Object.keys(usedevaluationLaddersValues[record.day].clothing).find(
+          Object.keys(usedEvaluationLaddersValues[record.day].clothing).find(
             (k) =>
-              usedevaluationLaddersValues[record.day].clothing[k] ===
+              usedEvaluationLaddersValues[record.day].clothing[k] ===
               record.clothing,
           ) || "-";
 
         const behaviorValue =
-          Object.keys(usedevaluationLaddersValues[record.day].behavior).find(
+          Object.keys(usedEvaluationLaddersValues[record.day].behavior).find(
             (k) =>
-              usedevaluationLaddersValues[record.day].behavior[k] ===
+              usedEvaluationLaddersValues[record.day].behavior[k] ===
               record.behavior,
           ) || "-";
 
@@ -5023,7 +5048,7 @@ async function showStudentsBulletins(dates, studentsIDS = null) {
     const totalMoyenne =
       total /
       (totalDays -
-        studentData.filter((record) => record.attendance == 0).length);
+        studentData.filter((record) => record.attendance === 0 || record.is_obligatory === 0).length);
 
     const attendanceRate = ((presentDays / totalDays) * 100).toFixed(1);
     const fullNote = studentsAppends[studentData[0].student_name]?.note || "";

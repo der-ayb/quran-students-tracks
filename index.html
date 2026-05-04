@@ -4,9 +4,13 @@
 <head>
   <meta charset="utf-8" name="viewport"
     content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <link rel="manifest" href="manifest.json" />
-  <link rel="icon" type="image/x-icon" href="/favicon.ico" />
   <title>تطبيق متابعة الحفظ</title>
+  <meta name="description" content="تطبيق متابعة التلاميذ في حفظ القرآن الكريم" />
+  <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+
   <style>
     .fa-preloader {
       position: fixed;
@@ -72,7 +76,7 @@
       }
     }
   </style>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootswatch/5.3.8/spacelab/bootstrap.rtl.min.css"
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootswatch/5.3.8/flatly/bootstrap.rtl.min.css"
     id="themeStylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" />
   <link rel="stylesheet" href="https://cdn.datatables.net/2.3.4/css/dataTables.dataTables.css" />
@@ -100,34 +104,45 @@
   <div class="tab-content" id="pills-tabContent">
 
     <div class="tab-pane fade" id="pills-splash" role="tabpanel" aria-labelledby="pills-splash-tab">
-      <div class="row">
-        <h1 class="col text-center">تطبيق متابعة الحفظ</h1>
-        <button class="col-2 btn btn-danger btn-sm" id="installBtn1" hidden>تثبيت</button>
-      </div>
+      <div class="container-fluid d-flex flex-column justify-content-center align-items-center vh-100">
+        <div class="card shadow-lg border-0" style="max-width: 500px; width: 100%;">
+          <div class="card-body text-center p-5">
+            <h1 class="card-title mb-4 text-primary fw-bold">تطبيق متابعة الحفظ</h1>
+            <p class="card-text text-muted mb-4">مرحباً بك في تطبيق متابعة حفظ القرآن الكريم للتلاميذ</p>
 
-      <button id="googleSigninBtn" class="google_signin_button mx-auto">
-        <svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid" viewBox="0 0 256 262">
-          <path fill="#4285F4"
-            d="M255.878 133.451c0-10.734-.871-18.567-2.756-26.69H130.55v48.448h71.947c-1.45 12.04-9.283 30.172-26.69 42.356l-.244 1.622 38.755 30.023 2.685.268c24.659-22.774 38.875-56.282 38.875-96.027">
-          </path>
-          <path fill="#34A853"
-            d="M130.55 261.1c35.248 0 64.839-11.605 86.453-31.622l-41.196-31.913c-11.024 7.688-25.82 13.055-45.257 13.055-34.523 0-63.824-22.773-74.269-54.25l-1.531.13-40.298 31.187-.527 1.465C35.393 231.798 79.49 261.1 130.55 261.1">
-          </path>
-          <path fill="#FBBC05"
-            d="M56.281 156.37c-2.756-8.123-4.351-16.827-4.351-25.82 0-8.994 1.595-17.697 4.206-25.82l-.073-1.73L15.26 71.312l-1.335.635C5.077 89.644 0 109.517 0 130.55s5.077 40.905 13.925 58.602l42.356-32.782">
-          </path>
-          <path fill="#EB4335"
-            d="M130.55 50.479c24.514 0 41.05 10.589 50.479 19.438l36.844-35.974C195.245 12.91 165.798 0 130.55 0 79.49 0 35.393 29.301 13.925 71.947l42.211 32.783c10.59-31.477 39.891-54.251 74.414-54.251">
-          </path>
-        </svg>
-        تسجيل الدخول
-      </button>
-      <div style="display: flex;" class="btn-group mt-3" role="group" aria-label="Basic example">
-        <button type="button" id="createNewDBBtn1" class="btn btn-primary">➕ جديد</button>
-        <label for="importDBbtn" class="btn btn-primary mb-0">
-          📥 استيراد
-          <input type="file" id="importDBbtn" class="d-none">
-        </label>
+            <button class="btn btn-danger btn-sm mb-3" id="installBtn1" hidden>تثبيت التطبيق</button>
+
+            <button id="googleSigninBtn"
+              class="btn btn-outline-dark d-flex align-items-center justify-content-center mx-auto mb-4 px-4 py-2"
+              style="border-radius: 50px; font-weight: 500;">
+              <svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid" viewBox="0 0 256 262" width="24"
+                height="24" class="me-2">
+                <path fill="#4285F4"
+                  d="M255.878 133.451c0-10.734-.871-18.567-2.756-26.69H130.55v48.448h71.947c-1.45 12.04-9.283 30.172-26.69 42.356l-.244 1.622 38.755 30.023 2.685.268c24.659-22.774 38.875-56.282 38.875-96.027">
+                </path>
+                <path fill="#34A853"
+                  d="M130.55 261.1c35.248 0 64.839-11.605 86.453-31.622l-41.196-31.913c-11.024 7.688-25.82 13.055-45.257 13.055-34.523 0-63.824-22.773-74.269-54.25l-1.531.13-40.298 31.187-.527 1.465C35.393 231.798 79.49 261.1 130.55 261.1">
+                </path>
+                <path fill="#FBBC05"
+                  d="M56.281 156.37c-2.756-8.123-4.351-16.827-4.351-25.82 0-8.994 1.595-17.697 4.206-25.82l-.073-1.73L15.26 71.312l-1.335.635C5.077 89.644 0 109.517 0 130.55s5.077 40.905 13.925 58.602l42.356-32.782">
+                </path>
+                <path fill="#EB4335"
+                  d="M130.55 50.479c24.514 0 41.05 10.589 50.479 19.438l36.844-35.974C195.245 12.91 165.798 0 130.55 0 79.49 0 35.393 29.301 13.925 71.947l42.211 32.783c10.59-31.477 39.891-54.251 74.414-54.251">
+                </path>
+              </svg>
+              تسجيل الدخول باستخدام Google
+            </button>
+
+            <div class="d-grid gap-2">
+              <button type="button" id="createNewDBBtn1" class="btn btn-primary btn-lg">➕ إنشاء قاعدة بيانات
+                جديدة</button>
+              <label for="importDBbtn" class="btn btn-outline-primary btn-lg mb-0">
+                📥 استيراد قاعدة بيانات
+                <input type="file" id="importDBbtn" class="d-none">
+              </label>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -196,8 +211,7 @@
         </thead>
         <tbody></tbody>
       </table>
-      <button id="addNewDayBtn" class="btn btn-info mx-auto px-5 my-5"
-        style="display: none;">إضافة يوم ✚</button>
+      <button id="addNewDayBtn" class="btn btn-info mx-auto px-5 my-5" style="display: none;">إضافة يوم ✚</button>
     </div>
 
     <div class="tab-pane fade" id="pills-statistics" role="tabpanel" aria-labelledby="pills-statistics-tab">
@@ -212,8 +226,7 @@
       <div class="input-group mt-3">
         <button class="btn btn-secondary dropdown-toggle" data-bs-toggle="dropdown">تخصيص التلاميذ</button>
         <div class="dropdown-menu statisticsStudentsMenu p-2" style="max-height: 60vh; overflow-y: auto;"></div>
-        <select id="statisticType" class="form-select text-center"
-          aria-label="Default select example">
+        <select id="statisticType" class="form-select text-center" aria-label="Default select example">
           <option value="0">-- اختر نوع الإحصاء --</option>
           <option value="attendance">الحضور</option>
           <option value="results" data-bs-toggle="tab" data-bs-target="#profile-tab-pane">النتائج</option>
@@ -306,10 +319,9 @@
               <div class="input-group mb-3">
                 <span class="input-group-text">السمة</span>
                 <select id="themeSelector" class="form-select">
-                  <option value="spacelab" selected>Spacelab</option>
+                  <option value="flatly" selected>Flatly</option>
                   <option value="cerulean">Cerulean</option>
                   <option value="yeti">Yeti</option>
-                  <option value="flatly">Flatly</option>
                   <option value="slate">Slate (dark)</option>
                   <option value="solar">Solar (dark)</option>
                 </select>
@@ -317,7 +329,7 @@
               <div class="input-group mb-3">
                 <span class="input-group-text">الخط</span>
                 <select class="form-select" id="fontSelect">
-                  <option value='"Noto Sans Arabic", sans-serif'>Noto Sans Arabic</option>
+                  <option value='"Noto Sans Arabic", sans-serif' selected>Noto Sans Arabic</option>
                   <option value='"Rubik", sans-serif'>Rubik</option>
                   <option value='"Changa", sans-serif'>Changa</option>
                   <option value='"Readex Pro", sans-serif'>Readex</option>
@@ -485,7 +497,10 @@
                 📥 استيراد
                 <input type="file" id="importDBbtn" class="d-none">
               </label>
-              <button type="button" id="downloadDBbtn" class="btn btn-primary">📤 تصدير</button>
+              <button type="button" id="downloadDBbtn" class="btn btn-primary">📤 حفظ</button>
+              <button type="button" id="shareDBbtn" class="btn btn-primary"><i
+                  class="fa-solid fa-share-from-square"></i>
+              </button>
             </div>
           </div>
         </div>
@@ -996,8 +1011,7 @@
           </div>
           <div class="btn-group" role="group">
             <button id="studentDayFormSubmitBtn" class="btn btn-primary">حفظ</button>
-            <button id="saveAndCloseBtn" class="btn btn-primary"
-              data-bs-dismiss="modal">حفظ و إغلاق</button>
+            <button id="saveAndCloseBtn" class="btn btn-primary" data-bs-dismiss="modal">حفظ و إغلاق</button>
           </div>
         </div>
       </div>
