@@ -5,6 +5,7 @@ import "./yearpicker.js";
 import "./pdfmake.js";
 import "./vfs_fonts.js";
 
+import download from "downloadjs"
 import flatpickr from "flatpickr";
 import "flatpickr/dist/l10n/ar-dz";
 import "./flatpickr-hijri-calendar.js";
@@ -12,6 +13,19 @@ import { DateTime } from "luxon";
 import "flatpickr/dist/flatpickr.css";
 import "flatpickr-hijri-calendar/dist/flatpickr-hijri-calendar.css";
 import { registerSW } from "virtual:pwa-register";
+import swal from "sweetalert";
+import initSqlJs from 'sql.js';
+
+import {jQuery,$} from "jquery";
+import DataTable from 'datatables.net-bs5';
+import 'datatables.net-buttons-bs5';
+import 'datatables.net-buttons/js/buttons.colVis.mjs';
+import 'datatables.net-buttons/js/buttons.html5.mjs';
+import 'datatables.net-buttons/js/buttons.print.mjs';
+import 'datatables.net-fixedcolumns-bs5';
+import 'datatables.net-fixedheader-bs5';
+import 'datatables.net-select-bs5';
+
 
 // --- Initialize the application (async) ---
 window._toastQueue = window._toastQueue || [];
@@ -877,31 +891,6 @@ async function fetchAndPutIntoIndexedDBFile(
   }
 }
 
-// --- Export DB Async ---
-async function saveDB() {
-  const data = project_db.export();
-  download(data, "quran_students.sqlite3", "application/x-sqlite3");
-}
-
-async function shareDB() {
-  const data = project_db.export();
-  const file = new File([data], "quran_students.sqlite3", { type: "application/x-sqlite3" });
-  if (navigator.canShare && navigator.canShare({ files: [file] })) {
-    try {
-      await navigator.share({
-        title: "قاعدة بيانات طلاب القرآن",
-        text: "هذه قاعدة بيانات طلاب القرآن الخاصة بي، يمكنك فتحها باستخدام تطبيق إدارة طلاب القرآن.",
-        files: [file],
-      });
-    } catch (error) {
-      console.error("Error sharing file:", error);
-      window.showToast("error", "فشل في مشاركة الملف.");
-    }
-  } else {
-    window.showToast("warning", "المشاركة غير مدعومة على هذا الجهاز.");
-  }
-}
-
 async function addServiceWorker() {
   const updateSW = registerSW({
     onNeedRefresh() {
@@ -935,7 +924,7 @@ async function addServiceWorker() {
 async function init() {
   SQL = await initSqlJs({
     locateFile: (file) =>
-      `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.13.0/${file}`,
+      `/${file}`,
   });
 
   await loadFromIndexedDB(async (savedProjectData, savedQuranData) => {
@@ -993,7 +982,7 @@ async function initOrReloadDataTable(
   shoulDestroy = false,
   getTable = false,
 ) {
-  if ($.fn.DataTable.isDataTable(selector)) {
+  if (DataTable.isDataTable(selector)) {
     if (shoulDestroy) {
       $(selector).DataTable().destroy();
       $(selector).empty();
@@ -1235,8 +1224,32 @@ async function googleSignin() {
   hideLoadingModal();
 }
 
-document.getElementById("downloadDBbtn").onclick = saveDB;
-document.getElementById("shareDBbtn").onclick = shareDB;
+document.getElementById("downloadDBbtn").onclick = async function () {
+  const data = project_db.export();
+  download(data, "quran_students.sqlite3", "application/x-sqlite3");
+};
+if (!navigator.canShare) {
+  document.getElementById("shareDBbtn").remove();
+} else
+  document.getElementById("shareDBbtn").onclick = async function () {
+    const data = project_db.export();
+    const file = new File([data], "quran_students.sqlite3", {
+      type: "application/x-sqlite3",
+    });
+    if (navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({
+          title: "قاعدة بيانات طلاب القرآن",
+          files: [file],
+        });
+      } catch (error) {
+        console.log("Error sharing file:", error);
+        window.showToast("error", "فشل في مشاركة الملف.");
+      }
+    } else {
+      window.showToast("warning", "المشاركة غير مدعومة على هذا الجهاز.");
+    }
+  };
 document.getElementById("importDBbtn").onchange = async (e) => {
   if (e.target.files) {
     if (
@@ -1423,6 +1436,7 @@ async function loadClassRoomsList() {
 
         // Add data row
         data.push({
+          select: "",
           id: classroomId,
           mosque,
           place,
@@ -1452,6 +1466,7 @@ async function loadClassRoomsList() {
       "#classroomsListTable",
       data,
       [
+        { data: "select" },
         { data: "id" },
         { data: "mosque" },
         { data: "place" },
@@ -1467,17 +1482,21 @@ async function loadClassRoomsList() {
         },
         destroy: true,
         columnDefs: [
-          { visible: false, targets: [0, 4, 5] },
           {
-            targets: 5,
+            targets: 0,
+            render: DataTable.render.select(),
+          },
+          { visible: false, targets: [1, 5, 6] },
+          {
+            targets: 6,
             orderable: false,
           },
         ],
         searching: false,
         scrollX: true,
         info: false,
-        oLanguage: {
-          sSearch: "بحث",
+        language: {
+          search: "بحث",
           emptyTable: "لا توجد بيانات في الجدول.",
         },
         paging: false,
@@ -1715,8 +1734,8 @@ async function loadStudentsList() {
         searching: false,
         scrollX: true,
         info: false,
-        oLanguage: {
-          sSearch: "بحث",
+        language: {
+          search: "بحث",
           emptyTable: "لا توجد بيانات في الجدول.",
         },
         paging: false,
@@ -2479,7 +2498,7 @@ async function loadDayStudentsList() {
     [workingClassroomId, workingDay],
   );
   if (!dayResult.length) {
-    if ($.fn.DataTable.isDataTable("#dayListTable")) {
+    if (DataTable.isDataTable("#dayListTable")) {
       $("#dayListTable").DataTable().destroy();
     }
     addNewDayBtn.style.display = "block";
@@ -2845,8 +2864,8 @@ async function loadDayStudentsList() {
         searching: false,
         scrollX: true,
         info: false,
-        oLanguage: {
-          sSearch: "بحث",
+        language: {
+          search: "بحث",
           emptyTable: "لا توجد بيانات في الجدول.",
         },
         fixedColumns: {
@@ -3724,7 +3743,7 @@ function updateEvalLadder() {
 
 function addEvalLadder(type) {
   const markName = prompt("اسم الملاحظة:");
-  if (markName && markName.trim()) {
+  if (markName && markName.trim()) {  
     const trimmedName = markName.trim().toLowerCase();
     if (evaluationLaddersValues[type].hasOwnProperty(trimmedName)) {
       alert("هذه الملاحظة موجودة من قبل!");
@@ -3888,7 +3907,7 @@ statisticType.onchange = async function () {
     default:
       if (!statisAllCheckbox) fillStatistiscStudentsList();
       document.getElementById("empty-tab-pane").classList.add("show", "active");
-      if ($.fn.DataTable.isDataTable("#statisticsTable")) {
+      if (DataTable.isDataTable("#statisticsTable")) {
         $("#statisticsTable").DataTable().destroy();
         $("#statisticsTable").empty();
       }
@@ -4278,7 +4297,8 @@ async function showStudentsBulletins(dates, studentsIDS = null) {
       const recordsCounts = studentReport.data
         .map((i) => {
           if (i.is_obligatory === 0 && i.attendance === null) return 0;
-          return JSON.parse(i.detail)?.length ?? 1})
+          return JSON.parse(i.detail)?.length ?? 1;
+        })
         .reduce((accumulator, currentValue) => accumulator + currentValue, 0);
 
       if (tableWithins.resumePagesChecked && recordsCounts <= 20) {
@@ -5048,7 +5068,9 @@ async function showStudentsBulletins(dates, studentsIDS = null) {
     const totalMoyenne =
       total /
       (totalDays -
-        studentData.filter((record) => record.attendance === 0 || record.is_obligatory === 0).length);
+        studentData.filter(
+          (record) => record.attendance === 0 || record.is_obligatory === 0,
+        ).length);
 
     const attendanceRate = ((presentDays / totalDays) * 100).toFixed(1);
     const fullNote = studentsAppends[studentData[0].student_name]?.note || "";
@@ -6784,6 +6806,7 @@ async function showAvanceChart() {
     indices.sort((a, b) => a - b);
 
     let questionNumber = 1;
+    let correctAnswers = 0;
     document.getElementById("randomSelectBtn").onclick = (e) => {
       if (indices.length < 4) {
         swal(
@@ -6814,20 +6837,33 @@ async function showAvanceChart() {
       ROUND(SUM(lign_count), 1) AS rounded_total
       FROM quran_ayat
       WHERE id in(${indices})`)[0].values[0][0];
-      if (questionNumber > Math.floor(lign_count / 30)) questionNumber = 1;
+      if (questionNumber > Math.floor(lign_count / 30)) {
+        questionNumber = 1;
+        swal(
+          "انتهت الأسئلة",
+          "لقد أجبت على  " +
+            correctAnswers +
+            " أسئلة صحيحة من أصل " +
+            Math.floor(lign_count / 30) +
+            ".",
+          "info",
+        );
+        return;
+      }
 
       swal(
         `${row[0][1]} [${row[0][0]} - ${quranData.verseInfo[randomAyatID].ayah}]`,
         {
-          title: `السؤال رقم ${questionNumber} / ${Math.floor(lign_count / 30)}`,
+          title: `السؤال رقم ${Math.floor(lign_count / 30)} / ${questionNumber}`,
           className: "quran-text",
           buttons: {
-            cancel: "إنهاء",
-            skip: "تخطي",
-            solution: {
-              text: "الإجابة",
-              value: "solution",
+            finish: {
+              className: "swal-button--cancel px-2",
+              text: "إنهاء",
+              value: false,
             },
+            skip: { text: "تخطي", value: "skip", className: "px-2" },
+            solution: "الإجابة",
             next: "التالي",
           },
         },
@@ -6835,7 +6871,27 @@ async function showAvanceChart() {
         switch (value) {
           case "next":
             questionNumber++;
-            e.target.dispatchEvent(new Event("click"));
+            if (questionNumber > 1) {
+              swal("هل الإجابة السابقة كانت صحيحة؟", {
+                buttons: {
+                  correct: {
+                    text: "صحيحة",
+                    value: "correct",
+                    className: "btn btn-success",
+                  },
+                  wrong: {
+                    text: "خاطئة",
+                    value: "wrong",
+                    className: "btn btn-danger",
+                  },
+                },
+              }).then((value) => {
+                if (value === "correct") {
+                  correctAnswers++;
+                }
+                e.target.dispatchEvent(new Event("click"));
+              });
+            }
             break;
           case "skip":
             e.target.dispatchEvent(new Event("click"));
@@ -6857,7 +6913,27 @@ async function showAvanceChart() {
               switch (value) {
                 case "next":
                   questionNumber++;
-                  e.target.dispatchEvent(new Event("click"));
+                  if (questionNumber > 1) {
+                    swal("هل الإجابة السابقة كانت صحيحة؟", {
+                      buttons: {
+                        correct: {
+                          text: "صحيحة",
+                          value: "correct",
+                          className: "btn btn-success",
+                        },
+                        wrong: {
+                          text: "خاطئة",
+                          value: "wrong",
+                          className: "btn btn-danger",
+                        },
+                      },
+                    }).then((value) => {
+                      if (value === "correct") {
+                        correctAnswers++;
+                      }
+                      e.target.dispatchEvent(new Event("click"));
+                    });
+                  }
                   break;
                 case "skip":
                   e.target.dispatchEvent(new Event("click"));
@@ -6994,8 +7070,8 @@ async function setStatisticsTable(query, tableColumns, buttons = []) {
           scrollX: true,
           info: false,
           order: [[columns.length - 1, "asc"]],
-          oLanguage: {
-            sSearch: "بحث",
+          language: {
+            search: "بحث",
             emptyTable: "لا توجد بيانات في الجدول.",
           },
           paging: false,

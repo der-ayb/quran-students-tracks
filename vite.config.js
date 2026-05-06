@@ -16,13 +16,44 @@ export default defineConfig({
         "favicon.svg",
         "favicon-96x96.png",
         "apple-touch-icon.png",
-        // "manifest.json",
         "default.sqlite3",
         "quran.sqlite",
+        "sql-wasm-browser.wasm",
         "fonts/**/*.{ttf,woff,woff2,otf}",
-        "images/*"
+        "images/*",
       ],
       workbox: {
+        additionalManifestEntries: [
+          {
+            url: "https://cdnjs.cloudflare.com/ajax/libs/bootswatch/5.3.8/cerulean/bootstrap.rtl.min.css",
+            revision: null,
+          },
+          {
+            url: "https://cdnjs.cloudflare.com/ajax/libs/bootswatch/5.3.8/yeti/bootstrap.rtl.min.css",
+            revision: null,
+          },
+          {
+            url: "https://cdnjs.cloudflare.com/ajax/libs/bootswatch/5.3.8/flatly/bootstrap.rtl.min.css",
+            revision: null,
+          },
+          {
+            url: "https://cdnjs.cloudflare.com/ajax/libs/bootswatch/5.3.8/slate/bootstrap.rtl.min.css",
+            revision: null,
+          },
+          {
+            url: "https://cdnjs.cloudflare.com/ajax/libs/bootswatch/5.3.8/solar/bootstrap.rtl.min.css",
+            revision: null,
+          },
+          // other CDNs
+          {
+            url: "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css",
+            revision: null,
+          },
+          {
+            url: "https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.8/js/bootstrap.bundle.min.js",
+            revision: null,
+          },
+        ],
         cleanupOutdatedCaches: true,
         maximumFileSizeToCacheInBytes: 3000000,
         runtimeCaching: [
@@ -71,20 +102,6 @@ export default defineConfig({
         theme_color: "#00684a",
         background_color: "#05b690",
         display: "standalone",
-        shortcuts: [
-          {
-            name: "Today's agenda",
-            short_name: "Agenda",
-            description: "View your agenda for today",
-            url: "/today",
-            icons: [
-              {
-                src: "/images/web-app-manifest-192x192.png",
-                sizes: "192x192",
-              },
-            ],
-          },
-        ],
         screenshots: [
           {
             src: "/images/screenshot1.png",

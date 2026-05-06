@@ -1,6 +1,6 @@
 const version = "1.1.0";
 const namespace = "yearpicker";
-
+import {jQuery,$} from "jquery";
 if (!jQuery) {
   alert(`${namespace} ${version} requires jQuery`);
 }
@@ -70,7 +70,7 @@ const methods = {
       (this.onGlobalClick = $.proxy($this.globalClick, $this))
     );
 
-    if (options.onShow && $.isFunction(options.onShow)) {
+    if (options.onShow && typeof options.onShow === 'function') {
       options.onShow($this.year);
     }
   },
@@ -94,7 +94,7 @@ const methods = {
     $(document).off(event_click, $this.onGlobalClick);
     $this.show = false;
 
-    if (options.onHide && $.isFunction(options.onHide)) {
+    if (options.onHide && typeof options.onHide === 'function') {
       options.onHide($this.year);
     }
   },
@@ -306,13 +306,13 @@ const Yearpicker = (function () {
         $element = this.$element,
         options = this.options;
 
-      if ($.isFunction(options.show)) {
+      if (typeof options.show === 'function') {
         $element.on(event_show, options.show);
       }
-      if ($.isFunction(options.hide)) {
+      if (typeof options.hide=== 'function') {
         $element.on(event_hide, options.hide);
       }
-      if ($.isFunction(options.click)) {
+      if (typeof options.click=== 'function') {
         $element.on(event_click, options.click);
       }
       if ($this.isInput) {
@@ -342,7 +342,7 @@ const Yearpicker = (function () {
       }
 
       if (previousValue != value) {
-        if (options.onChange && $.isFunction(options.onChange)) {
+        if (options.onChange && typeof options.onChange === 'function') {
           options.onChange($this.year);
         }
       }
@@ -410,7 +410,7 @@ if ($.fn) {
       if (typeof options === "string") {
         var fn = yearpicker[options];
 
-        if ($.isFunction(fn)) {
+        if (typeof fn === 'function') {
           result = fn.apply(yearpicker, args);
 
           if (isDestory) {

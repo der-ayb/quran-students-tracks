@@ -1,6 +1,6 @@
 /* flatpickr-hijri-calendar v0.0.2, @license MIT */
 import { DateTime } from 'luxon';
-
+import jQuery from "jquery";
 // (function (l, r) {
 //   if (!l || l.getElementById("livereloadscript")) return;
 //   r = l.createElement("script");
