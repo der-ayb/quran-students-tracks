@@ -55,7 +55,7 @@ export default defineConfig({
           },
         ],
         cleanupOutdatedCaches: true,
-        maximumFileSizeToCacheInBytes: 3000000,
+        maximumFileSizeToCacheInBytes: 4000000,
         runtimeCaching: [
           {
             urlPattern: ({ url }) =>
