@@ -1,5 +1,5 @@
 body {
-  font-family: "Noto Sans Arabic", sans-serif;
+  font-family: "Readex Pro", sans-serif;
   font-optical-sizing: auto;
 }
 
@@ -226,7 +226,6 @@ th.header-rotated>div>span {
 
 /* google signin button */
 .google_signin_button {
-  width: 200px;
   height: 50px;
   display: flex;
   padding: 0.5rem 1rem;

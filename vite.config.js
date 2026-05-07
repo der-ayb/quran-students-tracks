@@ -2,6 +2,29 @@ import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
+  build: {
+    rollupOptions: {
+      output: {
+        codeSplitting: {
+          minSize: 20000,
+          groups: [
+            {
+              name: "node_modules",
+              test: /node_modules/,
+            },
+            {
+              name: "pdfmake",
+              test: /pdfmake/,
+            },
+            {
+              name: "vfs_fonts",
+              test: /vfs/,
+            }
+          ],
+        },
+      },
+    },
+  },
   plugins: [
     VitePWA({
       devOptions: {
@@ -23,6 +46,8 @@ export default defineConfig({
         "images/*",
       ],
       workbox: {
+        cleanupOutdatedCaches: true,
+        // maximumFileSizeToCacheInBytes: 4000000,
         additionalManifestEntries: [
           {
             url: "https://cdnjs.cloudflare.com/ajax/libs/bootswatch/5.3.8/cerulean/bootstrap.rtl.min.css",
@@ -54,8 +79,6 @@ export default defineConfig({
             revision: null,
           },
         ],
-        cleanupOutdatedCaches: true,
-        maximumFileSizeToCacheInBytes: 4000000,
         runtimeCaching: [
           {
             urlPattern: ({ url }) =>

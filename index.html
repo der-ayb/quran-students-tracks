@@ -106,11 +106,8 @@
 
             <button class="btn btn-danger btn-sm mb-3" id="installBtn1" hidden>تثبيت التطبيق</button>
 
-            <button id="googleSigninBtn"
-              class="btn btn-outline-dark d-flex align-items-center justify-content-center mx-auto mb-4 px-4 py-2"
-              style="border-radius: 50px; font-weight: 500;">
-              <svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid" viewBox="0 0 256 262" width="24"
-                height="24" class="me-2">
+            <button id="googleSigninBtn" class="google_signin_button mx-auto">
+              <svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid" viewBox="0 0 256 262">
                 <path fill="#4285F4"
                   d="M255.878 133.451c0-10.734-.871-18.567-2.756-26.69H130.55v48.448h71.947c-1.45 12.04-9.283 30.172-26.69 42.356l-.244 1.622 38.755 30.023 2.685.268c24.659-22.774 38.875-56.282 38.875-96.027">
                 </path>
@@ -124,7 +121,7 @@
                   d="M130.55 50.479c24.514 0 41.05 10.589 50.479 19.438l36.844-35.974C195.245 12.91 165.798 0 130.55 0 79.49 0 35.393 29.301 13.925 71.947l42.211 32.783c10.59-31.477 39.891-54.251 74.414-54.251">
                 </path>
               </svg>
-              تسجيل الدخول باستخدام Google
+              تسجيل الدخول باستخدام google
             </button>
 
             <div class="d-grid gap-2 py-4">
@@ -334,10 +331,10 @@
               <div class="input-group mb-3">
                 <span class="input-group-text">الخط</span>
                 <select class="form-select" id="fontSelect">
-                  <option value='"Noto Sans Arabic", sans-serif' selected>Noto Sans Arabic</option>
+                  <option value='"Readex Pro", sans-serif' selected>Readex</option>
+                  <option value='"Noto Sans Arabic", sans-serif'>Noto Sans Arabic</option>
                   <option value='"Rubik", sans-serif'>Rubik</option>
                   <option value='"Changa", sans-serif'>Changa</option>
-                  <option value='"Readex Pro", sans-serif'>Readex</option>
                   <option value='"Markazi Text", serif'>Markazi</option>
                 </select>
               </div>
@@ -1105,5 +1102,6 @@
 
 <script type="module" src="/src/install.js"></script>
 <script type="module" src="/src/script.js"></script>
+<script type="module" src="/src/auth.js"></script>
 
 </html>
