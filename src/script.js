@@ -2,7 +2,7 @@ import "./style.css";
 import "./fonts.css";
 import "./yearpicker.css";
 import "./yearpicker.js";
-import { fromNow, initializeGoogleAuth, initAuth } from "./auth.js";
+import { fromNow, initializeGoogleAuth, initAuth,uploadDBtoDrive } from "./auth.js";
 
 import download from "downloadjs";
 import flatpickr from "flatpickr";
@@ -40,7 +40,8 @@ if (localStorage.getItem("newUser") == true) {
 const devMode =
   window.location.hostname == "localhost" ||
   window.location.hostname.includes("ngrok-free");
-let project_db, quran_db, SQL;
+export let project_db
+let quran_db, SQL;
 
 const quranData = {
   surahs: [],
@@ -59,14 +60,14 @@ const evaluationLaddersValues = {
   haircut: { جيد: 5, متوسط: 2, "غير مقبول": -5 },
   requirments: { requirReducePerRepit: 10, requirReducePerAlert: 2 },
 };
-let workingClassroomId = localStorage.getItem("workingClassroomId");
+export let workingClassroomId = localStorage.getItem("workingClassroomId");
 let studentsTableDetailIsShow = false;
 let studentsDayTableDetailIsShow = false;
 let classroomsTableDetailIsShow = false;
 let workingDay = new Date().toISOString().slice(0, 10);
 let workingDayID = null;
 let currentTabId = "pills-home";
-let loadingModalShowNumber = [];
+export let loadingModalShowNumber = [];
 let isGirls = null;
 const currentTime = { hours: 0, minutes: 0 };
 let teachersPoints = {};
@@ -426,7 +427,7 @@ async function loadFromIndexedDB(callback) {
 }
 
 // --- File Reading Async ---
-async function loadDBFromFile(file, downloaded = false) {
+export async function loadDBFromFile(file, downloaded = false) {
   const arrayBuffer = await file.arrayBuffer();
   try {
     project_db = new SQL.Database(new Uint8Array(arrayBuffer));
@@ -812,7 +813,7 @@ document.getElementById("importDBbtn").onchange = async (e) => {
   }
 };
 
-async function asyncDB() {
+export async function asyncDB() {
   if (!navigator.onLine) {
     window.showToast("warning", "لا يوجد اتصال بالإنترنت.");
     return;

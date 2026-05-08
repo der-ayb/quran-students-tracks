@@ -1,4 +1,6 @@
 import { DateTime } from "luxon";
+import { project_db,workingClassroomId,loadingModalShowNumber,asyncDB,loadDBFromFile } from "./script";
+
 let currentUser;
 let userIsAuth = false;
 let db;
@@ -335,7 +337,7 @@ export async function initializeGoogleAuth(callback) {
 }
 
 // Updated upload function
-async function uploadDBtoDrive(data) {
+export async function uploadDBtoDrive(data) {
   if (!userIsAuth) {
     throw new Error("عليك تسجيل الدخول أولا.");
   }
