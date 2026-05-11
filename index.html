@@ -835,8 +835,7 @@
                 </h2>
                 <div id="requirCollapse" class="accordion-collapse collapse" data-bs-parent="#newStudentDayModalBody">
                   <div class="accordion-body px-2">
-                    <div class="table-responsive my-3">
-                      <table class="table" id="requirementsTable">
+                      <table class="table d-none" id="requirementsTable">
                         <thead>
                           <tr>
                             <th scope="col">الكتاب</th>
@@ -855,6 +854,8 @@
                         <tbody>
                         </tbody>
                       </table>
+                    
+                    <div id="requirListView" class="requirement-list-view">
                     </div>
                     <div class="input-group my-3">
                       <span class="input-group-text">المجموع:</span>
@@ -971,7 +972,7 @@
                         </div>
                         <div class="col">
                           <div class="mb-3">
-                            <label for="requirMoyenne">المعدل:</label>
+                            <label for="requirMoyenne">النتيجة:</label>
                             <div class="input-group mb-3">
                               <button class="btn btn-sm btn-outline-secondary" type="button"><i
                                   class="fa-regular fa-square-minus fa-2x"></i></button>

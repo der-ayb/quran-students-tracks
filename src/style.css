@@ -183,12 +183,12 @@ table.dataTable th {
 /* datatables ------------------------------------------*/
 /* Hides the duplicate header in the scrollable body */
 .dt-scroll-body thead tr {
-    visibility: collapse !important;
+  visibility: collapse !important;
 }
 
 /* Fixes any extra gap left by the hidden header */
 .dt-scroll-body table {
-    margin-bottom: 0px !important;
+  margin-bottom: 0px !important;
 }
 
 @media screen and (max-width: 767px) {
@@ -198,6 +198,7 @@ table.dataTable th {
     text-align: center;
     margin-bottom: 0.5em;
   }
+
   div.dt-buttons a.btn {
     float: none;
   }
@@ -628,4 +629,115 @@ th.header-rotated>div>span {
 
 .fade-in {
   animation: fadeIn 0.2s;
+}
+
+
+/* requirement list view */
+.requirement-list-view.active-view {
+  display: block;
+}
+
+.requirement-card {
+  background: white;
+  border-radius: 12px;
+  margin-bottom: 16px;
+  padding: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.requirement-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.requirement-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 7px;
+  border-bottom: 2px solid #007bff;
+}
+
+.book-title {
+  font-size: 18px;
+  font-weight: bold;
+  color: #007bff;
+}
+
+.card-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.card-actions button {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-edit {
+  background: #28a745;
+  color: white;
+}
+
+.btn-edit:hover {
+  background: #218838;
+}
+
+.btn-delete {
+  background: #dc3545;
+  color: white;
+}
+
+.btn-delete:hover {
+  background: #c82333;
+}
+
+.details-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 5px;
+  margin-top: 12px;
+}
+
+.detail-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-inline: 5px;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.detail-label {
+  font-weight: bold;
+  color: #555;
+  font-size: 14px;
+}
+
+.detail-value {
+  color: #333;
+  font-weight: 500;
+}
+
+.detail-value.highlight {
+  color: #007bff;
+  font-weight: bold;
+}
+
+.full-details {
+  margin-top: 12px;
+  padding: 7px;
+  background: #e9ecef;
+  border-radius: 8px;
+  word-wrap: break-word;
+  line-height: 1.6;
+}
+
+.full-details strong {
+  color: #007bff;
 }

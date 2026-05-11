@@ -2,7 +2,12 @@ import "./style.css";
 import "./fonts.css";
 import "./yearpicker.css";
 import "./yearpicker.js";
-import { fromNow, initializeGoogleAuth, initAuth,uploadDBtoDrive } from "./auth.js";
+import {
+  fromNow,
+  initializeGoogleAuth,
+  initAuth,
+  uploadDBtoDrive,
+} from "./auth.js";
 
 import download from "downloadjs";
 import flatpickr from "flatpickr";
@@ -40,7 +45,7 @@ if (localStorage.getItem("newUser") == true) {
 const devMode =
   window.location.hostname == "localhost" ||
   window.location.hostname.includes("ngrok-free");
-export let project_db
+export let project_db;
 let quran_db, SQL;
 
 const quranData = {
@@ -73,7 +78,6 @@ const currentTime = { hours: 0, minutes: 0 };
 let teachersPoints = {};
 
 const loginStatus = document.getElementById("loginStatus");
-
 
 const tabTitleLabel = document.getElementById("tabTitleLabel");
 const workingClassroomSelect = document.getElementById("workingClassroom");
@@ -763,8 +767,6 @@ async function createNewDB() {
   localStorage.removeItem("workingClassroomId");
   window.location.reload();
 }
-
-
 
 document.getElementById("downloadDBbtn").onclick = async function () {
   const data = project_db.export();
@@ -2202,7 +2204,7 @@ async function loadDayStudentsList() {
                 <td>${item["المعدل"]}</td>
                 <td>${item["المعرض"] || ""}</td>
                 <td>${item["الإعادة"] || ""}</td>
-                <td><div class="btn-group-vertical" role="group" aria-label="Vertical button group">
+                <td><div class="btn-group" role="group" aria-label="Vertical button group">
                     <button type="button" class="btn btn-success" onclick="editRequirement(this);"><i class="fa-solid fa-pen-to-square"></i></button>
                     <button class="btn btn-danger btn-sm" onclick="removeRequirItem(this,${student_id})"><i class="fa-solid fa-xmark"></i></button></td></div>`;
               requirementsTable.querySelector("tbody").appendChild(row);
@@ -2300,7 +2302,8 @@ async function loadDayStudentsList() {
               : attendance_value == 0
                 ? "غياب مبرر"
                 : `<button onclick="const cscy=window.scrollY;markPresence(${student_id});window.scrollTo({top: cscy,behavior: 'instant'});" class="btn fa-solid fa-square-check px-1" style="transform: scale(1.3); cursor: pointer;"></button>` +
-                  (thisDay == workingDay && row[result.columns.indexOf("parentPhone")]
+                  (thisDay == workingDay &&
+                  row[result.columns.indexOf("parentPhone")]
                     ? `<input type="checkbox" id="sms_btn${student_id}" onclick="window.location.href='sms:${
                         row[result.columns.indexOf("parentPhone")]
                       }?body=ليكن في علمكم أن إبن${isGirls ? "ت" : ""}كم ${
@@ -3099,7 +3102,7 @@ function addRequirToTable(row = false) {
       ${requirRepitInput.value}
     </td>
     <td>
-    <div class="btn-group-vertical" role="group" aria-label="Vertical button group">
+    <div class="btn-group" role="group" aria-label="Vertical button group">
       <button type="button" class="btn btn-success" onclick="editRequirement(this);"><i class="fa-solid fa-pen-to-square"></i></button>
       <button id="${removeBtnId}" class="btn btn-danger btn-sm"><i class="fa-solid fa-xmark"></i></button>
     </div>
@@ -3534,6 +3537,15 @@ function getStatisticsSelectedStudentsId() {
   ).map((item) => item.value);
   return selected.join(", ");
 }
+
+function formatEval(rating) {
+    if (rating == 10) return "مــمــتــاز";
+    if (rating >= 9) return "جــيــد  جــدا";
+    if (rating >= 7) return "جـــيـــد";
+    if (rating >= 6) return "حـــســـن";
+    if (rating >= 5) return "مـتــوســط";
+    return "دون  المتوسط";
+  }
 
 async function showStudentsBulletins(dates, studentsIDS = null) {
   const studentsList = studentsIDS || getStatisticsSelectedStudentsId();
@@ -4223,7 +4235,7 @@ async function showStudentsBulletins(dates, studentsIDS = null) {
             margin: [-3, marginTop, -3, -2],
           };
           row[baseIndex - 4] = {
-            text: recordDetailLength ? formatEval(record.detail[0]) : "-",
+            text: recordDetailLength ? formatEval(record.detail[0]["التقدير"]) : "-",
             style: "tableCell",
             bold: true,
             alignment: "center",
@@ -4325,7 +4337,7 @@ async function showStudentsBulletins(dates, studentsIDS = null) {
               margin: [-3, marginTop, -3, -2],
             };
             row[baseIndex - 4] = {
-              text: formatEval(detail) || "-",
+              text: formatEval(detail["التقدير"]) || "-",
               style: "tableCell",
               bold: true,
               alignment: "center",
@@ -4730,16 +4742,6 @@ async function showStudentsBulletins(dates, studentsIDS = null) {
   // Function to reverse words in a string (for Arabic)
   function reverseArabicWords(str) {
     return str.split(" ").reverse().join(" ");
-  }
-
-  function formatEval(detail) {
-    const rating = detail["التقدير"];
-    if (rating == 10) return "مــمــتــاز";
-    if (rating >= 9) return "جــيــد  جــدا";
-    if (rating >= 7) return "جـــيـــد";
-    if (rating >= 6) return "حـــســـن";
-    if (rating >= 5) return "مـتــوســط";
-    return "دون  المتوسط";
   }
 
   function formatQuantity(detail) {
@@ -5284,7 +5286,7 @@ async function showStudentsBulletins2(dates, studentsIDS = null) {
             margin: [-2, marginTop, -2, -2],
           };
           row[baseIndex - 2] = {
-            text: recordDetailLength ? formatEval(record.detail[0]) : "-",
+            text: recordDetailLength ? formatEval(record.detail[0]["التقدير"]) : "-",
             style: "tableCell",
             bold: true,
             alignment: "center",
@@ -5327,7 +5329,7 @@ async function showStudentsBulletins2(dates, studentsIDS = null) {
               margin: [-2, marginTop, -2, -2],
             };
             row[baseIndex - 2] = {
-              text: formatEval(detail) || "-",
+              text: formatEval(detail["التقدير"]) || "-",
               style: "tableCell",
               bold: true,
               fontSize: font_size,
@@ -5523,15 +5525,6 @@ async function showStudentsBulletins2(dates, studentsIDS = null) {
     return str.split(" ").reverse().join(" ");
   }
 
-  function formatEval(detail) {
-    const rating = detail["التقدير"];
-    if (rating == 10) return "مــمــتــاز";
-    if (rating >= 9) return "جــيــد  جــدا";
-    if (rating >= 7) return "جـــيـــد";
-    if (rating >= 6) return "حـــســـن";
-    if (rating >= 5) return "مـتــوســط";
-    return "دون  المتوسط";
-  }
 
   function formatErrors(detail) {
     if (!detail) return "-";
@@ -6994,8 +6987,6 @@ function CreateOnClickUndo(button, actionFunction, removeBtn = false) {
 
 // --- Event Listeners ---
 document.addEventListener("DOMContentLoaded", function () {
-  
-
   // Create New DB Buttons
   const createNewDBBtn1 = document.getElementById("createNewDBBtn1");
   if (createNewDBBtn1) {
@@ -7185,3 +7176,118 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   });
 });
+
+function convertToListView() {
+  const table = document.getElementById("requirementsTable");
+  const tbody = table.querySelector("tbody");
+  const rows = tbody.querySelectorAll("tr");
+  const requirListViewContainer = document.getElementById("requirListView");
+
+  requirListViewContainer.innerHTML = "";
+
+  rows.forEach((row, index) => {
+    const cells = row.querySelectorAll("td");
+
+    // Extract data from cells
+    const book = cells[0]?.innerText || "";
+    const type = cells[1]?.innerText || "";
+    const amount = cells[2]?.innerText || "";
+    const details = cells[3]?.innerHTML || cells[3]?.innerText || "";
+    const rating = cells[4]?.innerText || "";
+    const errors = cells[5]?.innerText || "";
+    const alerts = cells[6]?.innerText || "";
+    const average = cells[7]?.innerText || "";
+    const teacher = cells[8]?.innerText || "";
+    const repeat = cells[9]?.innerText || "";
+
+    // Get button HTML and preserve functionality
+    const buttonsDiv = cells[10]?.querySelector(".btn-group");
+    let buttonsHTML = "";
+    if (buttonsDiv) {
+      buttonsHTML = buttonsDiv.cloneNode(true).outerHTML;
+    }
+
+    // Create card
+    const card = document.createElement("div");
+    card.className = "requirement-card";
+    card.innerHTML = `
+                <div class="requirement-card-header">
+                    <span class="book-title">${book} - ${type}</span>
+                    <div class="card-actions">
+                        ${buttonsHTML || ""}
+                    </div>
+                </div>
+                <div class="full-details text-center">${parseRequirment(details,book)}</div>
+                <div class="details-grid">
+                    <div class="detail-item">
+                        <span class="detail-label">المقدار:</span>
+                        <span class="detail-value">${amount} <small style="font-size: .7em;">سطر</small></span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label"> على:</span>
+                        <span class="detail-value" style="font-size:.9em;white-space:nowrap">${teacher}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">الأخطاء:</span>
+                        <span class="detail-value">${errors?"بدون":errors}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">التنبيهات:</span>
+                        <span class="detail-value">${alerts?"بدون":alerts}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">الإعادة:</span>
+                        <span class="detail-value">${repeat?"بدون":repeat}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">التقدير:</span>
+                        <span class="detail-value highlight">${rating}/10</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">الملاحظة:</span>
+                        <span class="detail-value highlight">${formatEval(rating)}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">النتيجة:</span>
+                        <span class="detail-value highlight">${average}</span>
+                    </div>
+                    
+                </div>
+            `;
+
+    // Re-attach event listeners to buttons in the card
+    const editBtn = card.querySelector(".btn-success");
+    if (editBtn) {
+      const originalEditBtn = buttonsDiv?.querySelector(".btn-success");
+      if (originalEditBtn) {
+        editBtn.onclick = () =>
+          originalEditBtn.dispatchEvent(new Event("click"));
+      }
+    }
+
+    const deleteBtn = card.querySelector(".btn-danger");
+    if (deleteBtn) {
+      const originalDeleteBtn = buttonsDiv?.querySelector(".btn-danger");
+      if (originalDeleteBtn) {
+        deleteBtn.onclick = () =>
+          originalDeleteBtn.dispatchEvent(new Event("click"));
+      }
+    }
+
+    requirListViewContainer.appendChild(card);
+  });
+}
+
+const observer = new MutationObserver(function (mutations) {
+  mutations.forEach(function (mutation) {
+    if (mutation.type === "childList" || mutation.type === "subtree") {
+      convertToListView();
+    }
+  });
+});
+
+// Start observing the table body for changes
+const tableBody = document.querySelector("#requirementsTable tbody");
+if (tableBody) {
+  observer.observe(tableBody, { childList: true, subtree: true });
+}

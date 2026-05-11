@@ -47,7 +47,6 @@ export default defineConfig({
       ],
       workbox: {
         cleanupOutdatedCaches: true,
-        // maximumFileSizeToCacheInBytes: 4000000,
         additionalManifestEntries: [
           {
             url: "https://cdnjs.cloudflare.com/ajax/libs/bootswatch/5.3.8/cerulean/bootstrap.rtl.min.css",
