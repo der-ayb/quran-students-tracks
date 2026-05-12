@@ -191,6 +191,11 @@ table.dataTable th {
   margin-bottom: 0px !important;
 }
 
+.dtb-b3{
+  position: absolute;
+  left: 170px!important;
+}
+
 @media screen and (max-width: 767px) {
   div.dt-buttons {
     float: none;

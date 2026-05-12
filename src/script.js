@@ -773,7 +773,7 @@ document.getElementById("downloadDBbtn").onclick = async function () {
   download(data, "quran_students.sqlite3", "application/x-sqlite3");
 };
 if (!navigator.canShare) {
-  document.getElementById("shareDBbtn").remove();
+  document.getElementById("shareDBbtn")?.remove();
 } else
   document.getElementById("shareDBbtn").onclick = async function () {
     const data = project_db.export();
@@ -2544,6 +2544,9 @@ async function loadDayStudentsList() {
               {
                 extend: "collection",
                 text: "المزيد",
+                align:"button-left",
+                fade:0,
+                autoClose:true,
                 buttons: [
                   {
                     text: '<i class="fa-regular fa-comment"></i> ملاحظة اليوم',
@@ -3539,13 +3542,13 @@ function getStatisticsSelectedStudentsId() {
 }
 
 function formatEval(rating) {
-    if (rating == 10) return "مــمــتــاز";
-    if (rating >= 9) return "جــيــد  جــدا";
-    if (rating >= 7) return "جـــيـــد";
-    if (rating >= 6) return "حـــســـن";
-    if (rating >= 5) return "مـتــوســط";
-    return "دون  المتوسط";
-  }
+  if (rating == 10) return "مــمــتــاز";
+  if (rating >= 9) return "جــيــد  جــدا";
+  if (rating >= 7) return "جـــيـــد";
+  if (rating >= 6) return "حـــســـن";
+  if (rating >= 5) return "مـتــوســط";
+  return "دون  المتوسط";
+}
 
 async function showStudentsBulletins(dates, studentsIDS = null) {
   const studentsList = studentsIDS || getStatisticsSelectedStudentsId();
@@ -4235,7 +4238,9 @@ async function showStudentsBulletins(dates, studentsIDS = null) {
             margin: [-3, marginTop, -3, -2],
           };
           row[baseIndex - 4] = {
-            text: recordDetailLength ? formatEval(record.detail[0]["التقدير"]) : "-",
+            text: recordDetailLength
+              ? formatEval(record.detail[0]["التقدير"])
+              : "-",
             style: "tableCell",
             bold: true,
             alignment: "center",
@@ -5286,7 +5291,9 @@ async function showStudentsBulletins2(dates, studentsIDS = null) {
             margin: [-2, marginTop, -2, -2],
           };
           row[baseIndex - 2] = {
-            text: recordDetailLength ? formatEval(record.detail[0]["التقدير"]) : "-",
+            text: recordDetailLength
+              ? formatEval(record.detail[0]["التقدير"])
+              : "-",
             style: "tableCell",
             bold: true,
             alignment: "center",
@@ -5524,7 +5531,6 @@ async function showStudentsBulletins2(dates, studentsIDS = null) {
   function reverseArabicWords(str) {
     return str.split(" ").reverse().join(" ");
   }
-
 
   function formatErrors(detail) {
     if (!detail) return "-";
@@ -7183,6 +7189,10 @@ function convertToListView() {
   const rows = tbody.querySelectorAll("tr");
   const requirListViewContainer = document.getElementById("requirListView");
 
+  if(rows.length === 0) {
+    requirListViewContainer.innerHTML = "<div class='text-center text-muted'>لا يوجد مطلوبات لهذا اليوم.</div>";
+    return;
+  }
   requirListViewContainer.innerHTML = "";
 
   rows.forEach((row, index) => {
@@ -7217,7 +7227,7 @@ function convertToListView() {
                         ${buttonsHTML || ""}
                     </div>
                 </div>
-                <div class="full-details text-center">${parseRequirment(details,book)}</div>
+                <div class="full-details text-center">${parseRequirment(details, book)}</div>
                 <div class="details-grid">
                     <div class="detail-item">
                         <span class="detail-label">المقدار:</span>
@@ -7229,15 +7239,15 @@ function convertToListView() {
                     </div>
                     <div class="detail-item">
                         <span class="detail-label">الأخطاء:</span>
-                        <span class="detail-value">${errors?"بدون":errors}</span>
+                        <span class="detail-value">${errors ? "بدون" : errors}</span>
                     </div>
                     <div class="detail-item">
                         <span class="detail-label">التنبيهات:</span>
-                        <span class="detail-value">${alerts?"بدون":alerts}</span>
+                        <span class="detail-value">${alerts ? "بدون" : alerts}</span>
                     </div>
                     <div class="detail-item">
                         <span class="detail-label">الإعادة:</span>
-                        <span class="detail-value">${repeat?"بدون":repeat}</span>
+                        <span class="detail-value">${repeat ? "بدون" : repeat}</span>
                     </div>
                     <div class="detail-item">
                         <span class="detail-label">التقدير:</span>
@@ -7245,7 +7255,7 @@ function convertToListView() {
                     </div>
                     <div class="detail-item">
                         <span class="detail-label">الملاحظة:</span>
-                        <span class="detail-value highlight">${formatEval(rating)}</span>
+                        <span class="detail-value highlight" style="font-size:.9em">${formatEval(rating)}</span>
                     </div>
                     <div class="detail-item">
                         <span class="detail-label">النتيجة:</span>
@@ -7280,7 +7290,10 @@ function convertToListView() {
 
 const observer = new MutationObserver(function (mutations) {
   mutations.forEach(function (mutation) {
-    if (mutation.type === "childList" || mutation.type === "subtree") {
+    if (
+      studentDayModal._isShown &&
+      (mutation.type === "childList" || mutation.type === "subtree")
+    ) {
       convertToListView();
     }
   });
