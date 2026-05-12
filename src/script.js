@@ -2544,9 +2544,8 @@ async function loadDayStudentsList() {
               {
                 extend: "collection",
                 text: "المزيد",
-                align:"button-left",
-                fade:0,
-                autoClose:true,
+                fade: 0,
+                autoClose: true,
                 buttons: [
                   {
                     text: '<i class="fa-regular fa-comment"></i> ملاحظة اليوم',
@@ -3855,7 +3854,6 @@ async function showStudentsBulletins(dates, studentsIDS = null) {
     allStudentData.forEach((studentReport) => {
       const recordsCounts = studentReport.data
         .map((i) => {
-          if (i.is_obligatory === 0 && i.attendance === null) return 0;
           return JSON.parse(i.detail)?.length ?? 1;
         })
         .reduce((accumulator, currentValue) => accumulator + currentValue, 0);
@@ -3901,7 +3899,6 @@ async function showStudentsBulletins(dates, studentsIDS = null) {
     const recordCounts =
       data
         .map((i) => {
-          if (i.is_obligatory === 0 && i.attendance === null) return 0;
           return i.detail ? JSON.parse(i.detail).length : 1;
         })
         .reduce((accumulator, current) => accumulator + current, 0) + 3;
@@ -4140,7 +4137,6 @@ async function showStudentsBulletins(dates, studentsIDS = null) {
 
         // Handle absence
         if (record.attendance !== 1) {
-          if (record.is_obligatory === 0) return;
           const row = createEmptyArray(10); // Create array with correct number of columns
 
           // Set values for the row (RTL order - from right to left)
@@ -4167,7 +4163,8 @@ async function showStudentsBulletins(dates, studentsIDS = null) {
           row[0] = {
             text:
               "غــــــــــــــــــــــــــــــــــــائــــــــــــــــــب" +
-              (isGirls ? "ــــــة" : ""),
+              (isGirls ? "ــــــة" : "") +
+              (record.is_obligatory === 0 ? "   )حصة غير إلزامية(" : ""),
             style: "tableCell",
             alignment: "center",
             bold: true,
@@ -7189,8 +7186,9 @@ function convertToListView() {
   const rows = tbody.querySelectorAll("tr");
   const requirListViewContainer = document.getElementById("requirListView");
 
-  if(rows.length === 0) {
-    requirListViewContainer.innerHTML = "<div class='text-center text-muted'>لا يوجد مطلوبات لهذا اليوم.</div>";
+  if (rows.length === 0) {
+    requirListViewContainer.innerHTML =
+      "<div class='text-center text-muted'>لا يوجد مطلوبات لهذا اليوم.</div>";
     return;
   }
   requirListViewContainer.innerHTML = "";
@@ -7259,7 +7257,7 @@ function convertToListView() {
                     </div>
                     <div class="detail-item">
                         <span class="detail-label">النتيجة:</span>
-                        <span class="detail-value highlight">${average}</span>
+                        <span class="detail-value highlight" style="color:limegreen">${average}</span>
                     </div>
                     
                 </div>
