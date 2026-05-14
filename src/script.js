@@ -4651,7 +4651,7 @@ async function showStudentsBulletins(dates, studentsIDS = null) {
             70,
             100,
             totalSaveQuantity > 0 && totalReviseQuantity > 0 ? 180 : 140,
-            90,
+            95,
             "*",
           ],
           body: [
@@ -7052,7 +7052,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   addNewDayBtn.onclick = () => {
-    showApointmentTimePicker();
+    showApopintmentTimePicker();
   };
 
   // Goal Button (Evaluation Ladder)
