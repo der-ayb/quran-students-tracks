@@ -191,9 +191,9 @@ table.dataTable th {
   margin-bottom: 0px !important;
 }
 
-.dtb-b3{
-  position: absolute;
-  left: 170px!important;
+.dropdown-menu:has(> .note-btn){
+  position: fixed;
+  left: 0px!important;
 }
 
 @media screen and (max-width: 767px) {

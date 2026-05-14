@@ -108,6 +108,8 @@ const prayerInput = document.getElementById("prayer");
 const addedPointsInput = document.getElementById("addedPoints");
 const evalMoyenne = document.getElementById("evalMoyenne");
 
+const addNewStudyDayBtn = document.getElementById("addNewStudyDayBtn");
+const addNewDayBtn = document.getElementById("addNewDayBtn");
 const requirsMoyenneInput = document.getElementById("requirsMoyenne");
 const historyRequirBtn = document.getElementById("historyRequirBtn");
 const requirQuantityDetailInput = document.getElementById(
@@ -1052,7 +1054,7 @@ async function loadClassRoomsList() {
               {
                 text: '<i class="fa-solid fa-table-cells"></i>',
                 action: async function (e, dt, button, config) {
-                  const columns = dt.columns([0, 4, 5]);
+                  const columns = dt.columns([1, 5, 6]);
                   const isVisible = dt.column(columns[0][0]).visible();
 
                   columns.visible(!isVisible);
@@ -1813,6 +1815,9 @@ window.markPresence = async function (studentId) {
 function showApopintmentTimePicker(initialTime = null) {
   setApointementTimeToNow();
   updateAppointmentTimeDisplay();
+  addNewStudyDayBtn.onclick = () => {
+    addNewStudyDay();
+  };
   new bootstrap.Modal("#timeModal").show();
 }
 
@@ -2024,7 +2029,7 @@ window.changeObligatory = async function (switchElement) {
       workingDayID,
     ]);
     saveToIndexedDB(project_db.export());
-    showTab("pills-new_day");
+    loadDayStudentsList();
   } catch (e) {
     window.showToast("error", "Error: " + e.message);
   }
@@ -2425,7 +2430,6 @@ async function loadDayStudentsList() {
             targets: 0,
             render: DataTable.render.select(),
           },
-          // { visible: false, targets: [-3, -2] },
           { targets: [0, 1, -1], orderable: false },
         ],
         layout: {
@@ -2548,7 +2552,8 @@ async function loadDayStudentsList() {
                 autoClose: true,
                 buttons: [
                   {
-                    text: '<i class="fa-regular fa-comment"></i> ملاحظة اليوم',
+                    text: '<i class="fa-regular fa-comment"></i> ملاحظة الحصة',
+                    className: "note-btn",
                     action: async function () {
                       swal("أكتب ملاحظة:", {
                         content: {
@@ -2655,10 +2660,6 @@ async function loadDayStudentsList() {
 }
 
 async function InitDatePickers() {
-  // day date picker
-  // const script = document.createElement("script");
-  // script.src = "src/flatpickr-hijri-calendar.js";
-  // script.onload = () => {
   function formatHijriDate(date, isRange = false) {
     date.setHours(new Date().getHours());
     const formatter = new Intl.DateTimeFormat("ar-DZ-u-ca-islamic-umalqura", {
@@ -2830,8 +2831,6 @@ async function InitDatePickers() {
     rangesCustomLabel: "تخصيص",
   });
   getStudyDays();
-  // };
-  // document.body.appendChild(script);
 }
 
 function initializeToast() {
@@ -4960,7 +4959,7 @@ async function showStudentsBulletins2(dates, studentsIDS = null) {
   }
 
   // Create multi-student PDF with one student per page
-  function createMultiStudentPDF(allStudentData, dates) {
+  async function createMultiStudentPDF(allStudentData, dates) {
     const A4_WIDTH = 595.28;
     const A4_HEIGHT = 841.89;
 
@@ -5044,6 +5043,8 @@ async function showStudentsBulletins2(dates, studentsIDS = null) {
       },
     };
 
+    await import("./pdfmake.js");
+    await import("./vfs_fonts.js");
     pdfMake.createPdf(docDefinition).open();
   }
 
@@ -6345,6 +6346,7 @@ async function showAvanceChart() {
     }
     indices.sort((a, b) => a - b);
 
+    let totalQuestions = null;
     let questionNumber = 1;
     let correctAnswers = 0;
     document.getElementById("randomSelectBtn").onclick = (e) => {
@@ -6377,24 +6379,54 @@ async function showAvanceChart() {
       ROUND(SUM(lign_count), 1) AS rounded_total
       FROM quran_ayat
       WHERE id in(${indices})`)[0].values[0][0];
-      if (questionNumber > Math.floor(lign_count / 30)) {
-        questionNumber = 1;
+
+      if (totalQuestions === null) {
+        swal("عدد الأسطر لكل سؤال:", {
+          content: {
+            element: "input",
+            attributes: {
+              placeholder: 30,
+            },
+          },
+          buttons: [
+            {
+              text: "إلغاء",
+              value: false,
+              visible: true,
+              className: "",
+              closeModal: true,
+            },
+            "بدء",
+          ],
+        }).then((value) => {
+          if (value !== false) {
+            totalQuestions = Math.floor(lign_count / value) || 1;
+            e.target.dispatchEvent(new Event("click"));
+          }
+        });
+        return;
+      }
+
+      if (questionNumber > totalQuestions) {
         swal(
           "انتهت الأسئلة",
           "لقد أجبت على  " +
             correctAnswers +
             " أسئلة صحيحة من أصل " +
-            Math.floor(lign_count / 30) +
+            totalQuestions +
             ".",
           "info",
         );
+        questionNumber = 1;
+        correctAnswers = 0;
+        totalQuestions = null;
         return;
       }
 
       swal(
         `${row[0][1]} [${row[0][0]} - ${quranData.verseInfo[randomAyatID].ayah}]`,
         {
-          title: `السؤال رقم ${Math.floor(lign_count / 30)} / ${questionNumber}`,
+          title: `السؤال رقم ${totalQuestions} / ${questionNumber}`,
           className: "quran-text",
           buttons: {
             finish: {
@@ -6414,15 +6446,15 @@ async function showAvanceChart() {
             if (questionNumber > 1) {
               swal("هل الإجابة السابقة كانت صحيحة؟", {
                 buttons: {
-                  correct: {
-                    text: "صحيحة",
-                    value: "correct",
-                    className: "btn btn-success",
-                  },
                   wrong: {
                     text: "خاطئة",
                     value: "wrong",
                     className: "btn btn-danger",
+                  },
+                  correct: {
+                    text: "صحيحة",
+                    value: "correct",
+                    className: "btn btn-success",
                   },
                 },
               }).then((value) => {
@@ -6436,7 +6468,6 @@ async function showAvanceChart() {
           case "skip":
             e.target.dispatchEvent(new Event("click"));
             break;
-
           case "solution":
             swal(
               "الإجابة",
@@ -6456,15 +6487,15 @@ async function showAvanceChart() {
                   if (questionNumber > 1) {
                     swal("هل الإجابة السابقة كانت صحيحة؟", {
                       buttons: {
-                        correct: {
-                          text: "صحيحة",
-                          value: "correct",
-                          className: "btn btn-success",
-                        },
                         wrong: {
                           text: "خاطئة",
                           value: "wrong",
                           className: "btn btn-danger",
+                        },
+                        correct: {
+                          text: "صحيحة",
+                          value: "correct",
+                          className: "btn btn-success",
                         },
                       },
                     }).then((value) => {
@@ -6478,9 +6509,17 @@ async function showAvanceChart() {
                 case "skip":
                   e.target.dispatchEvent(new Event("click"));
                   break;
+                default:
+                  totalQuestions = null;
+                  questionNumber = 1;
+                  correctAnswers = 0;
               }
             });
             break;
+          default:
+            totalQuestions = null;
+            questionNumber = 1;
+            correctAnswers = 0;
         }
       });
     };
@@ -7012,11 +7051,9 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
-  // Add New Day Button
-  const addNewDayBtn = document.getElementById("addNewDayBtn");
-  if (addNewDayBtn) {
-    addNewDayBtn.addEventListener("click", showApopintmentTimePicker);
-  }
+  addNewDayBtn.onclick = () => {
+    showAppointmentTimePicker();
+  };
 
   // Goal Button (Evaluation Ladder)
   const goalBtn = document.getElementById("goal");
@@ -7159,12 +7196,6 @@ document.addEventListener("DOMContentLoaded", function () {
     adjustTimeMinus15Btn.addEventListener("click", function () {
       adjustApointementTimeMinutes(-15);
     });
-  }
-
-  // Add New Study Day Button
-  const addNewStudyDayBtn = document.getElementById("addNewStudyDayBtn");
-  if (addNewStudyDayBtn) {
-    addNewStudyDayBtn.addEventListener("click", addNewStudyDay);
   }
 
   // Attendance Radio Buttons
