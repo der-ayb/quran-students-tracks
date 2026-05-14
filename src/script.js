@@ -1607,7 +1607,7 @@ function calcRequirementEvaluation(
 
 function calcGlobalMoyenne(requirsMoyenne, evalMoyenne) {
   let globalEvaluation = 0;
-  globalEvaluation = requirsMoyenne + evalMoyenne;
+  globalEvaluation = parseFloat(requirsMoyenne) + parseFloat(evalMoyenne);
   globalEvaluation = globalEvaluation > 0 ? globalEvaluation : 0;
   return globalEvaluation.toFixed(2);
 }
@@ -6399,7 +6399,7 @@ async function showAvanceChart() {
             "بدء",
           ],
         }).then((value) => {
-          if (value !== false) {
+          if (value !== false && !isNaN(value) && value > 0) {
             totalQuestions = Math.floor(lign_count / value) || 1;
             e.target.dispatchEvent(new Event("click"));
           }
@@ -6434,8 +6434,8 @@ async function showAvanceChart() {
               text: "إنهاء",
               value: false,
             },
+            solution: { text: "الحل", value: "solution", className: "px-2" },
             skip: { text: "تخطي", value: "skip", className: "px-2" },
-            solution: "الإجابة",
             next: "التالي",
           },
         },
