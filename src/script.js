@@ -789,7 +789,7 @@ if (!navigator.canShare) {
           files: [file],
         });
       } catch (error) {
-        console.log("Error sharing file:", error);
+        alert("Error sharing file:", error);
         window.showToast("error", "فشل في مشاركة الملف.");
       }
     } else {
