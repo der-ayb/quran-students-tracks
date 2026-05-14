@@ -7052,7 +7052,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   addNewDayBtn.onclick = () => {
-    showAppointmentTimePicker();
+    showApointmentTimePicker();
   };
 
   // Goal Button (Evaluation Ladder)
