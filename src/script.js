@@ -778,8 +778,8 @@ if (!navigator.canShare) {
   document.getElementById("shareDBbtn")?.remove();
 } else
   document.getElementById("shareDBbtn").onclick = async function () {
-    const data = project_db.export();
-    const file = new File([data], "quran_students.sqlite3", {
+    const data = await project_db.export();
+    const file = await new File([data], "quran_students.sqlite3", {
       type: "application/x-sqlite3",
     });
     if (navigator.canShare({ files: [file] })) {
