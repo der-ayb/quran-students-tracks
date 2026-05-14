@@ -786,7 +786,7 @@ if (!navigator.canShare) {
       try {
         await navigator.share({
           title: "قاعدة بيانات طلاب القرآن",
-          files: [file],
+          // files: [file],
         });
       } catch (error) {
         alert("Error sharing file:", error);
