@@ -778,28 +778,23 @@ if (!navigator.canShare) {
   document.getElementById("shareDBbtn")?.remove();
 } else
   document.getElementById("shareDBbtn").onclick = async function () {
-    await loadFromIndexedDB(async (savedProjectData, savedQuranData) => {
-      if (savedProjectData) {
-        // project_db = new SQL.Database(new Uint8Array(savedProjectData));
-        const data = new Uint8Array(savedProjectData);
-        const file = new File([data], "quran_students.sqlite3", {
-          type: "application/x-sqlite3",
-        });
-        if (navigator.canShare({ files: [file] })) {
-          try {
-            await navigator.share({
-              title: "قاعدة بيانات طلاب القرآن",
-              files: [file],
-            });
-          } catch (error) {
-            alert("Error sharing file:", error);
-            window.showToast("error", "فشل في مشاركة الملف.");
-          }
-        } else {
-          window.showToast("warning", "المشاركة غير مدعومة على هذا الجهاز.");
-        }
-      }
+    const data = project_db.export();
+    const file = new File([data], "quran_students.sqlite3", {
+      type: "application/x-sqlite3",
     });
+    if (navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({
+          title: "قاعدة بيانات طلاب القرآن",
+          files: [file],
+        });
+      } catch (error) {
+        console.log("Error sharing file:", error);
+        window.showToast("error", "فشل في مشاركة الملف.");
+      }
+    } else {
+      window.showToast("warning", "المشاركة غير مدعومة على هذا الجهاز.");
+    }
   };
 document.getElementById("importDBbtn").onchange = async (e) => {
   if (e.target.files) {
