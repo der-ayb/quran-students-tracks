@@ -7268,15 +7268,15 @@ function convertToListView() {
                     </div>
                     <div class="detail-item">
                         <span class="detail-label">الأخطاء:</span>
-                        <span class="detail-value">${errors ? "بدون" : errors}</span>
+                        <span class="detail-value">${errors == 0 ? "بدون" : errors}</span>
                     </div>
                     <div class="detail-item">
                         <span class="detail-label">التنبيهات:</span>
-                        <span class="detail-value">${alerts ? "بدون" : alerts}</span>
+                        <span class="detail-value">${alerts == 0 ? "بدون" : alerts}</span>
                     </div>
                     <div class="detail-item">
                         <span class="detail-label">الإعادة:</span>
-                        <span class="detail-value">${repeat ? "بدون" : repeat}</span>
+                        <span class="detail-value">${repeat == 0 ? "بدون" : repeat}</span>
                     </div>
                     <div class="detail-item">
                         <span class="detail-label">التقدير:</span>
