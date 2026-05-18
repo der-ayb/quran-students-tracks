@@ -6043,7 +6043,7 @@ async function showResultsStatistics() {
             action: async function () {
               await showLoadingModal("جاري إنشاء كشوف النقاط");
               initBullentinConfigs();
-              showStudentsBulletins(dates);
+              showStudentsBulletins2(dates);
               hideLoadingModal();
             },
           },
