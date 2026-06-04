@@ -81,6 +81,7 @@ export default defineConfig({
         runtimeCaching: [
           {
             urlPattern: ({ url }) =>
+              url.origin === "https://fonts.gstatic.com" ||
               url.origin === "https://fonts.googleapis.com" ||
               url.origin === "https://cdnjs.cloudflare.com" ||
               url.origin === "https://cdn.datatables.net" ||

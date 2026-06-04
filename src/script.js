@@ -54,7 +54,8 @@ const quranData = {
   ahzab: [],
   SURAH_NAME_MAP: new Map(),
 };
-let specialDates = [];
+let monoStudyDates = [];
+let polyStudyDates = [];
 const DB_STORE_NAME = "my_sqlite-db";
 const PROJECT_DB_KEY = "quranstudentsDB";
 const QURAN_DB_KEY = "quranDB";
@@ -74,6 +75,7 @@ let workingDayID = null;
 let currentTabId = "pills-home";
 export let loadingModalShowNumber = [];
 let isGirls = null;
+let isTalkinClassroom = null;
 const currentTime = { hours: 0, minutes: 0 };
 let teachersPoints = {};
 
@@ -109,6 +111,7 @@ const addedPointsInput = document.getElementById("addedPoints");
 const evalMoyenne = document.getElementById("evalMoyenne");
 
 const addNewStudyDayBtn = document.getElementById("addNewStudyDayBtn");
+const obligatoryCheck = document.getElementById("obligatoryCheck");
 const addNewDayBtn = document.getElementById("addNewDayBtn");
 const requirsMoyenneInput = document.getElementById("requirsMoyenne");
 const historyRequirBtn = document.getElementById("historyRequirBtn");
@@ -144,7 +147,13 @@ const newStudentDayModalBody = document.getElementById(
 let statisAllCheckbox = document.getElementById("statisAllCheckbox");
 const statisticType = document.getElementById("statisticType");
 
-const studentDayInfos = { start_time: null, isObligatory: false, dayNote: "" };
+const studentsDayInfos = {
+  start_time: null,
+  isObligatory: false,
+  dayNote: "",
+  secondDayInfos: null,
+  secondDayIsWorkingDay: false,
+};
 const themeSelector = document.getElementById("themeSelector");
 const themeTag = document.getElementById("themeStylesheet");
 const fontSelector = document.getElementById("fontSelect");
@@ -743,10 +752,15 @@ window.hideLoadingModal = async function () {
 async function createNewDB() {
   if (
     project_db &&
-    !confirm("سيتم استبدال قاعدة البيانات الحالية. هل أنت متأكد؟")
+    !(await swal({
+      text: "سيتم استبدال قاعدة البيانات الحالية. هل أنت متأكد ؟",
+      icon: "warning",
+      buttons: ["لا", "نعم"],
+    }))
   ) {
     return;
   }
+
   await showLoadingModal("جاري إنشاء قاعدة بيانات جديدة");
   if (
     !(await fetchAndPutIntoIndexedDBFile(
@@ -800,7 +814,11 @@ document.getElementById("importDBbtn").onchange = async (e) => {
   if (e.target.files) {
     if (
       project_db &&
-      !confirm("سيتم استبدال قاعدة البيانات الحالية. هل أنت متأكد؟")
+      !(await swal({
+        text: "سيتم استبدال قاعدة البيانات الحالية. هل أنت متأكد ؟",
+        icon: "warning",
+        buttons: ["لا", "نعم"],
+      }))
     ) {
       e.target.value = "";
       return;
@@ -840,12 +858,23 @@ export async function asyncDB() {
     hideLoadingModal();
   }
 }
+
+function changeWorkingClassroomHandler(option = null) {
+  if (!option)
+    option =
+      workingClassroomSelect.options[workingClassroomSelect.selectedIndex];
+
+  isTalkinClassroom = option.text.includes("تلقين");
+  obligatoryCheck.disabled = isTalkinClassroom;
+  isGirls = option.dataset.sex === "إناث";
+  haircutInput.disabled = isGirls;
+}
+
 // classrooms tab
 workingClassroomSelect.onchange = async function () {
   workingClassroomId = this.value;
   localStorage.setItem("workingClassroomId", workingClassroomId);
-  isGirls = this.options[this.selectedIndex].dataset.sex === "إناث";
-  haircutInput.disabled = isGirls;
+  changeWorkingClassroomHandler(this.options[this.selectedIndex]);
   reinitStatisticTable();
   getStudyDays();
   const radioBtn = document.getElementById(`classRadio-${workingClassroomId}`);
@@ -854,13 +883,16 @@ workingClassroomSelect.onchange = async function () {
 
 async function getStudyDays() {
   if (typeof statisticsDateInput._flatpickr === "undefined") return;
-  const result = project_db.exec(
-    `SELECT date FROM education_day WHERE class_room_id = ${workingClassroomId};`,
-  );
-  specialDates =
-    result.length && result[0].values.length
-      ? result[0].values.map((row) => row[0])
-      : [];
+  monoStudyDates =
+    project_db.exec(
+      `SELECT date FROM education_day WHERE  class_room_id = ${workingClassroomId};`,
+    )[0]?.values?.map((row) => row[0]) ?? [];
+  
+  polyStudyDates =
+    project_db.exec(
+      `SELECT date FROM education_day WHERE second_day IS NOT NULL AND class_room_id = ${workingClassroomId};`,
+    )[0]?.values?.map((row) => row[0]) ?? [];
+
   statisticsDateInput._flatpickr.setDate(
     statisticsDateInput._flatpickr.selectedDates.length
       ? [
@@ -906,6 +938,7 @@ newClassroomInfosForm.onsubmit = (e) => {
     classroomInfosModal.hide();
     loadClassRoomsList();
   } catch (e) {
+    console.error(e);
     window.showToast("error", "Error: " + e.message);
   }
 };
@@ -963,8 +996,15 @@ async function loadClassRoomsList() {
         const deleteBtn = document.createElement("button");
         deleteBtn.className = "btn btn-danger btn-sm";
         deleteBtn.innerHTML = "حذف";
-        CreateOnClickUndo(deleteBtn, () => {
-          if (!confirm("هل أنت متأكد أنك تريد حذف هذا القسم؟") || !project_db) {
+        CreateOnClickUndo(deleteBtn, async () => {
+          if (
+            !project_db ||
+            !(await swal({
+              text: "هل أنت متأكد أنك تريد حذف هذا القسم ؟",
+              icon: "warning",
+              buttons: ["لا", "نعم"],
+            }))
+          ) {
             return;
           }
           try {
@@ -999,10 +1039,7 @@ async function loadClassRoomsList() {
       });
       if (workingClassroomId) {
         workingClassroomSelect.value = workingClassroomId;
-        isGirls =
-          workingClassroomSelect.options[workingClassroomSelect.selectedIndex]
-            .dataset.sex === "إناث";
-        haircutInput.disabled = isGirls;
+        changeWorkingClassroomHandler();
       } else {
         workingClassroomSelect.options[0].selected = true;
         workingClassroomSelect.dispatchEvent(new Event("change"));
@@ -1172,9 +1209,15 @@ async function loadStudentsList() {
         const deleteBtn = document.createElement("button");
         deleteBtn.className = "btn btn-danger btn-sm";
         deleteBtn.innerHTML = '<i class="fa-solid fa-user-slash"></i> حذف';
-        CreateOnClickUndo(deleteBtn, function () {
+        CreateOnClickUndo(deleteBtn, async () => {
           const studentId = row[0];
-          if (!confirm(`هل أنت متأكد أنك تريد حذف هذا الطالب؟`)) {
+          if (
+            !(await swal({
+              text: "هل أنت متأكد أنك تريد حذف هذا الطالب ؟",
+              icon: "warning",
+              buttons: ["لا", "نعم"],
+            }))
+          ) {
             return;
           }
           if (!project_db) {
@@ -1395,6 +1438,7 @@ newStudentInfosForm.addEventListener("submit", (e) => {
     studentInfosModal.hide();
     loadStudentsList();
   } catch (e) {
+    console.error(e);
     window.showToast("error", "Error: " + e.message);
   }
 });
@@ -1415,7 +1459,7 @@ document
 
 document
   .getElementById("newStudentInfosModal")
-  .addEventListener("show.bs.modal", function () {
+  .addEventListener("shown.bs.modal", function () {
     const submitButton = document.querySelector(
       "#newStudentInfosModal [type='submit']",
     );
@@ -1428,7 +1472,7 @@ document
 
 document
   .getElementById("newClassroomInfosModal")
-  .addEventListener("show.bs.modal", function () {
+  .addEventListener("shown.bs.modal", function () {
     const submitButton = document.querySelector(
       "#newClassroomInfosModal [type='submit']",
     );
@@ -1452,6 +1496,7 @@ requireBookInput.onchange = function () {
     requirQuantityDetailInput.style.removeProperty("display");
     quranSelectionSection.style.display = "none";
     requirQuantityInput.readOnly = false;
+    requirQuantityInput.value = "0";
   }
   requirQuantityDetailInput.value = "";
   requirEvaluationInput.value = "10.00";
@@ -1460,7 +1505,7 @@ requireBookInput.onchange = function () {
   requirRepitInput.value = "0";
 };
 
-function setAttendanceValue(value) {
+function setAttendanceInputValue(value) {
   let radioId = null;
   switch (value) {
     case 1:
@@ -1474,10 +1519,10 @@ function setAttendanceValue(value) {
   }
   const radio = document.getElementById(radioId);
   radio.checked = true;
-  onChangeAttendanceState(radio);
+  onChangeAttendanceInputState(radio);
 }
 
-function getAttendanceValue() {
+function getAttendanceInputValue() {
   switch (document.querySelector(`input[name=attendance]:checked`).id) {
     case "present":
       return 1;
@@ -1490,7 +1535,7 @@ function getAttendanceValue() {
   }
 }
 
-function onChangeAttendanceState(radio = null) {
+function onChangeAttendanceInputState(radio = null) {
   const selectedRadio =
     radio || document.querySelector(`input[name=attendance]:checked`);
   if (!selectedRadio) {
@@ -1657,13 +1702,13 @@ $([
   requirRepitInput,
 ]).on("change input", setRequirEvalInput);
 
-function update_student_day_notes(studentId, working_day_id) {
+function update_student_day_notes(studentId, working_day_id, attendance) {
   if (!project_db) {
     window.showToast("info", "لا يوجد قاعدة بيانات مفتوحة.");
     return;
   }
 
-  const attendanceValue = getAttendanceValue();
+  const attendanceInputValue = getAttendanceInputValue();
 
   // Helper function to build requirements list
   const buildRequirList = () => {
@@ -1685,7 +1730,7 @@ function update_student_day_notes(studentId, working_day_id) {
   };
 
   // Handle requirements insertion for present students
-  if (attendanceValue === 1) {
+  if (attendanceInputValue === 1) {
     const requirList = buildRequirList();
     if (requirList.length) {
       project_db.run(
@@ -1705,60 +1750,154 @@ function update_student_day_notes(studentId, working_day_id) {
     }
   }
 
-  // Insert or update evaluations for present or justified absence
-  if (attendanceValue === 0 || attendanceValue === 1) {
-    project_db.run(
-      "INSERT OR REPLACE INTO day_evaluations (student_id, day_id, attendance, retard, clothing, haircut, behavior, prayer, added_points, moyenne) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
-      [
-        studentId,
-        working_day_id,
-        attendanceValue,
-        attendanceValue === 1 ? retardInput.value : null,
-        parseInt(clothingInput.value) || null,
-        parseInt(haircutInput.value) || null,
-        parseInt(behaviorInput.value) || null,
-        parseInt(prayerInput.value) || null,
-        parseInt(addedPointsInput.value) || null,
-        attendanceValue === 1 ? evalMoyenne.value : 0,
-      ],
-    );
+  if (isTalkinClassroom) {
+    console.log(attendanceInputValue);
+    if (attendanceInputValue === 1) {
+      project_db.run(
+        "INSERT OR REPLACE INTO day_evaluations (student_id, day_id, attendance) VALUES (?, ?, ?);",
+        [studentId, working_day_id, attendanceInputValue],
+      );
+    } else if (attendanceInputValue === 2) {
+      project_db.run(
+        "DELETE FROM day_evaluations WHERE student_id = ? AND day_id = ?;",
+        [studentId, working_day_id],
+      );
+      project_db.run(
+        "DELETE FROM day_requirements WHERE student_id = ? AND day_id = ?;",
+        [studentId, working_day_id],
+      );
+    }
+    saveToIndexedDB(project_db.export());
+    loadDayStudentsList();
+    return;
   }
 
+  // Insert or update evaluations for present or justified absence
+  if (attendanceInputValue === 0 || attendanceInputValue === 1) {
+    if (!studentsDayInfos.secondDayIsWorkingDay) {
+      project_db.run(
+        "INSERT INTO day_evaluations (student_id, day_id, attendance, retard, clothing, haircut, behavior, prayer, added_points, moyenne) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(student_id, day_id) DO UPDATE SET attendance=excluded.attendance, retard=excluded.retard, clothing=excluded.clothing, haircut=excluded.haircut, behavior=excluded.behavior, prayer=excluded.prayer, added_points=excluded.added_points, moyenne=excluded.moyenne;",
+        [
+          studentId,
+          working_day_id,
+          attendanceInputValue,
+          attendanceInputValue === 1 ? retardInput.value : null,
+          parseInt(clothingInput.value) || null,
+          parseInt(haircutInput.value) || null,
+          parseInt(behaviorInput.value) || null,
+          parseInt(prayerInput.value) || null,
+          parseInt(addedPointsInput.value) || null,
+          attendanceInputValue === 1 ? evalMoyenne.value : 0,
+        ],
+      );
+    } else {
+      project_db.run(
+        `INSERT INTO day_evaluations (student_id, day_id, attendance, second_day) VALUES (?, ?, ?, ?) ON CONFLICT(student_id, day_id) DO UPDATE SET second_day=excluded.second_day;`,
+        [
+          studentId,
+          working_day_id,
+          2,
+          JSON.stringify({
+            attendance: attendanceInputValue,
+            retard: attendanceInputValue === 1 ? retardInput.value : null,
+            clothing: parseInt(clothingInput.value) || null,
+            haircut: parseInt(haircutInput.value) || null,
+            behavior: parseInt(behaviorInput.value) || null,
+            prayer: parseInt(prayerInput.value) || null,
+            added_points: parseInt(addedPointsInput.value) || null,
+            moyenne: attendanceInputValue === 1 ? evalMoyenne.value : 0,
+          }),
+        ],
+      );
+    }
+  }
+
+  let evaluationsIsDeleted = false;
   // Delete evaluations for unjustified absence
-  if (attendanceValue === 2) {
-    project_db.run(
-      "DELETE FROM day_evaluations WHERE student_id = ? AND day_id = ?;",
-      [studentId, working_day_id],
-    );
+  if (attendanceInputValue === 2) {
+    if (!studentsDayInfos.secondDayIsWorkingDay) {
+      project_db.run(
+        "UPDATE day_evaluations SET attendance = 2, retard = NULL, clothing = NULL, haircut = NULL, behavior = NULL, prayer = NULL, added_points = NULL, moyenne = NULL WHERE student_id = ? AND day_id = ?;",
+        [studentId, working_day_id],
+      );
+      project_db.run(
+        "DELETE FROM day_evaluations WHERE student_id = ? AND day_id = ? AND second_day IS NULL;",
+        [studentId, working_day_id],
+      );
+      evaluationsIsDeleted = project_db.getRowsModified() > 0;
+    } else {
+      project_db.run(
+        "UPDATE day_evaluations SET second_day = NULL WHERE student_id = ? AND day_id = ?;",
+        [studentId, working_day_id],
+      );
+      if ([null, 2].includes(attendance)) {
+        project_db.run(
+          "DELETE FROM day_evaluations WHERE student_id = ? AND day_id = ?;",
+          [studentId, working_day_id],
+        );
+        evaluationsIsDeleted = project_db.getRowsModified() > 0;
+      }
+    }
   }
 
   // Delete requirements for any absence
-  if (attendanceValue === 0 || attendanceValue === 2) {
-    project_db.run(
-      "DELETE FROM day_requirements WHERE student_id = ? AND day_id = ?;",
-      [studentId, working_day_id],
-    );
+  if (attendanceInputValue === 0 || attendanceInputValue === 2) {
+    if (
+      evaluationsIsDeleted ||
+      (studentsDayInfos.secondDayIsWorkingDay &&
+        [null, 2, 0].includes(attendance))
+    ) {
+      project_db.run(
+        "DELETE FROM day_requirements WHERE student_id = ? AND day_id = ?;",
+        [studentId, working_day_id],
+      );
+    } else if (!studentsDayInfos.secondDayIsWorkingDay) {
+      project_db.run(
+        "DELETE FROM day_requirements WHERE student_id = ? AND day_id = ? AND EXISTS (SELECT 1 FROM day_evaluations WHERE student_id = ? AND day_id = ? AND (second_day IS NULL OR json_extract(second_day, '$.attendance') = 0));",
+        [studentId, working_day_id, studentId, working_day_id],
+      );
+    }
+    console.log("day_requirements deleted: ", project_db.getRowsModified() > 0);
   }
 
-  Object.keys(teachersPoints).forEach((key) => {
-    project_db.run(
-      `UPDATE day_evaluations SET added_points = COALESCE(added_points, 0) + ? ,
+  if (!studentsDayInfos.secondDayIsWorkingDay) {
+    Object.keys(teachersPoints).forEach((key) => {
+      project_db.run(
+        `UPDATE day_evaluations SET added_points = COALESCE(added_points, 0) + ? ,
                                   moyenne = COALESCE(moyenne, 0) + ?
                                   WHERE student_id = ?  
                                   AND day_id = ?;`,
-      [teachersPoints[key], teachersPoints[key], key, working_day_id],
-    );
-  });
-  teachersPoints = {};
+        [teachersPoints[key], teachersPoints[key], key, working_day_id],
+      );
+    });
+  } else {
+    Object.keys(teachersPoints).forEach((key) => {
+      project_db.run(
+        `UPDATE day_evaluations SET second_day = json_set(
+              COALESCE(second_day, '{}'), 
+              '$.moyenne', COALESCE(json_extract(second_day, '$.moyenne'), 0) + ?,
+              '$.added_points', COALESCE(json_extract(second_day, '$.added_points'), 0) + ?
+          )
+          WHERE student_id = ? AND day_id = ?;`,
+        [teachersPoints[key], teachersPoints[key], key, working_day_id],
+      );
+    });
+  }
 
+  teachersPoints = {};
   saveToIndexedDB(project_db.export());
   loadDayStudentsList();
 }
 
-function calcRetardTime() {
+function calcRetardTime(secondDayIsWorkingDay) {
   let retardTime = 0;
   const now = DateTime.now();
-  const startTime = DateTime.fromFormat(studentDayInfos.start_time, "HH:mm");
+  const startTime = DateTime.fromFormat(
+    secondDayIsWorkingDay
+      ? studentsDayInfos.secondDayInfos.start_time
+      : studentsDayInfos.start_time,
+    "HH:mm",
+  );
   // For accurate diff calculation, set the date to today for both
   const startTimeToday = now.set({
     hour: startTime.hour,
@@ -1767,7 +1906,10 @@ function calcRetardTime() {
   return Math.round(now.diff(startTimeToday, "minutes").minutes);
 }
 
-function checkAuthorizedOut(time, requirsMoyenne, minutesToAdd) {
+function checkAuthorizedOut(requirsMoyenne, minutesToAdd) {
+  const time = studentsDayInfos.secondDayIsWorkingDay
+    ? studentsDayInfos.secondDayInfos.start_time
+    : studentsDayInfos.start_time;
   const now = new Date();
   const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
   const [h, m] = time.split(":").map(Number);
@@ -1792,31 +1934,81 @@ async function showOffCanvas(title, body, side = "top") {
     new bootstrap.Offcanvas(myOffcanvas).show();
 }
 
-window.markPresence = async function (studentId) {
-  const retard_time = calcRetardTime();
-  project_db.run(
-    "INSERT OR REPLACE INTO day_evaluations (student_id, day_id, attendance,retard,clothing,haircut,behavior,added_points,moyenne) VALUES (?,?, ?,?, ?,?,?,?,?);",
-    [
-      studentId,
-      workingDayID,
-      1,
-      retard_time,
-      null,
-      null,
-      null,
-      null,
-      calcEvaluationMoyenne(retard_time, null, null, null, null, null),
-    ],
-  );
+window.markPresence = async function (studentId, attendance) {
+  const retard_time = calcRetardTime(studentsDayInfos.secondDayIsWorkingDay);
+  if (!studentsDayInfos.secondDayIsWorkingDay) {
+    project_db.run(
+      `INSERT INTO day_evaluations (student_id, day_id, attendance, retard, clothing, haircut, behavior, prayer, added_points, moyenne, second_day)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(student_id, day_id) DO UPDATE SET
+           attendance = excluded.attendance,
+           retard = excluded.retard,
+           clothing = excluded.clothing,
+           haircut = excluded.haircut,
+           behavior = excluded.behavior,
+           prayer = excluded.prayer,
+           added_points = excluded.added_points,
+           moyenne = excluded.moyenne`,
+      [
+        studentId,
+        workingDayID,
+        1,
+        retard_time,
+        null,
+        null,
+        null,
+        null,
+        null,
+        calcEvaluationMoyenne(retard_time, null, null, null, null, null),
+        null,
+      ],
+    );
+  } else {
+    project_db.run(
+      `INSERT INTO day_evaluations (student_id, day_id, attendance, retard, clothing, haircut, behavior, prayer, added_points, moyenne, second_day)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(student_id, day_id) DO UPDATE SET
+           second_day = excluded.second_day`,
+      [
+        studentId,
+        workingDayID,
+        2,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        JSON.stringify({
+          attendance: 1,
+          retard: retard_time,
+          clothing: null,
+          haircut: null,
+          behavior: null,
+          prayer: null,
+          added_points: null,
+          moyenne: calcEvaluationMoyenne(
+            retard_time,
+            null,
+            null,
+            null,
+            null,
+            null,
+          ),
+        }),
+      ],
+    );
+  }
   saveToIndexedDB(project_db.export());
   await loadDayStudentsList();
 };
 
-function showApopintmentTimePicker(initialTime = null) {
-  setApointementTimeToNow();
+function showAppointmentTimePicker(secondDay = false) {
+  setAppointementTimeToNow();
   updateAppointmentTimeDisplay();
   addNewStudyDayBtn.onclick = () => {
-    addNewStudyDay();
+    addNewStudyDay((secondDay = secondDay));
   };
   new bootstrap.Modal("#timeModal").show();
 }
@@ -1852,14 +2044,14 @@ function adjustApointementTimeMinutes(minutes) {
   updateAppointmentTimeDisplay();
 }
 
-function setApointementTimeToNow() {
+function setAppointementTimeToNow() {
   const now = new Date();
   currentTime.hours = now.getHours();
   currentTime.minutes = now.getMinutes();
   updateAppointmentTimeDisplay();
 }
 
-async function addNewStudyDay() {
+async function addNewStudyDay(secondDay = false) {
   if (!project_db) {
     indow.showToast("info", "لا يوجد قاعدة بيانات مفتوحة....");
     return;
@@ -1875,26 +2067,8 @@ async function addNewStudyDay() {
     window.showToast("error", "يرجى اختيار وقت صحيح.");
     return;
   }
-  try {
-    project_db.run(
-      "INSERT OR REPLACE INTO education_day (date,time, notes,class_room_id,evaluation_ladder_id,isObligatory) VALUES (?,?, ?,?,(SELECT id FROM evaluation_ladder ORDER BY rowid DESC LIMIT 1),?);",
-      [
-        workingDay,
-        appointment_time,
-        null,
-        workingClassroomId,
-        document.getElementById("obligatoryCheck").checked,
-      ],
-    );
-  } catch (error) {
-    if (
-      String(error).includes(
-        "table education_day has no column named isObligatory",
-      )
-    ) {
-      project_db.run(
-        "ALTER TABLE education_day ADD COLUMN isObligatory BOOLEAN DEFAULT 1;",
-      );
+  if (!secondDay) {
+    try {
       project_db.run(
         "INSERT OR REPLACE INTO education_day (date,time, notes,class_room_id,evaluation_ladder_id,isObligatory) VALUES (?,?, ?,?,(SELECT id FROM evaluation_ladder ORDER BY rowid DESC LIMIT 1),?);",
         [
@@ -1902,12 +2076,42 @@ async function addNewStudyDay() {
           appointment_time,
           null,
           workingClassroomId,
-          document.getElementById("obligatoryCheck").checked,
+          obligatoryCheck.checked,
         ],
       );
+    } catch (error) {
+      if (
+        String(error).includes(
+          "table education_day has no column named isObligatory",
+        )
+      ) {
+        project_db.run(
+          "ALTER TABLE education_day ADD COLUMN isObligatory BOOLEAN DEFAULT 1;",
+        );
+        project_db.run(
+          "INSERT OR REPLACE INTO education_day (date,time, notes,class_room_id,evaluation_ladder_id,isObligatory) VALUES (?,?, ?,?,(SELECT id FROM evaluation_ladder ORDER BY rowid DESC LIMIT 1),?);",
+          [
+            workingDay,
+            appointment_time,
+            null,
+            workingClassroomId,
+            obligatoryCheck.checked,
+          ],
+        );
+      }
     }
+    studentsDayInfos.start_time = appointment_time;
+  } else {
+    project_db.run("UPDATE education_day SET second_day = ? WHERE id = ?;", [
+      JSON.stringify({
+        start_time: appointment_time,
+        isObligatory: obligatoryCheck.checked,
+        dayNote: "",
+      }),
+      workingDayID,
+    ]);
   }
-  studentDayInfos.start_time = appointment_time;
+
   saveToIndexedDB(project_db.export());
   getStudyDays();
   await loadDayStudentsList();
@@ -1944,13 +2148,15 @@ async function showStudentDayModal(isUniqueStudent = true) {
   }
   document.getElementById("requirCollapse").parentElement.style.display =
     isUniqueStudent ? "block" : "none";
+  document.getElementById("evaluationCollapse").parentElement.style.display =
+    !isTalkinClassroom ? "block" : "none";
   evalMoyenne.disabled = !isUniqueStudent;
   retardInput.disabled = !isUniqueStudent;
 }
 
 function parseRequirment(requir, book, bulletin = false) {
   if (book !== "القرآن الكريم")
-    return `${book} ${bulletin ? ")" : "("} ${requir.length > 35 ? requir.slice(0, 35) + "... " : requir}${bulletin ? "(" : ")"}`;
+    return `${book} ${bulletin ? ")" : "("}  ${requir.length > 35 ? requir.slice(0, 35) + "... " : requir} ${bulletin ? "(" : ")"}`;
   const reqlist = requir.split(" ");
   if (reqlist[0] == reqlist[4]) {
     const numberOfAyahs = quranData.surahs.find(
@@ -1960,7 +2166,7 @@ function parseRequirment(requir, book, bulletin = false) {
       if (reqlist[2] == 1)
         return `سورة ${reqlist[0]} ${bulletin ? ")" : "("}كاملة${bulletin ? "(" : ")"}`;
       else
-        return `سورة ${reqlist[0]} ${bulletin ? ") " : "("}${reqlist[2]} -  النهاية${bulletin ? "(" : ")"}`;
+        return `سورة ${reqlist[0]} ${bulletin ? ") " : "("}${reqlist[2]} -  النهاية ${bulletin ? "(" : ")"}`;
     }
     return `سورة ${reqlist[0]} ${bulletin ? ") " : "("}${reqlist[2]} - ${reqlist[6]}${bulletin ? " (" : ")"}`;
   } else {
@@ -1986,29 +2192,35 @@ window.showRequirementsHistory = function (student_id, page = 1) {
     });
   requirsDates = requirsDates.map((date) => new Date(date));
   showOffCanvas(
-    "المتطلبات السابقة",
+    `المتطلبات السابقة`,
     `<ul> ${requirs
       .map(
         (i, index) =>
-          `<li><strong>${new Intl.DateTimeFormat(
-            "ar-DZ-u-ca-islamic-umalqura",
-            {
+          `<li>
+            <strong>${new Intl.DateTimeFormat("ar-DZ-u-ca-islamic-umalqura", {
               day: "numeric",
               month: "long",
               weekday: "long",
-            },
-          ).format(
-            requirsDates[index],
-          )} (${DateTime.fromJSDate(requirsDates[index]).hasSame(DateTime.now(), "day") ? "اليوم" : fromNow(requirsDates[index]).replace("منذ", "قبل")})</strong>` +
+            }).format(
+              requirsDates[index],
+            )} (${DateTime.fromJSDate(requirsDates[index]).hasSame(DateTime.now(), "day") ? "اليوم" : fromNow(requirsDates[index]).replace("منذ", "قبل")})
+            </strong> ` +
+          (index === 0
+            ? `<a href="${getNextRequirement(
+                JSON.parse(i)[0],
+                false,
+              )}" class="fa-solid fa-file-audio" target="_blank" rel="noopener noreferrer"></a>`
+            : "") +
           `<ul>` +
           JSON.parse(i)
             .map(
               (i) =>
-                `<li>${i["النوع"]} - ${parseRequirment(i["التفاصيل"], i["الكتاب"])}</li>`,
+                `<li>${i["النوع"]} - ${parseRequirment(i["التفاصيل"], i["الكتاب"])}</li> `,
             )
             .reverse()
             .join("") +
-          `</ul></li>`,
+          `</ul>
+          </li>`,
       )
       .join(
         "",
@@ -2018,22 +2230,54 @@ window.showRequirementsHistory = function (student_id, page = 1) {
   );
 };
 
-window.changeObligatory = async function (switchElement) {
+window.changeObligatory = async function (switchElement, secondDay = false) {
   if (!project_db) {
     window.showToast("info", "لا يوجد قاعدة بيانات مفتوحة.");
     return;
   }
   try {
-    project_db.run("UPDATE education_day SET isObligatory = ? WHERE id = ?;", [
-      switchElement.checked,
-      workingDayID,
-    ]);
+    if (secondDay) {
+      project_db.run(
+        "UPDATE education_day SET second_day = json_set(second_day, '$.isObligatory', json(?)) WHERE id = ?;",
+        [switchElement.checked ? "true" : "false", workingDayID],
+      );
+    } else {
+      project_db.run(
+        "UPDATE education_day SET isObligatory = ? WHERE id = ?;",
+        [switchElement.checked, workingDayID],
+      );
+    }
     saveToIndexedDB(project_db.export());
     loadDayStudentsList();
   } catch (e) {
+    console.error(e);
     window.showToast("error", "Error: " + e.message);
   }
 };
+
+function isCurrentDay() {
+  const now = new Date();
+  if (now.toISOString().slice(0, 10) != workingDay) return false;
+
+  const [targetHours, targetMinutes] = (
+    studentsDayInfos.secondDayIsWorkingDay
+      ? studentsDayInfos.secondDayInfos.start_time
+      : studentsDayInfos.start_time
+  )
+    .split(":")
+    .map(Number);
+
+  const targetTime = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+    targetHours,
+    targetMinutes,
+  );
+
+  // Convert to minutes
+  return Math.floor((now - targetTime) / (1000 * 60)) <= 4 * 60;
+}
 
 async function loadDayStudentsList() {
   dayNoteContainer.style.display = "none";
@@ -2083,20 +2327,44 @@ async function loadDayStudentsList() {
   }
 
   workingDayID = dayResult[0].values[0][dayResult[0].columns.indexOf("id")];
-  studentDayInfos.start_time =
+  try {
+    studentsDayInfos.secondDayInfos = JSON.parse(
+      dayResult[0].values[0][dayResult[0].columns.indexOf("second_day")],
+    );
+  } catch (e) {
+    await project_db.run(
+      "ALTER TABLE education_day ADD COLUMN second_day text CHECK(JSON_VALID(second_day) OR second_day IS NULL);",
+    );
+    await project_db.run(
+      "ALTER TABLE day_evaluations ADD COLUMN second_day text CHECK(JSON_VALID(second_day) OR second_day IS NULL);",
+    );
+    studentsDayInfos.secondDayInfos = null;
+    saveToIndexedDB(project_db.export());
+    loadDayStudentsList();
+    return;
+  }
+  if (!studentsDayInfos.secondDayInfos)
+    studentsDayInfos.secondDayIsWorkingDay = false;
+  const secondDayIsWorkingDay = studentsDayInfos.secondDayIsWorkingDay;
+
+  studentsDayInfos.start_time =
     dayResult[0].values[0][dayResult[0].columns.indexOf("time")] || null;
 
-  studentDayInfos.dayNote =
+  studentsDayInfos.dayNote =
     dayResult[0].values[0][dayResult[0].columns.indexOf("notes")] || "";
-  dayNoteContainer.style.display = studentDayInfos.dayNote ? "block" : "none";
-  dayNoteContainer.innerHTML = `<em>${studentDayInfos.dayNote}</em>`;
+  dayNoteContainer.style.display =
+    (!secondDayIsWorkingDay && studentsDayInfos.dayNote) ||
+    (secondDayIsWorkingDay && studentsDayInfos.secondDayInfos.dayNote)
+      ? "block"
+      : "none";
+  dayNoteContainer.innerHTML = `<em>${secondDayIsWorkingDay ? studentsDayInfos.secondDayInfos.dayNote : studentsDayInfos.dayNote}</em>`;
 
-  studentDayInfos.isObligatory =
+  studentsDayInfos.isObligatory =
     dayResult[0].values[0][dayResult[0].columns.indexOf("isObligatory")];
   document.getElementById("dayListTable").style.display = "block";
   addNewDayBtn.style.display = "none";
   document.getElementById("JustifiedAbsence").disabled =
-    studentDayInfos.isObligatory ? false : true;
+    studentsDayInfos.isObligatory && !isTalkinClassroom ? false : true;
 
   try {
     const results = project_db.exec(`
@@ -2108,13 +2376,19 @@ async function loadDayStudentsList() {
           dr.detail AS "detail",
           dr.moyenne AS "requirsMoyenne",
           de.attendance AS "attendance",
-          de.retard AS "retard",
-          de.clothing AS "clothing", 
-          de.haircut AS "haircut",
-          de.behavior AS "behavior",
-          de.prayer AS "prayer",
-          de.added_points AS "added_points",
-          de.moyenne AS "evalMoyenne"
+          ${
+            !secondDayIsWorkingDay && !isTalkinClassroom
+              ? `
+              de.retard AS "retard",
+              de.clothing AS "clothing", 
+              de.haircut AS "haircut",
+              de.behavior AS "behavior",
+              de.prayer AS "prayer",
+              de.added_points AS "added_points",
+              de.moyenne AS "evalMoyenne",`
+              : ""
+          }
+          de.second_day AS "secondDay"
       FROM students s
       LEFT JOIN day_requirements dr ON s.id = dr.student_id AND dr.day_id = '${workingDayID}'
       LEFT JOIN day_evaluations de ON s.id = de.student_id AND de.day_id = '${workingDayID}'
@@ -2129,9 +2403,51 @@ async function loadDayStudentsList() {
     if (results.length) {
       const result = results[0];
       result.values.forEach((row) => {
+        let retardValue,
+          clothingValue,
+          attendanceValue,
+          haircutValue,
+          behaviorValue,
+          prayerValue,
+          addedPointsValue,
+          evalMoyenneValue;
+
+        if (isTalkinClassroom) {
+          retardValue = null;
+          clothingValue = null;
+          haircutValue = null;
+          behaviorValue = null;
+          prayerValue = null;
+          addedPointsValue = null;
+          evalMoyenneValue = null;
+          attendanceValue = row[result.columns.indexOf("attendance")];
+        } else if (!secondDayIsWorkingDay) {
+          retardValue = row[result.columns.indexOf("retard")];
+          clothingValue = row[result.columns.indexOf("clothing")];
+          haircutValue = row[result.columns.indexOf("haircut")];
+          behaviorValue = row[result.columns.indexOf("behavior")];
+          prayerValue = row[result.columns.indexOf("prayer")];
+          addedPointsValue = row[result.columns.indexOf("added_points")];
+          evalMoyenneValue = row[result.columns.indexOf("evalMoyenne")]
+            ? parseFloat(row[result.columns.indexOf("evalMoyenne")]).toFixed(2)
+            : null;
+          attendanceValue = row[result.columns.indexOf("attendance")];
+          if (attendanceValue == "2") attendanceValue = null;
+        } else {
+          const secondDayData = JSON.parse(
+            row[result.columns.indexOf("secondDay")],
+          );
+          retardValue = secondDayData?.retard ?? null;
+          clothingValue = secondDayData?.clothing ?? null;
+          haircutValue = secondDayData?.haircut ?? null;
+          behaviorValue = secondDayData?.behavior ?? null;
+          prayerValue = secondDayData?.prayer ?? null;
+          addedPointsValue = secondDayData?.added_points ?? null;
+          evalMoyenneValue = secondDayData?.moyenne ?? null;
+          attendanceValue = secondDayData?.attendance ?? null;
+        }
+
         const student_id = row[result.columns.indexOf("studentId")];
-        const attendance = row[result.columns.indexOf("attendance")];
-        const retardValue = row[result.columns.indexOf("retard")];
         const full_name =
           row[result.columns.indexOf("studentFName")] +
           " " +
@@ -2139,7 +2455,7 @@ async function loadDayStudentsList() {
 
         // fill teacher options
         if (
-          attendance == "1" &&
+          attendanceValue == "1" &&
           !Array.from(requirTeacherInput.options)
             .map((option) => option.value)
             .includes(student_id)
@@ -2158,7 +2474,7 @@ async function loadDayStudentsList() {
 
           studentNameInput.value = full_name;
 
-          if (isEvaluation) {
+          if (isEvaluation && !isTalkinClassroom) {
             evaluationCollapse.show();
             requirCollapse.hide();
           } else {
@@ -2169,25 +2485,28 @@ async function loadDayStudentsList() {
             }, 500);
           }
 
-          setAttendanceValue(attendance);
-          retardInput.value =
-            retardValue !== null ? retardValue : calcRetardTime();
-          clothingInput.value = row[result.columns.indexOf("clothing")] || "0";
-          haircutInput.value = row[result.columns.indexOf("haircut")] || "0";
-          behaviorInput.value = row[result.columns.indexOf("behavior")] || "0";
-          prayerInput.value = row[result.columns.indexOf("prayer")] || "0";
-          addedPointsInput.value =
-            row[result.columns.indexOf("added_points")] || "0";
-          evalMoyenne.value =
-            row[result.columns.indexOf("evalMoyenne")]?.toFixed(2) ||
-            calcEvaluationMoyenne(
-              retardInput.value,
-              clothingInput.value,
-              haircutInput.value,
-              behaviorInput.value,
-              prayerInput.value,
-              addedPointsInput.value,
-            );
+          setAttendanceInputValue(attendanceValue);
+          if (!isTalkinClassroom) {
+            retardInput.value =
+              retardValue !== null
+                ? retardValue
+                : calcRetardTime(secondDayIsWorkingDay);
+            clothingInput.value = clothingValue || "0";
+            haircutInput.value = haircutValue || "0";
+            behaviorInput.value = behaviorValue || "0";
+            prayerInput.value = prayerValue || "0";
+            addedPointsInput.value = addedPointsValue || "0";
+            evalMoyenne.value =
+              parseFloat(evalMoyenneValue).toFixed(2) ||
+              calcEvaluationMoyenne(
+                retardInput.value,
+                clothingInput.value,
+                haircutInput.value,
+                behaviorInput.value,
+                prayerInput.value,
+                addedPointsInput.value,
+              );
+          }
 
           historyRequirBtn.onclick = () =>
             window.showRequirementsHistory(student_id);
@@ -2195,36 +2514,44 @@ async function loadDayStudentsList() {
           requirsMoyenneInput.value =
             row[result.columns.indexOf("requirsMoyenne")] || "0.00";
           requirementsTable.querySelector("tbody").innerHTML = "";
-          JSON.parse(row[result.columns.indexOf("detail")] || "[]").forEach(
-            (item, index, arr) => {
-              const row = document.createElement("tr");
-              row.innerHTML = `
+          const detailDataJson = JSON.parse(
+            row[result.columns.indexOf("detail")] || "[]",
+          );
+          // .filter(
+          //   (item) =>
+          //     JSON.parse(item["الحصة المسائية"]) ===
+          //     studentsDayInfos.secondDayIsWorkingDay,
+          // );
+          detailDataJson.forEach((item, index, arr) => {
+            const row = document.createElement("tr");
+            row.innerHTML = `
                 <td>${item["الكتاب"]}</td>
                 <td>${item["النوع"]}</td>
-                <td class="d-none">${item["المقدار"]}</td>
-                <td style="white-space: normal;">${item["التفاصيل"]}</td>
+                <td>${item["المقدار"]}</td>
+                <td>${item["التفاصيل"]}</td>
                 <td>${item["التقدير"]}</td>
                 <td>${item["الأخطاء"] || ""}</td>
                 <td>${item["التنبيهات"] || ""}</td>
                 <td>${item["المعدل"]}</td>
                 <td>${item["المعرض"] || ""}</td>
                 <td>${item["الإعادة"] || ""}</td>
-                <td><div class="btn-group" role="group" aria-label="Vertical button group">
+                <td>
+                  <div class="btn-group" role="group" aria-label="Vertical button group">
                     <button type="button" class="btn btn-success" onclick="editRequirement(this);"><i class="fa-solid fa-pen-to-square"></i></button>
-                    <button class="btn btn-danger btn-sm" onclick="removeRequirItem(this,${student_id})"><i class="fa-solid fa-xmark"></i></button></td></div>`;
-              requirementsTable.querySelector("tbody").appendChild(row);
-              if (index === arr.length - 1) {
-                initRequirementFields({
-                  الكتاب: item["الكتاب"],
-                  النوع: item["النوع"],
-                  التفاصيل: item["التفاصيل"],
-                });
-              }
-            },
-          );
-          if (
-            !JSON.parse(row[result.columns.indexOf("detail")] || "[]").length
-          ) {
+                    <button class="btn btn-danger btn-sm" onclick="removeRequirItem(this,${student_id})"><i class="fa-solid fa-xmark"></i></button>
+                  </div>
+                </td>
+                <td>${item["الحصة المسائية"] || ""}</td>`;
+            requirementsTable.querySelector("tbody").appendChild(row);
+            if (index === arr.length - 1) {
+              getNextRequirement({
+                الكتاب: item["الكتاب"],
+                النوع: item["النوع"],
+                التفاصيل: item["التفاصيل"],
+              });
+            }
+          });
+          if (!detailDataJson.length) {
             const lsR = project_db.exec(`
                     SELECT dr.detail
                     FROM day_requirements dr
@@ -2232,7 +2559,7 @@ async function loadDayStudentsList() {
                     WHERE dr.student_id = ${student_id}
                     ORDER BY ed.date DESC
                     LIMIT 1;`);
-            initRequirementFields(
+            getNextRequirement(
               lsR.length ? JSON.parse(lsR[0].values[0][0]).at(-1) : null,
             );
           }
@@ -2243,87 +2570,90 @@ async function loadDayStudentsList() {
               window.showToast("info", "لا يوجد قاعدة بيانات مفتوحة.");
               return;
             }
-            update_student_day_notes(student_id, working_day_id);
+            update_student_day_notes(
+              student_id,
+              working_day_id,
+              row[result.columns.indexOf("attendance")],
+            );
             this.disabled = true;
             this.nextElementSibling.disabled = true;
           };
         }
 
-        const attendance_value = attendance;
         // edit button
         const evaluationDayContainer = document.createElement("div");
-        const evaluationDayIcon = document.createElement("i");
-        evaluationDayIcon.className = "fa-solid fa-pen-to-square";
-        evaluationDayIcon.onclick = () => editStudentDay(true);
-        if (!attendance_value) {
-          ("pass");
-        } else if (
-          row[result.columns.indexOf("clothing")] == null &&
-          row[result.columns.indexOf("haircut")] == null &&
-          row[result.columns.indexOf("behavior")] == null
-        ) {
-          evaluationDayIcon.textContent =
-            "   " + row[result.columns.indexOf("evalMoyenne")];
-        } else {
-          evaluationDayContainer.append(
-            row[result.columns.indexOf("evalMoyenne")] + "   ",
-          );
+        if (!isTalkinClassroom) {
+          const evaluationDayIcon = document.createElement("i");
+          evaluationDayIcon.className = "fa-solid fa-pen-to-square";
+          evaluationDayIcon.onclick = () => editStudentDay(true);
+          if (!attendanceValue) {
+            ("pass");
+          } else if (
+            clothingValue == null &&
+            haircutValue == null &&
+            behaviorValue == null
+          ) {
+            evaluationDayIcon.textContent = "   " + evalMoyenneValue;
+          } else {
+            evaluationDayContainer.append(evalMoyenneValue + "   ");
+          }
+          evaluationDayContainer.append(evaluationDayIcon);
         }
-        evaluationDayContainer.append(evaluationDayIcon);
+
+        const requirsMoyenneValue =
+          row[result.columns.indexOf("requirsMoyenne")] || "0.00";
+        const parentPhone = row[result.columns.indexOf("parentPhone")];
+        const studentFName = row[result.columns.indexOf("studentFName")];
 
         const requirmentsDayValue = `${
-          attendance_value
-            ? row[result.columns.indexOf("requirsMoyenne")] || "0.00"
-            : ""
+          attendanceValue ? requirsMoyenneValue : ""
         }    <i onclick="showRequirementsHistory(${student_id})" class="fa-solid fa-clock-rotate-left"></i>`;
 
-        const editBtn = attendance_value ? document.createElement("i") : "";
-        if (attendance_value) {
+        const editBtn = attendanceValue ? document.createElement("i") : null;
+        if (editBtn) {
           editBtn.className = "fa-solid fa-square-plus";
           editBtn.style.cssText = "transform: scale(1.5); cursor: pointer;";
           editBtn.onclick = () => editStudentDay(false);
         }
 
-        const thisDay = new Date().toISOString().slice(0, 10);
+        const retardText = !isTalkinClassroom
+          ? retardValue < 0
+            ? `قبل ${-retardValue} د `
+            : retardValue == 0
+              ? `في الوقت `
+              : `بعد ${retardValue} د `
+          : `حاضر${isGirls ? "ة" : ""}`;
+
+        const attendanceText =
+          attendanceValue == 1
+            ? `${retardText}${
+                isCurrentDay() &&
+                !isTalkinClassroom &&
+                checkAuthorizedOut(requirsMoyenneValue, retardValue)
+                  ? "🟢"
+                  : ""
+              }`
+            : attendanceValue == 0
+              ? "غياب مبرر"
+              : isCurrentDay()
+                ? `<button onclick="const cscy=window.scrollY;markPresence(${student_id},${row[result.columns.indexOf("attendance")]});window.scrollTo({top: cscy,behavior: 'instant'});" class="btn fa-solid fa-square-check px-1" style="transform: scale(1.3); cursor: pointer;"></button>` +
+                  (parentPhone
+                    ? `<input type="checkbox" id="sms_btn${student_id}" onclick="window.location.href='sms:${parentPhone}?body=ليكن في علمكم أن إبن${isGirls ? "ت" : ""}كم ${studentFName} غائب${
+                        isGirls ? "ة" : ""
+                      } عن حصة تحفيظ القرآن اليوم'" class="btn-check" autocomplete="off">
+                    <label class="btn fa-solid fa-comment-sms px-2" for="sms_btn${student_id}"></label>`
+                    : "")
+                : "غائب" + (isGirls ? "ة" : "");
+
         data.push({
           select: "",
           id: student_id,
           student: full_name,
-          attendance:
-            attendance_value == 1
-              ? (retardValue < 0
-                  ? `قبل ${retardValue * -1} د `
-                  : retardValue == 0
-                    ? `في الوقت `
-                    : `بعد ${retardValue} د `) +
-                (thisDay == workingDay &&
-                checkAuthorizedOut(
-                  studentDayInfos.start_time,
-                  row[result.columns.indexOf("requirsMoyenne")],
-                  retardValue,
-                )
-                  ? "🟢"
-                  : "")
-              : attendance_value == 0
-                ? "غياب مبرر"
-                : `<button onclick="const cscy=window.scrollY;markPresence(${student_id});window.scrollTo({top: cscy,behavior: 'instant'});" class="btn fa-solid fa-square-check px-1" style="transform: scale(1.3); cursor: pointer;"></button>` +
-                  (thisDay == workingDay &&
-                  row[result.columns.indexOf("parentPhone")]
-                    ? `<input type="checkbox" id="sms_btn${student_id}" onclick="window.location.href='sms:${
-                        row[result.columns.indexOf("parentPhone")]
-                      }?body=ليكن في علمكم أن إبن${isGirls ? "ت" : ""}كم ${
-                        row[result.columns.indexOf("studentFName")]
-                      } غائب${
-                        isGirls ? "ة" : ""
-                      } عن حصة تحفيظ القرآن اليوم'" class="btn-check" autocomplete="off">
-                    <label class="btn fa-solid fa-comment-sms px-2" for="sms_btn${student_id}"></label>`
-                    : ""),
-          evaluation: attendance_value
-            ? calcGlobalMoyenne(
-                row[result.columns.indexOf("requirsMoyenne")],
-                row[result.columns.indexOf("evalMoyenne")],
-              )
-            : null,
+          attendance: attendanceText,
+          evaluation:
+            attendanceValue && !isTalkinClassroom
+              ? calcGlobalMoyenne(requirsMoyenneValue, evalMoyenneValue)
+              : null,
           evalMoyenne: evaluationDayContainer,
           requirsMoyenne: requirmentsDayValue,
           actions: editBtn,
@@ -2334,7 +2664,7 @@ async function loadDayStudentsList() {
       showTab("pills-students");
       return;
     }
-    await initOrReloadDataTable(
+    const table = await initOrReloadDataTable(
       "#dayListTable",
       data,
       [
@@ -2364,6 +2694,7 @@ async function loadDayStudentsList() {
         },
         {
           data: "evaluation",
+          visible: !isTalkinClassroom,
           className: "text-center fw-bold fs-5",
           type: "num",
           defaultContent: "/",
@@ -2376,6 +2707,7 @@ async function loadDayStudentsList() {
         },
         {
           data: "evalMoyenne",
+          visible: !isTalkinClassroom,
           className: "text-center",
           type: "num",
           defaultContent: "/",
@@ -2440,8 +2772,29 @@ async function loadDayStudentsList() {
                 text: '<i class="fa-solid fa-table"></i>',
               },
               {
+                text: '<i class="fa-solid fa-1"></i>',
+                action: async function (e, dt) {
+                  studentsDayInfos.secondDayIsWorkingDay =
+                    !studentsDayInfos.secondDayIsWorkingDay;
+                  dt.button(1).text(
+                    studentsDayInfos.secondDayIsWorkingDay
+                      ? '<i class="fa-solid fa-2"></i>'
+                      : '<i class="fa-solid fa-1"></i>',
+                  );
+                  loadDayStudentsList();
+                },
+              },
+              {
                 text: '<i class="fa-solid fa-pen-to-square"></i>',
                 action: async function (e, dt) {
+                  if (isTalkinClassroom) {
+                    window.showToast(
+                      "info",
+                      "هذه الميزة غير متوفرة في أفواج التلقين.",
+                    );
+                    return;
+                  }
+
                   const selectedRows = dt
                     .rows({ selected: true })
                     .data()
@@ -2552,14 +2905,59 @@ async function loadDayStudentsList() {
                 autoClose: true,
                 buttons: [
                   {
+                    text: '<i class="fa-solid fa-plus"></i> إضافة حصة ثانية',
+                    className: "add-second-day-btn d-none",
+                    action: async function () {
+                      showAppointmentTimePicker(true);
+                    },
+                  },
+                  {
+                    text: '<i class="fa-solid fa-minus"></i> حذف الحصة الثانية',
+                    className: "d-none",
+                    action: async function () {
+                      if (
+                        !(await swal({
+                          text: "هل تريد إلغاء الحصة الثانية ؟",
+                          icon: "warning",
+                          buttons: ["لا", "نعم"],
+                        }))
+                      )
+                        return;
+
+                      if (!project_db) {
+                        window.showToast(
+                          "info",
+                          "لا يوجد قاعدة بيانات مفتوحة.",
+                        );
+                        return;
+                      }
+                      try {
+                        project_db.run(
+                          "UPDATE education_day SET second_day = NULL WHERE id = ?;",
+                          [workingDayID],
+                        );
+                        project_db.run(
+                          "UPDATE day_evaluations SET second_day = NULL WHERE student_id IN (SELECT id FROM students WHERE class_room_id = ?) AND day_id = ?;",
+                          [workingClassroomId, workingDayID],
+                        );
+                      } catch (e) {
+                        console.error(e);
+                        window.showToast("error", "Error: " + e.message);
+                      }
+                      saveToIndexedDB(project_db.export());
+                      loadDayStudentsList();
+                    },
+                  },
+                  {
                     text: '<i class="fa-regular fa-comment"></i> ملاحظة الحصة',
-                    className: "note-btn",
                     action: async function () {
                       swal("أكتب ملاحظة:", {
                         content: {
                           element: "input",
                           attributes: {
-                            placeholder: studentDayInfos.dayNote,
+                            placeholder: studentsDayInfos.secondDayIsWorkingDay
+                              ? studentsDayInfos.secondDayInfos.dayNote
+                              : studentsDayInfos.dayNote,
                           },
                         },
                         buttons: [
@@ -2582,17 +2980,25 @@ async function loadDayStudentsList() {
                             return;
                           }
                           try {
-                            project_db.run(
-                              "UPDATE education_day SET notes = ? WHERE id = ?;",
-                              [value || null, workingDayID],
-                            );
+                            if (studentsDayInfos.secondDayIsWorkingDay) {
+                              project_db.run(
+                                "UPDATE education_day SET second_day = json_set(second_day, '$.dayNote', ?) WHERE id = ?;",
+                                [value || null, workingDayID],
+                              );
+                            } else {
+                              project_db.run(
+                                "UPDATE education_day SET notes = ? WHERE id = ?;",
+                                [value || null, workingDayID],
+                              );
+                            }
                             saveToIndexedDB(project_db.export());
                             dayNoteContainer.style.display = value
                               ? "block"
                               : "none";
                             dayNoteContainer.innerHTML = `<em>${value}</em>`;
-                            studentDayInfos.dayNote = value;
+                            studentsDayInfos.dayNote = value;
                           } catch (e) {
+                            console.error(e);
                             window.showToast("error", "Error: " + e.message);
                           }
                         }
@@ -2600,26 +3006,50 @@ async function loadDayStudentsList() {
                     },
                   },
                   {
-                    text: '<i class="fa-solid fa-circle-info"></i> معلومات الحصة',
+                    text: '<i class="fa-solid fa-circle-info"></i> معلومات اليوم',
+                    className: "border-top",
                     action: async function () {
                       showOffCanvas(
-                        "معلومات الحصة",
+                        "معلومات اليوم",
                         `<div class="mx-3">
-                          <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" role="switch" onchange="changeObligatory(this)" ${studentDayInfos.isObligatory ? "checked" : ""}>
+                        ${studentsDayInfos.secondDayInfos ? "<div class='fs-5'>الحصة الأولى:</div>" : ""}
+                          <div class="form-check form-switch ${isTalkinClassroom ? "d-none" : ""}">
+                            <input class="form-check-input" type="checkbox" role="switch" onchange="changeObligatory(this)" ${studentsDayInfos.isObligatory ? "checked" : ""}>
                             <label class="form-check-label" >حصة إلزامية</label>
                           </div>
                           <p>وقت بدء الحصة: <strong>${
-                            studentDayInfos.start_time || "غير محدد"
+                            studentsDayInfos.start_time || "غير محدد"
                           }</strong><br>
                           عدد التلاميذ الحاضرين: <strong>${
                             project_db.exec(
                               `SELECT COUNT(*) FROM day_evaluations WHERE day_id = ${workingDayID} AND attendance = 1;`,
                             )[0].values[0][0]
                           }</strong><br>
-                          ملاحظة اليوم: <em>${studentDayInfos.dayNote || "لا توجد ملاحظة"}</em><br>
+                          ملاحظة اليوم: <em>${studentsDayInfos.dayNote || "لا توجد ملاحظة"}</em><br>
                           </p>
                         </div>
+                        ${
+                          studentsDayInfos.secondDayInfos
+                            ? `<div class="mx-3">
+                              <div class='fs-5'>الحصة الثانية:</div>
+                              <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch" onchange="changeObligatory(this,true)" ${studentsDayInfos.secondDayInfos.isObligatory ? "checked" : ""}>
+                                <label class="form-check-label" >حصة إلزامية</label>
+                              </div>
+                              <p>وقت بدء الحصة: <strong>${
+                                studentsDayInfos.secondDayInfos.start_time ||
+                                "غير محدد"
+                              }</strong><br>
+                              عدد التلاميذ الحاضرين: <strong>${
+                                project_db.exec(
+                                  `SELECT COUNT(*) FROM day_evaluations WHERE day_id = ${workingDayID} AND (json_extract(second_day, '$.attendance') = 1);`,
+                                )[0].values[0][0]
+                              }</strong><br>
+                              ملاحظة اليوم: <em>${studentsDayInfos.secondDayInfos.dayNote || "لا توجد ملاحظة"}</em><br>
+                              </p>
+                            </div>`
+                            : ""
+                        }
                       `,
                       );
                     },
@@ -2627,23 +3057,29 @@ async function loadDayStudentsList() {
                   {
                     text: "❌ إلغاء اليوم",
                     action: async function () {
-                      if (confirm("هل تريد إلغاء هذا اليوم ؟")) {
-                        project_db.run(
-                          `DELETE FROM day_evaluations WHERE day_id = ?;`,
-                          [workingDayID],
-                        );
-                        project_db.run(
-                          `DELETE FROM day_requirements WHERE day_id = ?;`,
-                          [workingDayID],
-                        );
-                        project_db.run(
-                          "DELETE FROM education_day WHERE id = ?;",
-                          [workingDayID],
-                        );
-                        saveToIndexedDB(project_db.export());
-                        getStudyDays();
-                        loadDayStudentsList();
-                      }
+                      if (
+                        !(await swal({
+                          text: "هل تريد إلغاء هذا اليوم ؟",
+                          icon: "warning",
+                          buttons: ["لا", "نعم"],
+                        }))
+                      )
+                        return;
+                      project_db.run(
+                        `DELETE FROM day_evaluations WHERE day_id = ?;`,
+                        [workingDayID],
+                      );
+                      project_db.run(
+                        `DELETE FROM day_requirements WHERE day_id = ?;`,
+                        [workingDayID],
+                      );
+                      project_db.run(
+                        "DELETE FROM education_day WHERE id = ?;",
+                        [workingDayID],
+                      );
+                      saveToIndexedDB(project_db.export());
+                      getStudyDays();
+                      loadDayStudentsList();
                     },
                   },
                 ],
@@ -2653,8 +3089,22 @@ async function loadDayStudentsList() {
         },
       },
       studentsDayTableDetailIsShow,
+      false,
+      true,
     );
+    if (!isTalkinClassroom) {
+      if (studentsDayInfos.secondDayInfos === null) {
+        table.buttons(1).nodes().addClass("d-none");
+        table.button("4-0").nodes().removeClass("d-none");
+        table.button("4-1").nodes().addClass("d-none");
+      } else {
+        table.buttons(1).nodes().removeClass("d-none");
+        table.button("4-0").nodes().addClass("d-none");
+        table.button("4-1").nodes().removeClass("d-none");
+      }
+    }
   } catch (e) {
+    console.error(e);
     window.showToast("error", "Error: " + e.message);
   }
 }
@@ -2675,7 +3125,7 @@ async function InitDatePickers() {
     dateFormat: "Y-m-d",
     maxDate: "today",
     onDayCreate: async function (dObj, dStr, fp, dayElem) {
-      if (specialDates.includes(fp.formatDate(dayElem.dateObj, "Y-m-d"))) {
+      if (monoStudyDates.includes(fp.formatDate(dayElem.dateObj, "Y-m-d"))) {
         dayElem
           .querySelector(".flatpickr-hijri-date-date")
           .classList.add("fs-6", "fw-bold");
@@ -2696,7 +3146,7 @@ async function InitDatePickers() {
             "#00ff4c";
         }
         workingDay = dateStr;
-        // maximizeModalBtn.style.display = "none";
+        // studentsDayInfos.secondDayIsWorkingDay = false;
         await loadDayStudentsList();
         instance.altInput.value = formatHijriDate(selectedDates[0]);
       }
@@ -2776,7 +3226,7 @@ async function InitDatePickers() {
     dateFormat: "Y-m-d",
     maxDate: "today",
     onDayCreate: async function (dObj, dStr, fp, dayElem) {
-      if (specialDates.includes(fp.formatDate(dayElem.dateObj, "Y-m-d"))) {
+      if (monoStudyDates.includes(fp.formatDate(dayElem.dateObj, "Y-m-d"))) {
         dayElem
           .querySelector(".flatpickr-hijri-date-date")
           .classList.add("fs-6", "fw-bold");
@@ -2796,7 +3246,7 @@ async function InitDatePickers() {
           "الشهر الحالي",
           "الشهر الماضي",
         ].includes(instance.altInput.value)
-      )
+      ) {
         if (selectedDates.length === 2) {
           const startHijri = formatHijriDate(selectedDates[0], true);
           const endHijri = formatHijriDate(selectedDates[1], true);
@@ -2804,6 +3254,17 @@ async function InitDatePickers() {
         } else if (selectedDates.length === 1) {
           instance.altInput.value = formatHijriDate(selectedDates[0], true);
         }
+      }
+      instance.altInput.value += ` (${monoStudyDates.filter((dateStr) => {
+          const currentDate = new Date(dateStr);
+          currentDate.setHours(0, 0, 0, 0);
+          return (
+            currentDate >=
+              DateTime.fromJSDate(selectedDates[0]).startOf("day").toJSDate() &&
+            currentDate <=
+              DateTime.fromJSDate(selectedDates[1]).startOf("day").toJSDate()
+          );
+        }).length})`
       reinitStatisticTable();
     },
     disableMobile: "true",
@@ -2902,43 +3363,64 @@ function initializeToast() {
   }
 }
 
-function initRequirementFields(detail = null) {
+function getNextRequirement(detail = null, setRequirementFields = true) {
+  let requireBookValue = "";
+  let requirTypeValue;
+  let firstSurahValue = "1";
+  let firstAyahValue = "1";
   if (detail) {
-    requireBookInput.value = detail["الكتاب"];
-    requireBookInput.dispatchEvent(new Event("change"));
     const Type = detail["النوع"];
     const startSurahName = detail["التفاصيل"].split(" ").at(0);
     const finishSurahName = detail["التفاصيل"].split(" ").at(-3);
-    if (detail["الكتاب"] == "القرآن الكريم") {
-      setOrGetOptionValueByText(firstSurahSelect, finishSurahName);
-      firstAyahSelect.value =
-        parseInt(detail["التفاصيل"].split(" ").at(-1)) + 1;
-      if (!firstAyahSelect.value) {
+    const firstAyahNum = parseInt(detail["التفاصيل"].split(" ").at(-1)) + 1;
+    requireBookValue = detail["الكتاب"];
+
+    if (requireBookValue == "القرآن الكريم") {
+      firstSurahValue = quranData.surahs.find(
+        (surah) => surah.name == finishSurahName,
+      ).number;
+
+      if (
+        quranData.surahs.find((surah) => surah.name == finishSurahName)
+          .numberOfAyahs < firstAyahNum
+      ) {
         if (Type == "حفظ") {
-          requirTypeInput.value = "حصيلة";
-          firstAyahSelect.value = "1";
+          requirTypeValue = "حصيلة";
+          firstAyahValue = "1";
         } else {
-          requirTypeInput.value = Type == "حصيلة" ? "حفظ" : "مراجعة";
+          requirTypeValue = Type == "حصيلة" ? "حفظ" : "مراجعة";
           if (Type == "مراجعة" && startSurahName !== finishSurahName) {
-            setOrGetOptionValueByText(firstSurahSelect, startSurahName);
+            firstSurahValue =
+              quranData.surahs.find((surah) => surah.name == startSurahName)
+                .number - 1;
+          } else {
+            firstSurahValue -= 1;
           }
-          firstSurahSelect.value =
-            firstSurahSelect.options[firstSurahSelect.selectedIndex - 1].value;
-          firstSurahSelect.dispatchEvent(new Event("change"));
         }
       } else {
-        requirTypeInput.value = Type;
+        firstAyahValue = firstAyahNum;
+        requirTypeValue = Type;
       }
-      firstAyahSelect.dispatchEvent(new Event("change"));
     } else {
-      requirTypeInput.value = Type;
-      requirQuantityInput.value = "0";
+      requirTypeValue = Type;
     }
-  } else {
-    requireBookInput.value = "";
-    requireBookInput.dispatchEvent(new Event("change"));
   }
-  requirTeacherInput.value = "0";
+
+  if (setRequirementFields) {
+    requireBookInput.value = requireBookValue;
+    requireBookInput.dispatchEvent(new Event("change"));
+    if (requireBookValue == "القرآن الكريم") {
+      requirTypeInput.value = requirTypeValue;
+      requirTypeInput.dispatchEvent(new Event("change"));
+      firstSurahSelect.value = firstSurahValue;
+      firstSurahSelect.dispatchEvent(new Event("change"));
+      firstAyahSelect.value = firstAyahValue;
+      firstAyahSelect.dispatchEvent(new Event("change"));
+    }
+    requirTeacherInput.value = "0";
+  } else {
+    return `quran://surah/${firstSurahValue}/ayah/${firstAyahValue}`;
+  }
 }
 
 window.editRequirement = function (button) {
@@ -2948,10 +3430,14 @@ window.editRequirement = function (button) {
       .querySelectorAll("tbody tr")
       .forEach(
         (r) =>
-          (r.lastElementChild.querySelector(".btn-success").disabled = false),
+          (r.lastElementChild.previousElementSibling.querySelector(
+            ".btn-success",
+          ).disabled = false),
       );
   } else addQuranSelectionBtn.innerText = "تحديث";
-  row.lastElementChild.querySelector(".btn-success").disabled = true;
+  row.lastElementChild.previousElementSibling.querySelector(
+    ".btn-success",
+  ).disabled = true;
   requireBookInput.value = row.firstElementChild.textContent;
   // requireBookInput.dispatchEvent(new Event("change"));
   requirTypeInput.value = row.firstElementChild.nextElementSibling.textContent;
@@ -2992,9 +3478,13 @@ window.editRequirement = function (button) {
 
   setOrGetOptionValueByText(requirTeacherInput, teacherName);
   setRequirEvalInput();
-  requireBookInput.scrollIntoView();
+  requireBookInput.scrollIntoView({ behavior: "instant" });
 
-  if (requirTeacherInput.value !== "0") {
+  // const isSecondDay = row.lastElementChild.textContent.trim() === "true";
+  if (
+    // isSecondDay === studentsDayInfos.secondDayIsWorkingDay &&
+    requirTeacherInput.value !== "0"
+  ) {
     teachersPoints[requirTeacherInput.value] =
       (teachersPoints[requirTeacherInput.value] || 0) -
       Math.floor(parseFloat(requirQuantityInput.value));
@@ -3036,7 +3526,7 @@ window.removeRequirItem = function (button, student_id = null) {
   studentDayFormSubmitBtn.nextElementSibling.disabled = false;
 
   if (requirementsTable.rows.length >= 2) {
-    initRequirementFields({
+    getNextRequirement({
       الكتاب:
         requirementsTable.rows[requirementsTable.rows.length - 1]
           .firstElementChild.textContent,
@@ -3084,29 +3574,20 @@ function addRequirToTable(row = false) {
   newRow.innerHTML = `
     <td>${requireBookInput.value}</td>
     <td>${requirTypeInput.value}</td>
-    <td class="d-none">${requirQuantityInput.value}</td>
-    <td style="white-space: normal;">${requirQuantityDetailInput.value}</td>
+    <td>${requirQuantityInput.value}</td>
+    <td>${requirQuantityDetailInput.value}</td>
     <td>${requirEvaluationInput.value}</td>
-    <td>
-      ${saveStateErrorsInput.value}
-    </td>
-    <td>
-      ${saveStateAlertsInput.value}
-    </td>
-    <td>
-      ${requirMoyenneInput.value}
-    </td>
-    <td>
-      ${requirTeacherInput.options[requirTeacherInput.selectedIndex].text}
-    </td>
-    <td>
-      ${requirRepitInput.value}
-    </td>
+    <td>${saveStateErrorsInput.value}</td>
+    <td>${saveStateAlertsInput.value}</td>
+    <td>${requirMoyenneInput.value}</td>
+    <td>${requirTeacherInput.options[requirTeacherInput.selectedIndex].text}</td>
+    <td>${requirRepitInput.value}</td>
     <td>
     <div class="btn-group" role="group" aria-label="Vertical button group">
       <button type="button" class="btn btn-success" onclick="editRequirement(this);"><i class="fa-solid fa-pen-to-square"></i></button>
       <button id="${removeBtnId}" class="btn btn-danger btn-sm"><i class="fa-solid fa-xmark"></i></button>
     </div>
+    <td>${studentsDayInfos.secondDayIsWorkingDay}</td>
     </td>`;
   if (!row) requirementsTable.querySelector("tbody").appendChild(newRow);
   else row.replaceWith(newRow);
@@ -3123,7 +3604,7 @@ function addRequirToTable(row = false) {
       );
     removeRequirItem(e.target);
   };
-  requirementsTable.scrollIntoView();
+
   if (requirTeacherInput.value !== "0") {
     teachersPoints[requirTeacherInput.value] =
       (teachersPoints[requirTeacherInput.value] || 0) +
@@ -3133,11 +3614,12 @@ function addRequirToTable(row = false) {
   requirsMoyenneInput.value = calcRequirementsMoyenne();
   studentDayFormSubmitBtn.disabled = false;
   studentDayFormSubmitBtn.nextElementSibling.disabled = false;
-  initRequirementFields({
+  getNextRequirement({
     الكتاب: requireBookInput.value,
     النوع: requirTypeInput.value,
     التفاصيل: requirQuantityDetailInput.value,
   });
+  document.getElementById("requirListView").scrollIntoView();
 }
 
 addQuranSelectionBtn.onclick = () => addRequirToTable();
@@ -3362,7 +3844,7 @@ async function showTab(tabId = null) {
       tabTitleLabel.innerText = "الإحصائيات";
       fillStatistiscStudentsList();
       if (devMode && 4 == 5)
-        showStudentsBulletins(
+        showBulletins(
           [
             "2026-02-20",
             "2026-02-21",
@@ -3548,7 +4030,7 @@ function formatEval(rating) {
   return "دون  المتوسط";
 }
 
-async function showStudentsBulletins(dates, studentsIDS = null) {
+async function showBulletins(dates, studentsIDS = null) {
   const studentsList = studentsIDS || getStatisticsSelectedStudentsId();
   if (!studentsList) {
     window.showToast("warning", "يرجى اخيار طلاب من القائمة.");
@@ -4773,7 +5255,7 @@ async function showStudentsBulletins(dates, studentsIDS = null) {
   }
 }
 
-async function showStudentsBulletins2(dates, studentsIDS = null) {
+async function showTalkinBulletins(dates, studentsIDS = null) {
   const studentsList = studentsIDS || getStatisticsSelectedStudentsId();
   if (!studentsList) {
     window.showToast("warning", "يرجى اخيار طلاب من القائمة.");
@@ -5547,7 +6029,6 @@ async function showStudentsBulletins2(dates, studentsIDS = null) {
     return (
       detail["النوع"] +
       " " +
-      (detail["الكتاب"] == "القرآن الكريم" ? "" : detail["الكتاب"]) +
       " ]  " +
       parseRequirment(detail["التفاصيل"], detail["الكتاب"], true) +
       " [ "
@@ -5575,17 +6056,30 @@ async function showAttendanceStatistics() {
     .map(
       (date) => `
         MAX(CASE 
-            WHEN d.date = '${date}' AND de.attendance = 1 THEN 'ح'
-            WHEN d.date = '${date}' AND de.attendance = 0 THEN 'غ م'
-            ELSE ' غ'
-        END) AS '${new Date(date)
-          .toLocaleDateString("ar-DZ-u-ca-islamic-umalqura", {
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-            weekday: "long",
-          })
-          .replace("،", "")}'
+                WHEN d.date = '${date}' AND d.second_day IS NULL AND de.attendance = 1 THEN 'ح'
+                WHEN d.date = '${date}' AND d.second_day IS NULL AND de.attendance = 0 THEN 'غ م'
+
+                WHEN d.date = '${date}' AND d.second_day IS NOT NULL AND de.attendance = 0 AND json_extract(de.second_day, '$.attendance')= 1 THEN 'غ م | ح'
+                WHEN d.date = '${date}' AND d.second_day IS NOT NULL AND de.attendance = 0 AND json_extract(de.second_day, '$.attendance')= 0 THEN 'غ م | غ م'
+                WHEN d.date = '${date}' AND d.second_day IS NOT NULL AND de.attendance = 0 AND de.second_day IS NULL THEN 'غ م | غ'
+
+                WHEN d.date = '${date}' AND d.second_day IS NOT NULL AND de.attendance = 1 AND de.second_day IS NULL THEN 'ح | غ'
+                WHEN d.date = '${date}' AND d.second_day IS NOT NULL AND de.attendance = 1 AND json_extract(de.second_day, '$.attendance')= 0 THEN 'ح | غ م'
+                WHEN d.date = '${date}' AND d.second_day IS NOT NULL AND de.attendance = 1 AND json_extract(de.second_day, '$.attendance')= 1 THEN 'ح | ح'
+
+                WHEN d.date = '${date}' AND d.second_day IS NOT NULL AND de.attendance = 2 AND json_extract(de.second_day, '$.attendance')= 1 THEN 'غ | ح'
+                WHEN d.date = '${date}' AND d.second_day IS NOT NULL AND de.attendance = 2 AND json_extract(de.second_day, '$.attendance')= 0 THEN 'غ | غ م'
+
+                ELSE ' غ'       
+            END
+            ) AS '${new Date(date)
+              .toLocaleDateString("ar-DZ-u-ca-islamic-umalqura", {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+                weekday: "long",
+              })
+              .replace("،", "")}'
 `,
     )
     .join(",\n");
@@ -5593,33 +6087,55 @@ async function showAttendanceStatistics() {
   const attendanceSum = dates
     .map(
       (date) =>
-        `SUM(CASE WHEN d.date = '${date}' AND de.attendance = 1 THEN 1 ELSE 0 END)`,
+        `SUM((CASE WHEN d.date = '${date}' AND de.attendance = 1 THEN 1 ELSE 0 END) +
+             (CASE WHEN d.date = '${date}' AND json_extract(de.second_day, '$.attendance') = 1 THEN 1 ELSE 0 END)
+            )`,
     )
     .join(" +\n        ");
 
   const attendanceObligatorySum = dates
     .map(
       (date) =>
-        `SUM(CASE WHEN d.date = '${date}' AND d.isObligatory = 1 AND de.attendance IN (1,0) THEN 1 ELSE 0 END)`,
+        `SUM((CASE WHEN d.date = '${date}' AND d.isObligatory = 1 AND de.attendance IN (1,0) THEN 1 ELSE 0 END)+
+             (CASE WHEN d.date = '${date}' AND json_extract(d.second_day, '$.isObligatory')=true AND json_extract(de.second_day, '$.attendance') IN (1,0) THEN 1 ELSE 0 END)
+             )`,
     )
     .join(" +\n        ");
 
   const query = `
+    WITH second_days_total_count AS (
+          SELECT 
+            SUM(
+              CASE WHEN second_day IS NOT NULL THEN 1 ELSE 0 END
+            ) AS total_count
+          FROM education_day
+          WHERE class_room_id = ${workingClassroomId}
+            AND date IN (${dates.map((d) => `'${d}'`).join(", ")})
+        ),
+        obligatory_days_count AS ( 
+              SELECT SUM(
+                      CASE WHEN isObligatory = 1 THEN 1 ELSE 0 END +
+                      CASE WHEN JSON_EXTRACT(second_day, '$.isObligatory') = true THEN 1 ELSE 0 END
+                    )
+              FROM education_day 
+              WHERE class_room_id = ${workingClassroomId} 
+                AND date IN (${dates.map((date) => `'${date}'`).join(", ")})
+            )
     SELECT
     ROW_NUMBER() OVER (ORDER BY s.id) as "#",
     s.fname || ' ' || s.lname as "اسم الطالب",
 
     ${dateColumns},
 
-    ${attendanceSum} as "المجموع (/${dates.length})",
+    ${attendanceSum} as "المجموع ",
 
     ROUND(
-        ((${attendanceObligatorySum}) * 100.0 / (SELECT count(*) FROM education_day WHERE class_room_id = ${workingClassroomId} AND isObligatory = 1 AND date IN (${dates.map((date) => `'${date}'`).join(", ")}))), 1
-    ) as "إلزامي (%)",
+         (${attendanceObligatorySum}) * 100.0 / COALESCE((SELECT * FROM obligatory_days_count), 0)
+         , 1) as "إلزامي (%)",
 
     ROUND(
-        ((${attendanceSum}) * 100.0 / ${dates.length}), 1
-    ) as "النسبة (%)"
+         (${attendanceSum}) * 100.0 / (${dates.length} + COALESCE((SELECT * FROM second_days_total_count), 0))
+         , 1) as "النسبة (%)"
     FROM students s
     LEFT JOIN day_evaluations de ON s.id = de.student_id
     LEFT JOIN education_day d ON d.id = de.day_id
@@ -5742,7 +6258,7 @@ async function showAttendanceStatistics() {
           .format(new Date(d))
           .replace("،", ""),
       ),
-    `المجموع (/${dates.length})`,
+    `المجموع `,
     "إلزامي (%)",
     "النسبة (%)",
   ];
@@ -5777,17 +6293,33 @@ async function showResultsStatistics() {
     .map(
       (date, index) =>
         `COALESCE(ROUND(
-              (SELECT CASE WHEN attendance = 1 THEN SUM(moyenne) ELSE NULL END FROM day_evaluations WHERE student_id = s.id AND day_id IN (SELECT id FROM day_id${index}))
-              + 
-              (SELECT COALESCE(SUM(moyenne), 0) FROM day_requirements WHERE student_id = s.id AND day_id IN (SELECT id FROM day_id${index}))
-          , 2), "غ") as '${new Date(date)
-            .toLocaleDateString("ar-DZ-u-ca-islamic-umalqura", {
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-              weekday: "long",
-            })
-            .replace("،", "")}'`,
+            NULLIF(
+              ${
+                isTalkinClassroom
+                  ? ""
+                  : `(SELECT COALESCE(SUM(CASE WHEN de.attendance = 1 THEN de.moyenne END), 0) 
+                      FROM day_evaluations de WHERE de.student_id = s.id 
+                      AND de.day_id IN (SELECT id FROM day_id${index})
+                      ) + 
+                      COALESCE(
+                          (SELECT SUM(CASE WHEN json_extract(de.second_day, '$.attendance') = 1 
+                                           THEN json_extract(de.second_day, '$.moyenne') END) 
+                          FROM day_evaluations de WHERE de.student_id = s.id 
+                            AND de.second_day IS NOT NULL
+                            AND de.day_id IN (SELECT id FROM day_id${index})), 
+                          0
+                      ) +`
+              } 
+                  (SELECT COALESCE(SUM(moyenne), 0) FROM day_requirements WHERE student_id = s.id AND day_id IN (SELECT id FROM day_id${index}))
+            ,0)
+        , 2), "/") as '${new Date(date)
+          .toLocaleDateString("ar-DZ-u-ca-islamic-umalqura", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+            weekday: "long",
+          })
+          .replace("،", "")}'`,
     )
     .join(",\n    ");
 
@@ -5795,57 +6327,90 @@ async function showResultsStatistics() {
   const sumExpressions = dates
     .map(
       (_, index) =>
-        `(SELECT COALESCE(SUM(de.moyenne), 0) FROM day_evaluations de 
-          WHERE de.student_id = s.id AND de.day_id IN (SELECT id FROM day_id${index}))
-          + 
+        `${
+          !isTalkinClassroom
+            ? `(SELECT COALESCE(SUM(de.moyenne), 0) 
+                FROM day_evaluations de 
+                WHERE de.student_id = s.id 
+                  AND de.day_id IN (SELECT id FROM day_id${index}))
+                + 
+                COALESCE(
+                    (SELECT SUM(COALESCE(json_extract(de.second_day, '$.moyenne'), 0)) 
+                    FROM day_evaluations de
+                    WHERE de.student_id = s.id 
+                      AND de.second_day IS NOT NULL
+                      AND de.day_id IN (SELECT id FROM day_id${index})), 
+                    0
+                ) +`
+            : ""
+        } 
           (SELECT COALESCE(SUM(dr.moyenne), 0) FROM day_requirements dr 
           WHERE dr.student_id = s.id AND dr.day_id IN (SELECT id FROM day_id${index}))
         `,
     )
     .join(" +\n        ");
 
-  const justifiedAbsenceCTE = `jabsence_counts AS (
-    SELECT 
-      student_id,
-      COUNT(*) as count
-    FROM day_evaluations
-    WHERE attendance = 0
-    AND day_id IN (SELECT id FROM education_day 
-                    WHERE class_room_id = ${workingClassroomId}
-                    AND date IN (${dates.map((d) => `'${d}'`).join(", ")}))
-    GROUP BY student_id
-  )`;
-  const obligatoryDaysCTE = `obligatory_days_count AS (
-    SELECT COUNT(*) 
-    FROM education_day
-    WHERE class_room_id = ${workingClassroomId}
-    AND isObligatory = 0 
-    AND date IN (${dates.map((d) => `'${d}'`).join(", ")})
-  )`;
-
   const query = `
-    WITH ${dateCtes},
-    ${justifiedAbsenceCTE},
-    ${obligatoryDaysCTE}
+    WITH ${dateCtes}
+    ${
+      !isTalkinClassroom
+        ? `,jabsence_counts AS (
+              SELECT 
+                student_id,
+                SUM(
+                  CASE WHEN attendance = 0 THEN 1 ELSE 0 END +
+                  CASE WHEN JSON_EXTRACT(second_day, '$.attendance') = 0 THEN 1 ELSE 0 END
+                ) AS count
+              FROM day_evaluations
+              WHERE day_id IN (
+                SELECT id 
+                FROM education_day 
+                WHERE class_room_id = ${workingClassroomId}
+                  AND date IN (${dates.map((d) => `'${d}'`).join(", ")})
+              )
+              GROUP BY student_id
+            )`
+        : ""
+    }
+    ${
+      !isTalkinClassroom
+        ? `,obligatory_days_total_count AS (
+              SELECT 
+                SUM(
+                  CASE WHEN isObligatory = 1 THEN 1 ELSE 0 END +
+                  CASE WHEN second_day IS NOT NULL AND JSON_EXTRACT(second_day, '$.isObligatory') = true THEN 1 ELSE 0 END
+                ) AS total_count
+              FROM education_day
+              WHERE class_room_id = ${workingClassroomId}
+                AND date IN (${dates.map((d) => `'${d}'`).join(", ")})
+            )`
+        : ""
+    }
     SELECT 
         ROW_NUMBER() OVER (ORDER BY s.id) as "#", 
         s.fname || ' ' || s.lname as "اسم الطالب",
         ${dateColumns},
         COALESCE(ROUND(${sumExpressions}, 2), 0) as "المجموع",
-        COALESCE(ROUND(
-            (${sumExpressions}) / (${dates.length} - COALESCE(jac.count, 0) - COALESCE((SELECT * FROM obligatory_days_count), 0))
+        ${
+          !isTalkinClassroom
+            ? `COALESCE(ROUND(
+            (${sumExpressions}) / (COALESCE((SELECT * FROM obligatory_days_total_count), 0) - COALESCE(jac.count, 0))
         , 2), 0) as "المعدل",
         ROW_NUMBER() OVER (
           ORDER BY COALESCE(ROUND(
-              (${sumExpressions}) / (${dates.length} - COALESCE(jac.count, 0) - COALESCE((SELECT * FROM obligatory_days_count), 0))
+              (${sumExpressions}) / (COALESCE((SELECT * FROM obligatory_days_total_count), 0) - COALESCE(jac.count, 0))
           , 2), 0) DESC
-        ) as "الترتيب"
+        ) as "الترتيب"`
+            : `ROW_NUMBER() OVER (
+          ORDER BY COALESCE(ROUND(${sumExpressions}, 2), 0) DESC
+        ) as "الترتيب"`
+        }
     FROM students s 
-    LEFT JOIN day_evaluations de ON s.id = de.student_id 
+    ${!isTalkinClassroom ? "LEFT JOIN day_evaluations de ON s.id = de.student_id" : ""} 
     LEFT JOIN day_requirements dr ON dr.student_id = s.id 
-    LEFT JOIN jabsence_counts jac ON s.id = jac.student_id
+    ${!isTalkinClassroom ? "LEFT JOIN jabsence_counts jac ON s.id = jac.student_id" : ""} 
     WHERE s.id IN (${studentsList})
-    GROUP BY s.id, "اسم الطالب", jac.count
+    GROUP BY s.id, "اسم الطالب" ${!isTalkinClassroom ? ",jac.count" : ""}
     ORDER BY s.id;
 `;
   const buttons = [
@@ -6043,7 +6608,8 @@ async function showResultsStatistics() {
             action: async function () {
               await showLoadingModal("جاري إنشاء كشوف النقاط");
               initBullentinConfigs();
-              showStudentsBulletins(dates);
+              if (isTalkinClassroom) showTalkinBulletins(dates);
+              else showBulletins(dates);
               hideLoadingModal();
             },
           },
@@ -6065,7 +6631,7 @@ async function showResultsStatistics() {
           .replace("،", ""),
       ),
     "المجموع",
-    "المعدل",
+    ...(!isTalkinClassroom ? ["المعدل"] : []),
     "الترتيب",
   ];
   setStatisticsTable(query, tableColumns, buttons);
@@ -6184,7 +6750,7 @@ async function showAvanceChart() {
   // ── STATE ────────────────────────────────────────────────────────────────────
   const indices = [],
     allAyatlist = { saveList: [], reviselist: [] };
-  let groupBy = "none",
+  let groupBy = "surah",
     typeBy = "all",
     gridBuilt = false;
 
@@ -6542,6 +7108,7 @@ async function showAvanceChart() {
     indices.forEach((i) => cmap.add(i));
     let open = true;
     const vides = [[]];
+    let scroll = false;
     sqs.forEach((sq, index) => {
       const i = +sq.dataset.idx;
       if (cmap.has(i)) {
@@ -6553,6 +7120,11 @@ async function showAvanceChart() {
 
         sq.style.background = "#c9a84c";
         sq.classList.remove("dimmed");
+
+        if (!scroll) {
+          sq.scrollIntoView({ behavior: "instant", block: "center" });
+          scroll = true;
+        }
       } else {
         sq.style.background = "";
         sq.classList.add("dimmed");
@@ -7032,41 +7604,41 @@ document.addEventListener("DOMContentLoaded", function () {
   // Create New DB Buttons
   const createNewDBBtn1 = document.getElementById("createNewDBBtn1");
   if (createNewDBBtn1) {
-    createNewDBBtn1.addEventListener("click", createNewDB);
+    createNewDBBtn1.onclick = createNewDB;
   }
 
   const createNewDBBtn2 = document.getElementById("createNewDBBtn2");
   if (createNewDBBtn2) {
-    createNewDBBtn2.addEventListener("click", createNewDB);
+    createNewDBBtn2.onclick = createNewDB;
   }
 
   // Day Date Icon
   const dayDateIcon = document.getElementById("dayDateIcon");
   if (dayDateIcon) {
-    dayDateIcon.addEventListener("click", function () {
+    dayDateIcon.onclick = function () {
       dayDateInput._flatpickr.setDate(
         new Date().toISOString().slice(0, 10),
         true,
       );
-    });
+    };
   }
 
   addNewDayBtn.onclick = () => {
-    showApopintmentTimePicker();
+    showAppointmentTimePicker();
   };
 
   // Goal Button (Evaluation Ladder)
   const goalBtn = document.getElementById("goal");
   if (goalBtn) {
-    goalBtn.addEventListener("click", function () {
+    goalBtn.onclick = function () {
       document.getElementById("list-retard-list").click();
-    });
+    };
   }
 
   // Update Eval Ladder Button
   const updateEvalLadderBtn = document.getElementById("updateEvalLadderBtn");
   if (updateEvalLadderBtn) {
-    updateEvalLadderBtn.addEventListener("click", updateEvalLadder);
+    updateEvalLadderBtn.onclick = updateEvalLadder;
   }
 
   // Add Eval Ladder Buttons
@@ -7074,27 +7646,27 @@ document.addEventListener("DOMContentLoaded", function () {
     "addEvalLadderBehaviorBtn",
   );
   if (addEvalLadderBehaviorBtn) {
-    addEvalLadderBehaviorBtn.addEventListener("click", function () {
+    addEvalLadderBehaviorBtn.onclick = function () {
       addEvalLadder("behavior");
-    });
+    };
   }
 
   const addEvalLadderClothingBtn = document.getElementById(
     "addEvalLadderClothingBtn",
   );
   if (addEvalLadderClothingBtn) {
-    addEvalLadderClothingBtn.addEventListener("click", function () {
+    addEvalLadderClothingBtn.onclick = function () {
       addEvalLadder("clothing");
-    });
+    };
   }
 
   const addEvalLadderHaircutBtn = document.getElementById(
     "addEvalLadderHaircutBtn",
   );
   if (addEvalLadderHaircutBtn) {
-    addEvalLadderHaircutBtn.addEventListener("click", function () {
+    addEvalLadderHaircutBtn.onclick = function () {
       addEvalLadder("haircut");
-    });
+    };
   }
 
   // Init Bullentin Configs Button
@@ -7102,93 +7674,93 @@ document.addEventListener("DOMContentLoaded", function () {
     "initBullentinConfigsBtn",
   );
   if (initBullentinConfigsBtn) {
-    initBullentinConfigsBtn.addEventListener("click", initBullentinConfigs);
+    initBullentinConfigsBtn.onclick = initBullentinConfigs;
   }
 
   // Resume Pages Check
   if (resumePagesCheck) {
-    resumePagesCheck.addEventListener("change", function () {
+    resumePagesCheck.onchange = function () {
       localStorage.setItem("bulletinResumPage", this.checked);
-    });
+    };
   }
 
   // Signature Check
   if (signatureCheck) {
-    signatureCheck.addEventListener("change", function () {
+    signatureCheck.onchange = function () {
       localStorage.setItem("bulletinSignature", this.checked);
-    });
+    };
   }
 
   // Show Tab Buttons
   const showTabHomeBtn = document.getElementById("showTabHomeBtn");
   if (showTabHomeBtn) {
-    showTabHomeBtn.addEventListener("click", function () {
+    showTabHomeBtn.onclick = function () {
       showTab("pills-home");
-    });
+    };
   }
 
   const showTabStudentsBtn = document.getElementById("showTabStudentsBtn");
   if (showTabStudentsBtn) {
-    showTabStudentsBtn.addEventListener("click", function () {
+    showTabStudentsBtn.onclick = function () {
       showTab("pills-students");
-    });
+    };
   }
 
   const showTabNewDayBtn = document.getElementById("showTabNewDayBtn");
   if (showTabNewDayBtn) {
-    showTabNewDayBtn.addEventListener("click", function () {
+    showTabNewDayBtn.onclick = function () {
       showTab("pills-new_day");
-    });
+    };
   }
 
   const showTabStatisticsBtn = document.getElementById("showTabStatisticsBtn");
   if (showTabStatisticsBtn) {
-    showTabStatisticsBtn.addEventListener("click", function () {
+    showTabStatisticsBtn.onclick = function () {
       showTab("pills-statistics");
-    });
+    };
   }
 
   const showTabPreferencesBtn = document.getElementById(
     "showTabPreferencesBtn",
   );
   if (showTabPreferencesBtn) {
-    showTabPreferencesBtn.addEventListener("click", function () {
+    showTabPreferencesBtn.onclick = function () {
       showTab("pills-preferences");
-    });
+    };
   }
 
   // Minimize Modal Button
   const minimizeModalBtn = document.getElementById("minimizeModalBtn");
   if (minimizeModalBtn) {
-    minimizeModalBtn.addEventListener("click", async function () {
+    minimizeModalBtn.onclick = async function () {
       studentDayModalElement.style.display = "none";
       document.querySelector(".modal-backdrop")?.classList.add("no-backdrop");
       maximizeModalBtn.style.removeProperty("display");
       document
         .querySelector(".container-fluid.modal-open")
         .style.removeProperty("overflow");
-    });
+    };
   }
 
   // Save And Close Button
   const saveAndCloseBtn = document.getElementById("saveAndCloseBtn");
   if (saveAndCloseBtn) {
-    saveAndCloseBtn.addEventListener("click", function () {
+    saveAndCloseBtn.onclick = function () {
       studentDayFormSubmitBtn.dispatchEvent(new Event("click"));
-    });
+    };
   }
 
   // Time Adjustment Buttons
   const adjustTimePlus15Btn = document.getElementById("adjustTimePlus15Btn");
   if (adjustTimePlus15Btn) {
-    adjustTimePlus15Btn.addEventListener("click", function () {
+    adjustTimePlus15Btn.onclick = function () {
       adjustApointementTimeMinutes(15);
-    });
+    };
   }
 
   const setTimeNowBtn = document.getElementById("setTimeNowBtn");
   if (setTimeNowBtn) {
-    setTimeNowBtn.addEventListener("click", setApointementTimeToNow);
+    setTimeNowBtn.addEventListener("click", setAppointementTimeToNow);
   }
 
   const adjustTimeMinus15Btn = document.getElementById("adjustTimeMinus15Btn");
@@ -7204,7 +7776,7 @@ document.addEventListener("DOMContentLoaded", function () {
   );
   attendanceRadios.forEach(function (radio) {
     radio.addEventListener("change", function () {
-      onChangeAttendanceState(this);
+      onChangeAttendanceInputState(this);
       studentDayFormSubmitBtn.disabled = false;
       studentDayFormSubmitBtn.nextElementSibling.disabled = false;
     });
@@ -7238,11 +7810,12 @@ function convertToListView() {
     const average = cells[7]?.innerText || "";
     const teacher = cells[8]?.innerText || "";
     const repeat = cells[9]?.innerText || "";
+    const isSecondDay = JSON.parse(cells[11]?.innerText || "false");
 
     // Get button HTML and preserve functionality
     const buttonsDiv = cells[10]?.querySelector(".btn-group");
     let buttonsHTML = "";
-    if (buttonsDiv) {
+    if (buttonsDiv && isSecondDay === studentsDayInfos.secondDayIsWorkingDay) {
       buttonsHTML = buttonsDiv.cloneNode(true).outerHTML;
     }
 

@@ -275,8 +275,8 @@
               <div class="ps-0">
                 <div class="panel-label">تجميع حسب</div>
                 <div class="btn-group gb-group" role="group">
-                  <button class="btn btn-sm active" data-by="none">بدون</button>
-                  <button class="btn btn-sm" data-by="surah">السور</button>
+                  <button class="btn btn-sm" data-by="none">بدون</button>
+                  <button class="btn btn-sm active" data-by="surah">السور</button>
                   <button class="btn btn-sm" data-by="hizb">الأحزاب</button>
                   <button class="btn btn-sm" data-by="page">الصفحات</button>
                 </div>
@@ -673,7 +673,10 @@
               <option value="إناث">إناث</option>
             </select>
             <label for="level">المستوى:</label>
-            <input type="text" id="level" class="form-control" required />
+            <input list="levelOptions" class="form-control" id="level" placeholder="اختر أو أدخل قيمة..." required/>
+            <datalist id="levelOptions">
+              <option value="تلقين">
+            </datalist>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إغلاق</button>
@@ -829,26 +832,27 @@
                 </h2>
                 <div id="requirCollapse" class="accordion-collapse collapse" data-bs-parent="#newStudentDayModalBody">
                   <div class="accordion-body px-2">
-                      <table class="table d-none" id="requirementsTable">
-                        <thead>
-                          <tr>
-                            <th scope="col">الكتاب</th>
-                            <th scope="col">النوع</th>
-                            <th scope="col" class="d-none">المقدار</th>
-                            <th scope="col">التفاصيل</th>
-                            <th scope="col">التقدير</th>
-                            <th scope="col">الأخطاء</th>
-                            <th scope="col">التنبيهات</th>
-                            <th scope="col">المعدل</th>
-                            <th scope="col">المعرض</th>
-                            <th scope="col">الإعادة</th>
-                            <th></th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                        </tbody>
-                      </table>
-                    
+                    <table class="table d-none" id="requirementsTable">
+                      <thead>
+                        <tr>
+                          <th scope="col">الكتاب</th>
+                          <th scope="col">النوع</th>
+                          <th scope="col">المقدار</th>
+                          <th scope="col">التفاصيل</th>
+                          <th scope="col">التقدير</th>
+                          <th scope="col">الأخطاء</th>
+                          <th scope="col">التنبيهات</th>
+                          <th scope="col">المعدل</th>
+                          <th scope="col">المعرض</th>
+                          <th scope="col">الإعادة</th>
+                          <th></th>
+                          <th>الحصة المسائية</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                      </tbody>
+                    </table>
+
                     <div id="requirListView" class="requirement-list-view">
                     </div>
                     <div class="input-group my-3">
@@ -881,7 +885,8 @@
                           </div>
                         </div>
                         <div class="w-100"></div>
-                        <div class="row"><label class="col-4">التفاصيل:</label>
+                        <div class="row">
+                          <label class="col-4">التفاصيل:</label>
                           <i id="historyRequirBtn" class="col-2 fa-solid fa-clock-rotate-left"></i>
                           <a id="audioFileBtn" class="col-2 fa-solid fa-file-audio" target="_blank"
                             rel="noopener noreferrer"></a>
