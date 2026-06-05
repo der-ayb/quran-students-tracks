@@ -884,14 +884,18 @@ workingClassroomSelect.onchange = async function () {
 async function getStudyDays() {
   if (typeof statisticsDateInput._flatpickr === "undefined") return;
   monoStudyDates =
-    project_db.exec(
-      `SELECT date FROM education_day WHERE  class_room_id = ${workingClassroomId};`,
-    )[0]?.values?.map((row) => row[0]) ?? [];
-  
+    project_db
+      .exec(
+        `SELECT date FROM education_day WHERE second_day IS NULL AND class_room_id = ${workingClassroomId};`,
+      )[0]
+      ?.values?.map((row) => row[0]) ?? [];
+
   polyStudyDates =
-    project_db.exec(
-      `SELECT date FROM education_day WHERE second_day IS NOT NULL AND class_room_id = ${workingClassroomId};`,
-    )[0]?.values?.map((row) => row[0]) ?? [];
+    project_db
+      .exec(
+        `SELECT date FROM education_day WHERE second_day IS NOT NULL AND class_room_id = ${workingClassroomId};`,
+      )[0]
+      ?.values?.map((row) => row[0]) ?? [];
 
   statisticsDateInput._flatpickr.setDate(
     statisticsDateInput._flatpickr.selectedDates.length
@@ -3125,14 +3129,35 @@ async function InitDatePickers() {
     dateFormat: "Y-m-d",
     maxDate: "today",
     onDayCreate: async function (dObj, dStr, fp, dayElem) {
+      dayElem.classList.remove(
+        "fs-6",
+        "fw-bold",
+        "border-info",
+        "rounded-1",
+        "border",
+        "border-2",
+        "border-4",
+      );
+
       if (monoStudyDates.includes(fp.formatDate(dayElem.dateObj, "Y-m-d"))) {
-        dayElem
-          .querySelector(".flatpickr-hijri-date-date")
-          .classList.add("fs-6", "fw-bold");
-      } else {
-        dayElem
-          .querySelector(".flatpickr-hijri-date-date")
-          .classList.remove("fs-6", "fw-bold");
+        dayElem.classList.add(
+          "fs-6",
+          "fw-bold",
+          "border-info",
+          "rounded-1",
+          "border",
+          "border-2",
+        );
+      }
+      if (polyStudyDates.includes(fp.formatDate(dayElem.dateObj, "Y-m-d"))) {
+        dayElem.classList.add(
+          "fs-6",
+          "fw-bold",
+          "border-info",
+          "rounded-1",
+          "border",
+          "border-4",
+        );
       }
     },
     onChange: async function (selectedDates, dateStr, instance) {
@@ -3226,14 +3251,35 @@ async function InitDatePickers() {
     dateFormat: "Y-m-d",
     maxDate: "today",
     onDayCreate: async function (dObj, dStr, fp, dayElem) {
+      dayElem.classList.remove(
+        "fs-6",
+        "fw-bold",
+        "border-info",
+        "rounded-1",
+        "border",
+        "border-2",
+        "border-4",
+      );
+
       if (monoStudyDates.includes(fp.formatDate(dayElem.dateObj, "Y-m-d"))) {
-        dayElem
-          .querySelector(".flatpickr-hijri-date-date")
-          .classList.add("fs-6", "fw-bold");
-      } else {
-        dayElem
-          .querySelector(".flatpickr-hijri-date-date")
-          .classList.remove("fs-6", "fw-bold");
+        dayElem.classList.add(
+          "fs-6",
+          "fw-bold",
+          "border-info",
+          "rounded-1",
+          "border",
+          "border-2",
+        );
+      }
+      if (polyStudyDates.includes(fp.formatDate(dayElem.dateObj, "Y-m-d"))) {
+        dayElem.classList.add(
+          "fs-6",
+          "fw-bold",
+          "border-info",
+          "rounded-1",
+          "border",
+          "border-4",
+        );
       }
     },
     onChange: async function (selectedDates, dateStr, instance) {
@@ -3255,7 +3301,8 @@ async function InitDatePickers() {
           instance.altInput.value = formatHijriDate(selectedDates[0], true);
         }
       }
-      instance.altInput.value += ` (${monoStudyDates.filter((dateStr) => {
+      instance.altInput.value += ` (${
+        monoStudyDates.filter((dateStr) => {
           const currentDate = new Date(dateStr);
           currentDate.setHours(0, 0, 0, 0);
           return (
@@ -3264,7 +3311,8 @@ async function InitDatePickers() {
             currentDate <=
               DateTime.fromJSDate(selectedDates[1]).startOf("day").toJSDate()
           );
-        }).length})`
+        }).length
+      })`;
       reinitStatisticTable();
     },
     disableMobile: "true",
