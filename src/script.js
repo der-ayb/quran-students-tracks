@@ -686,7 +686,7 @@ async function initOrReloadDataTable(
 
         headers.forEach((h) => {
           const td = document.createElement("td");
-          td.className = "text-center";
+          td.className = `text-center ${['المجموع','الترتيب','المعدل','إلزامي (%)','النسبة (%)'].includes(h.trim())?"fw-bold":""}`;
           td.textContent = row[h] ?? "";
           tr.appendChild(td);
         });
@@ -2585,7 +2585,7 @@ async function loadDayStudentsList() {
         }
 
         // edit button
-        const evaluationDayContainer = document.createElement("div");
+        const evaluationDayContainer = !isTalkinClassroom ? document.createElement("div") : null;
         if (!isTalkinClassroom) {
           const evaluationDayIcon = document.createElement("i");
           evaluationDayIcon.className = "fa-solid fa-pen-to-square";
@@ -2777,6 +2777,7 @@ async function loadDayStudentsList() {
               },
               {
                 text: '<i class="fa-solid fa-1"></i>',
+                className:"d-none",
                 action: async function (e, dt) {
                   studentsDayInfos.secondDayIsWorkingDay =
                     !studentsDayInfos.secondDayIsWorkingDay;
