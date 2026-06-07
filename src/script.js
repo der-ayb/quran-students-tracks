@@ -686,7 +686,7 @@ async function initOrReloadDataTable(
 
         headers.forEach((h) => {
           const td = document.createElement("td");
-          td.className = `text-center ${['المجموع','الترتيب','المعدل','إلزامي (%)','النسبة (%)'].includes(h.trim())?"fw-bold":""}`;
+          td.className = `text-center ${["المجموع", "الترتيب", "المعدل", "إلزامي (%)", "النسبة (%)"].includes(h.trim()) ? "fw-bold" : ""}`;
           td.textContent = row[h] ?? "";
           tr.appendChild(td);
         });
@@ -883,20 +883,29 @@ workingClassroomSelect.onchange = async function () {
 
 async function getStudyDays() {
   if (typeof statisticsDateInput._flatpickr === "undefined") return;
-  monoStudyDates =
-    project_db
-      .exec(
-        `SELECT date FROM education_day WHERE second_day IS NULL AND class_room_id = ${workingClassroomId};`,
-      )[0]
-      ?.values?.map((row) => row[0]) ?? [];
+  try {
+    monoStudyDates =
+      project_db
+        .exec(
+          `SELECT date FROM education_day WHERE second_day IS NULL AND class_room_id = ${workingClassroomId};`,
+        )[0]
+        ?.values?.map((row) => row[0]) ?? [];
 
-  polyStudyDates =
-    project_db
-      .exec(
-        `SELECT date FROM education_day WHERE second_day IS NOT NULL AND class_room_id = ${workingClassroomId};`,
-      )[0]
-      ?.values?.map((row) => row[0]) ?? [];
-
+    polyStudyDates =
+      project_db
+        .exec(
+          `SELECT date FROM education_day WHERE second_day IS NOT NULL AND class_room_id = ${workingClassroomId};`,
+        )[0]
+        ?.values?.map((row) => row[0]) ?? [];
+  } catch (e) {
+    if (e.message.includes("no such table: second_day")) {
+      await project_db.run(
+        "ALTER TABLE education_day ADD COLUMN second_day text CHECK(JSON_VALID(second_day) OR second_day IS NULL);",
+      );
+      saveToIndexedDB(project_db.export());
+      getStudyDays();
+    }
+  }
   statisticsDateInput._flatpickr.setDate(
     statisticsDateInput._flatpickr.selectedDates.length
       ? [
@@ -2065,14 +2074,21 @@ async function addNewStudyDay(secondDay = false) {
   const m = currentTime.minutes.toString().padStart(2, "0");
   const appointment_time = `${h}:${m}`;
   if (appointment_time == null) {
+    console.log("3333333333333");
     window.showToast("error", "يرجى اختيار وقت البدء.");
     return;
   } else if (!/^(2[0-3]|[0-1]?[\d]):[0-5][\d]$/.test(appointment_time)) {
+    console.log("55555555555555");
     window.showToast("error", "يرجى اختيار وقت صحيح.");
     return;
   }
   if (!secondDay) {
     try {
+      project_db.run(
+        `INSERT OR IGNORE INTO evaluation_ladder (id, detail) VALUES (1, '${JSON.stringify(
+          evaluationLaddersValues,
+        )}');`,
+      );
       project_db.run(
         "INSERT OR REPLACE INTO education_day (date,time, notes,class_room_id,evaluation_ladder_id,isObligatory) VALUES (?,?, ?,?,(SELECT id FROM evaluation_ladder ORDER BY rowid DESC LIMIT 1),?);",
         [
@@ -2084,6 +2100,7 @@ async function addNewStudyDay(secondDay = false) {
         ],
       );
     } catch (error) {
+      console.error(error);
       if (
         String(error).includes(
           "table education_day has no column named isObligatory",
@@ -2106,6 +2123,7 @@ async function addNewStudyDay(secondDay = false) {
     }
     studentsDayInfos.start_time = appointment_time;
   } else {
+    console.log("222222222222222222222");
     project_db.run("UPDATE education_day SET second_day = ? WHERE id = ?;", [
       JSON.stringify({
         start_time: appointment_time,
@@ -2585,7 +2603,9 @@ async function loadDayStudentsList() {
         }
 
         // edit button
-        const evaluationDayContainer = !isTalkinClassroom ? document.createElement("div") : null;
+        const evaluationDayContainer = !isTalkinClassroom
+          ? document.createElement("div")
+          : null;
         if (!isTalkinClassroom) {
           const evaluationDayIcon = document.createElement("i");
           evaluationDayIcon.className = "fa-solid fa-pen-to-square";
@@ -2777,7 +2797,7 @@ async function loadDayStudentsList() {
               },
               {
                 text: '<i class="fa-solid fa-1"></i>',
-                className:"d-none",
+                className: "d-none",
                 action: async function (e, dt) {
                   studentsDayInfos.secondDayIsWorkingDay =
                     !studentsDayInfos.secondDayIsWorkingDay;
