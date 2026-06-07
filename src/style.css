@@ -490,12 +490,7 @@ th.header-rotated>div>span {
 
 /* ── CANVAS ── */
 .canvas-wrap {
-  /* flex: auto; */
-  /* height: 100v; */
-  position: absolute;
-  top: 300px;     /* Distance from the top of the screen (e.g., your header height) */
-  bottom: 0;     /* Stretches the element exactly to the bottom edge */
-  width: 100%;
+  flex: auto;
   overflow: auto;
   padding: 10px 10px 10px 10px;
 }

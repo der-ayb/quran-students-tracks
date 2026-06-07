@@ -1503,11 +1503,13 @@ requireBookInput.onchange = function () {
 
   if (this.value === "القرآن الكريم") {
     quranSelectionSection.style.removeProperty("display");
+    audioFileBtn.style.removeProperty("display");
     requirQuantityDetailInput.style.display = "none";
     requirQuantityInput.readOnly = true;
   } else {
     requirQuantityDetailInput.style.removeProperty("display");
     quranSelectionSection.style.display = "none";
+    audioFileBtn.style.display = "none";
     requirQuantityInput.readOnly = false;
     requirQuantityInput.value = "0";
   }
@@ -1947,8 +1949,10 @@ async function showOffCanvas(title, body, side = "top") {
     new bootstrap.Offcanvas(myOffcanvas).show();
 }
 
-window.markPresence = async function (studentId, attendance) {
-  const retard_time = calcRetardTime(studentsDayInfos.secondDayIsWorkingDay);
+window.markPresence = async function (studentId, attendance, noRetard = false) {
+  const retard_time = noRetard
+    ? 0
+    : calcRetardTime(studentsDayInfos.secondDayIsWorkingDay);
   if (!studentsDayInfos.secondDayIsWorkingDay) {
     project_db.run(
       `INSERT INTO day_evaluations (student_id, day_id, attendance, retard, clothing, haircut, behavior, prayer, added_points, moyenne, second_day)
@@ -2660,7 +2664,9 @@ async function loadDayStudentsList() {
             : attendanceValue == 0
               ? "غياب مبرر"
               : isCurrentDay()
-                ? `<button onclick="const cscy=window.scrollY;markPresence(${student_id},${row[result.columns.indexOf("attendance")]});window.scrollTo({top: cscy,behavior: 'instant'});" class="btn fa-solid fa-square-check px-1" style="transform: scale(1.3); cursor: pointer;"></button>` +
+                ? `<button oncontextmenu="const cscy=window.scrollY;markPresence(${student_id},${row[result.columns.indexOf("attendance")]},true);window.scrollTo({top: cscy,behavior: 'instant'});" 
+                           onclick="const cscy=window.scrollY;markPresence(${student_id},${row[result.columns.indexOf("attendance")]});window.scrollTo({top: cscy,behavior: 'instant'});" 
+                           class="btn fa-solid fa-square-check px-1" style="transform: scale(1.3); cursor: pointer;"></button>` +
                   (parentPhone
                     ? `<input type="checkbox" id="sms_btn${student_id}" onclick="window.location.href='sms:${parentPhone}?body=ليكن في علمكم أن إبن${isGirls ? "ت" : ""}كم ${studentFName} غائب${
                         isGirls ? "ة" : ""
@@ -3117,6 +3123,7 @@ async function loadDayStudentsList() {
       false,
       true,
     );
+    table.columns([4, 5]).visible(!isTalkinClassroom);
     if (!isTalkinClassroom) {
       if (studentsDayInfos.secondDayInfos === null) {
         table.buttons(1).nodes().addClass("d-none");
@@ -6983,7 +6990,7 @@ async function showAvanceChart() {
 
     let totalQuestions = null;
     let questionNumber = 1;
-    let correctAnswers = 0;
+    let answersResult = 0;
     document.getElementById("randomSelectBtn").onclick = (e) => {
       if (indices.length < 4) {
         swal(
@@ -7043,17 +7050,11 @@ async function showAvanceChart() {
       }
 
       if (questionNumber > totalQuestions) {
-        swal(
-          "انتهت الأسئلة",
-          "لقد أجبت على  " +
-            correctAnswers +
-            " أسئلة صحيحة من أصل " +
-            totalQuestions +
-            ".",
-          "info",
-        );
+        swal(`انتهت الأسئلة بنتيجة ${totalQuestions} / ${answersResult}`, "", {
+          icon: "info",
+        });
         questionNumber = 1;
-        correctAnswers = 0;
+        answersResult = 0;
         totalQuestions = null;
         return;
       }
@@ -7086,6 +7087,11 @@ async function showAvanceChart() {
                     value: "wrong",
                     className: "btn btn-danger",
                   },
+                  meduim: {
+                    text: "متوسطة",
+                    value: "meduim",
+                    className: "btn btn-primary",
+                  },
                   correct: {
                     text: "صحيحة",
                     value: "correct",
@@ -7093,9 +7099,8 @@ async function showAvanceChart() {
                   },
                 },
               }).then((value) => {
-                if (value === "correct") {
-                  correctAnswers++;
-                }
+                if (value === "correct") answersResult++;
+                else if (value === "meduim") answersResult += 0.5;
                 e.target.dispatchEvent(new Event("click"));
               });
             }
@@ -7127,6 +7132,11 @@ async function showAvanceChart() {
                           value: "wrong",
                           className: "btn btn-danger",
                         },
+                        meduim: {
+                          text: "متوسطة",
+                          value: "meduim",
+                          className: "btn btn-primary",
+                        },
                         correct: {
                           text: "صحيحة",
                           value: "correct",
@@ -7134,9 +7144,8 @@ async function showAvanceChart() {
                         },
                       },
                     }).then((value) => {
-                      if (value === "correct") {
-                        correctAnswers++;
-                      }
+                      if (value === "correct") answersResult++;
+                      else if (value === "meduim") answersResult += 0.5;
                       e.target.dispatchEvent(new Event("click"));
                     });
                   }
@@ -7147,14 +7156,14 @@ async function showAvanceChart() {
                 default:
                   totalQuestions = null;
                   questionNumber = 1;
-                  correctAnswers = 0;
+                  answersResult = 0;
               }
             });
             break;
           default:
             totalQuestions = null;
             questionNumber = 1;
-            correctAnswers = 0;
+            answersResult = 0;
         }
       });
     };
