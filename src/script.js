@@ -1931,7 +1931,7 @@ function checkAuthorizedOut(requirsMoyenne, minutesToAdd) {
   const newTimeObj =
     h * 60 + m + (minutesToAdd + outTimeInput.valueAsNumber || 0);
   const difference = newTimeObj - currentTotalMinutes;
-  return requirsMoyenne && difference < 0;
+  return parseFloat(requirsMoyenne) !== 0 && difference < 0;
 }
 
 async function showOffCanvas(title, body, side = "top") {
@@ -2127,7 +2127,6 @@ async function addNewStudyDay(secondDay = false) {
     }
     studentsDayInfos.start_time = appointment_time;
   } else {
-    console.log("222222222222222222222");
     project_db.run("UPDATE education_day SET second_day = ? WHERE id = ?;", [
       JSON.stringify({
         start_time: appointment_time,
@@ -2976,6 +2975,7 @@ async function loadDayStudentsList() {
                         window.showToast("error", "Error: " + e.message);
                       }
                       saveToIndexedDB(project_db.export());
+                      getStudyDays();
                       loadDayStudentsList();
                     },
                   },
@@ -3157,17 +3157,8 @@ async function InitDatePickers() {
     dateFormat: "Y-m-d",
     maxDate: "today",
     onDayCreate: async function (dObj, dStr, fp, dayElem) {
-      dayElem.classList.remove(
-        "fs-6",
-        "fw-bold",
-        "border-info",
-        "rounded-1",
-        "border",
-        "border-2",
-        "border-4",
-      );
-
-      if (monoStudyDates.includes(fp.formatDate(dayElem.dateObj, "Y-m-d"))) {
+      const dayFormat = fp.formatDate(dayElem.dateObj, "Y-m-d");
+      if (monoStudyDates.includes(dayFormat)) {
         dayElem.classList.add(
           "fs-6",
           "fw-bold",
@@ -3177,7 +3168,7 @@ async function InitDatePickers() {
           "border-2",
         );
       }
-      if (polyStudyDates.includes(fp.formatDate(dayElem.dateObj, "Y-m-d"))) {
+      if (polyStudyDates.includes(dayFormat)) {
         dayElem.classList.add(
           "fs-6",
           "fw-bold",
@@ -3279,17 +3270,8 @@ async function InitDatePickers() {
     dateFormat: "Y-m-d",
     maxDate: "today",
     onDayCreate: async function (dObj, dStr, fp, dayElem) {
-      dayElem.classList.remove(
-        "fs-6",
-        "fw-bold",
-        "border-info",
-        "rounded-1",
-        "border",
-        "border-2",
-        "border-4",
-      );
-
-      if (monoStudyDates.includes(fp.formatDate(dayElem.dateObj, "Y-m-d"))) {
+      const dayFormat = fp.formatDate(dayElem.dateObj, "Y-m-d");
+      if (monoStudyDates.includes(dayFormat)) {
         dayElem.classList.add(
           "fs-6",
           "fw-bold",
@@ -3299,7 +3281,7 @@ async function InitDatePickers() {
           "border-2",
         );
       }
-      if (polyStudyDates.includes(fp.formatDate(dayElem.dateObj, "Y-m-d"))) {
+      if (polyStudyDates.includes(dayFormat)) {
         dayElem.classList.add(
           "fs-6",
           "fw-bold",
@@ -3339,7 +3321,18 @@ async function InitDatePickers() {
             currentDate <=
               DateTime.fromJSDate(selectedDates[1]).startOf("day").toJSDate()
           );
-        }).length
+        }).length +
+        polyStudyDates.filter((dateStr) => {
+          const currentDate = new Date(dateStr);
+          currentDate.setHours(0, 0, 0, 0);
+          return (
+            currentDate >=
+              DateTime.fromJSDate(selectedDates[0]).startOf("day").toJSDate() &&
+            currentDate <=
+              DateTime.fromJSDate(selectedDates[1]).startOf("day").toJSDate()
+          );
+        }).length *
+          2
       })`;
       reinitStatisticTable();
     },
@@ -7059,10 +7052,49 @@ async function showAvanceChart() {
         return;
       }
 
+      const outerOuterDiv = document.createElement("div");
+
+      // 1. Create the <p> container and its inner button
+      const pContainer = document.createElement("p");
+
+      const button = document.createElement("button");
+      button.className = "btn btn-primary";
+      button.type = "button";
+      button.setAttribute("data-bs-toggle", "collapse");
+      button.setAttribute("data-bs-target", "#collapseWidthExample");
+      button.setAttribute("aria-expanded", "false");
+      button.setAttribute("aria-controls", "collapseWidthExample");
+      button.textContent = "عرض الحل";
+
+      // Append button to the paragraph
+      pContainer.appendChild(button);
+
+      // 2. Create the outer <div> wrapper
+      const outerDiv = document.createElement("div");
+      outerDiv.style.minHeight = "120px";
+
+      // 3. Create the collapse <div> container
+      const collapseDiv = document.createElement("div");
+      collapseDiv.className = "collapse collapse-horizontal";
+      collapseDiv.id = "collapseWidthExample";
+
+      // 4. Create the inner card <div>
+      const cardDiv = document.createElement("div");
+      cardDiv.className = "card card-body";
+      cardDiv.textContent =
+      `${row[1][1]} [${quranData.verseInfo[randomAyatID + 1].ayah}] ${row[2][1]} [${quranData.verseInfo[randomAyatID + 2].ayah}]`
+      // 5. Assemble the tree structure
+      collapseDiv.appendChild(cardDiv);
+      outerDiv.appendChild(collapseDiv);
+
+      outerOuterDiv.appendChild(pContainer);
+      outerOuterDiv.appendChild(outerDiv);
+
       swal(
         `${row[0][1]} [${row[0][0]} - ${quranData.verseInfo[randomAyatID].ayah}]`,
         {
           title: `السؤال رقم ${totalQuestions} / ${questionNumber}`,
+          content:outerOuterDiv,
           className: "quran-text",
           buttons: {
             finish: {
@@ -7070,7 +7102,6 @@ async function showAvanceChart() {
               text: "إنهاء",
               value: false,
             },
-            solution: { text: "الحل", value: "solution", className: "px-2" },
             skip: { text: "تخطي", value: "skip", className: "px-2" },
             next: "التالي",
           },
@@ -7107,58 +7138,6 @@ async function showAvanceChart() {
             break;
           case "skip":
             e.target.dispatchEvent(new Event("click"));
-            break;
-          case "solution":
-            swal(
-              "الإجابة",
-              `${row[1][1]} [${quranData.verseInfo[randomAyatID + 1].ayah}] ${row[2][1]} [${quranData.verseInfo[randomAyatID + 2].ayah}]`,
-              {
-                className: "quran-text",
-                buttons: {
-                  cancel: "إنهاء",
-                  skip: "تخطي",
-                  next: "التالي",
-                },
-              },
-            ).then((value) => {
-              switch (value) {
-                case "next":
-                  questionNumber++;
-                  if (questionNumber > 1) {
-                    swal("هل الإجابة السابقة كانت صحيحة؟", {
-                      buttons: {
-                        wrong: {
-                          text: "خاطئة",
-                          value: "wrong",
-                          className: "btn btn-danger",
-                        },
-                        meduim: {
-                          text: "متوسطة",
-                          value: "meduim",
-                          className: "btn btn-primary",
-                        },
-                        correct: {
-                          text: "صحيحة",
-                          value: "correct",
-                          className: "btn btn-success",
-                        },
-                      },
-                    }).then((value) => {
-                      if (value === "correct") answersResult++;
-                      else if (value === "meduim") answersResult += 0.5;
-                      e.target.dispatchEvent(new Event("click"));
-                    });
-                  }
-                  break;
-                case "skip":
-                  e.target.dispatchEvent(new Event("click"));
-                  break;
-                default:
-                  totalQuestions = null;
-                  questionNumber = 1;
-                  answersResult = 0;
-              }
-            });
             break;
           default:
             totalQuestions = null;
