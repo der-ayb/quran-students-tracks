@@ -1518,6 +1518,7 @@ requireBookInput.onchange = function () {
   saveStateErrorsInput.value = "0";
   saveStateAlertsInput.value = "0";
   requirRepitInput.value = "0";
+  // secondAyahSelect.dispatchEvent(new Event("change"));
 };
 
 function setAttendanceInputValue(value) {
@@ -1766,7 +1767,6 @@ function update_student_day_notes(studentId, working_day_id, attendance) {
   }
 
   if (isTalkinClassroom) {
-    console.log(attendanceInputValue);
     if (attendanceInputValue === 1) {
       project_db.run(
         "INSERT OR REPLACE INTO day_evaluations (student_id, day_id, attendance) VALUES (?, ?, ?);",
@@ -2078,11 +2078,9 @@ async function addNewStudyDay(secondDay = false) {
   const m = currentTime.minutes.toString().padStart(2, "0");
   const appointment_time = `${h}:${m}`;
   if (appointment_time == null) {
-    console.log("3333333333333");
     window.showToast("error", "يرجى اختيار وقت البدء.");
     return;
   } else if (!/^(2[0-3]|[0-1]?[\d]):[0-5][\d]$/.test(appointment_time)) {
-    console.log("55555555555555");
     window.showToast("error", "يرجى اختيار وقت صحيح.");
     return;
   }
@@ -2506,7 +2504,7 @@ async function loadDayStudentsList() {
             evaluationCollapse.hide();
             requirCollapse.show();
             setTimeout(() => {
-              requireBookInput.scrollIntoView();
+              requireBookInput.scrollIntoView({ behavior: "instant" });
             }, 500);
           }
 
@@ -2542,11 +2540,6 @@ async function loadDayStudentsList() {
           const detailDataJson = JSON.parse(
             row[result.columns.indexOf("detail")] || "[]",
           );
-          // .filter(
-          //   (item) =>
-          //     JSON.parse(item["الحصة المسائية"]) ===
-          //     studentsDayInfos.secondDayIsWorkingDay,
-          // );
           detailDataJson.forEach((item, index, arr) => {
             const row = document.createElement("tr");
             row.innerHTML = `
@@ -3549,11 +3542,7 @@ window.editRequirement = function (button) {
   setRequirEvalInput();
   requireBookInput.scrollIntoView({ behavior: "instant" });
 
-  // const isSecondDay = row.lastElementChild.textContent.trim() === "true";
-  if (
-    // isSecondDay === studentsDayInfos.secondDayIsWorkingDay &&
-    requirTeacherInput.value !== "0"
-  ) {
+  if (requirTeacherInput.value !== "0") {
     teachersPoints[requirTeacherInput.value] =
       (teachersPoints[requirTeacherInput.value] || 0) -
       Math.floor(parseFloat(requirQuantityInput.value));
@@ -3563,6 +3552,7 @@ window.editRequirement = function (button) {
     addRequirToTable(row);
     addQuranSelectionBtn.innerText = "إضافة";
     addQuranSelectionBtn.onclick = () => addRequirToTable();
+    requirTypeInput.dispatchEvent(new Event("change"));
   };
   studentDayModalElement.addEventListener(
     "hide.bs.modal",
@@ -3862,10 +3852,11 @@ window.removeEvalLadder = function (type, key) {
 };
 
 async function initBullentinConfigs() {
-  const resumePagesCheck = localStorage.getItem("bulletinResumPage");
-  const signatureCheck = localStorage.getItem("bulletinSignature");
-  if (resumePagesCheck) resumePagesCheck.checked = resumePagesCheck === "true";
-  if (signatureCheck) signatureCheck.checked = signatureCheck === "true";
+  const resumePagesCheckS = localStorage.getItem("bulletinResumPage");
+  const signatureCheckS = localStorage.getItem("bulletinSignature");
+  if (resumePagesCheckS)
+    resumePagesCheck.checked = resumePagesCheckS === "true";
+  if (signatureCheckS) signatureCheck.checked = signatureCheckS === "true";
 }
 
 async function showTab(tabId = null) {
@@ -3912,21 +3903,11 @@ async function showTab(tabId = null) {
     } else if (tabId === "pills-statistics") {
       tabTitleLabel.innerText = "الإحصائيات";
       fillStatistiscStudentsList();
-      if (devMode && 4 == 5)
-        showBulletins(
-          [
-            "2026-02-20",
-            "2026-02-21",
-            "2026-02-25",
-            "2026-02-26",
-            "2026-02-27",
-            "2026-02-28",
-            "2026-03-02",
-            "2026-03-03",
-            "2026-03-04",
-          ],
+      if (devMode)
+        createBulletins(
+          ["2026-06-09", "2026-06-10", "2026-06-11"],
           // "83,82,84",
-          // "43,76",
+          "43,44,45,46",
         );
     }
   } else {
@@ -4099,7 +4080,7 @@ function formatEval(rating) {
   return "دون  المتوسط";
 }
 
-async function showBulletins(dates, studentsIDS = null) {
+async function createBulletins(dates, studentsIDS = null) {
   const studentsList = studentsIDS || getStatisticsSelectedStudentsId();
   if (!studentsList) {
     window.showToast("warning", "يرجى اخيار طلاب من القائمة.");
@@ -4231,6 +4212,38 @@ async function showBulletins(dates, studentsIDS = null) {
           studentName: student.name,
           studentOrder: student.order,
           data: studentData,
+          recordsCounts: studentData
+            .map((i) => {
+              let detailArray = i.detail;
+              if (typeof detailArray === "string") {
+                try {
+                  detailArray = JSON.parse(detailArray);
+                } catch (e) {
+                  detailArray = [detailArray];
+                }
+              }
+              const detailArrayLength =
+                detailArray && Array.isArray(detailArray)
+                  ? detailArray.length
+                  : 1;
+              if (
+                !i.secondDay ||
+                ((detailArray || []).some(
+                  (detail) => JSON.parse(detail["الحصة المسائية"]) == true,
+                ) &&
+                  (detailArray || []).some(
+                    (detail) => JSON.parse(detail["الحصة المسائية"]) == false,
+                  ))
+              ) {
+                return detailArrayLength;
+              } else {
+                return 1 + detailArrayLength;
+              }
+            })
+            .reduce(
+              (accumulator, currentValue) => accumulator + currentValue,
+              0,
+            ),
         });
       }
     }
@@ -4267,6 +4280,7 @@ async function showBulletins(dates, studentsIDS = null) {
         SELECT 
             ed.date as day,
             ed.isObligatory as is_obligatory,
+            ed.second_day as secondDay,
             s.fname || ' ' || s.lname as student_name,
             dr.detail,
             de.prayer,
@@ -4276,6 +4290,7 @@ async function showBulletins(dates, studentsIDS = null) {
             de.retard,
             de.attendance,
             de.added_points,
+            de.second_day as secondDayEval,
             dr.moyenne as requirements_score,
             de.moyenne as evaluation_score
         FROM education_day ed
@@ -4402,15 +4417,12 @@ async function showBulletins(dates, studentsIDS = null) {
 
     // First pass: categorize all students by their data length
     allStudentData.forEach((studentReport) => {
-      const recordsCounts = studentReport.data
-        .map((i) => {
-          return JSON.parse(i.detail)?.length ?? 1;
-        })
-        .reduce((accumulator, currentValue) => accumulator + currentValue, 0);
-
-      if (tableWithins.resumePagesChecked && recordsCounts <= 20) {
+      if (
+        tableWithins.resumePagesChecked &&
+        studentReport.recordsCounts <= 20
+      ) {
         studentsWithFewRecords.push(studentReport);
-      } else if (recordsCounts < 52) {
+      } else if (studentReport.recordsCounts < 52) {
         studentsWithManyRecords.push(studentReport);
       } else {
         throw new Error("عدد الصفوف تجاوز الحد الأقصى");
@@ -4445,14 +4457,10 @@ async function showBulletins(dates, studentsIDS = null) {
     isSecond,
     isStacked = false,
   ) {
-    const { data, studentName, studentOrder, studentId } = studentReport;
-    const recordCounts =
-      data
-        .map((i) => {
-          return i.detail ? JSON.parse(i.detail).length : 1;
-        })
-        .reduce((accumulator, current) => accumulator + current, 0) + 3;
-    const tableCellHeight = isStacked ? 5 : 33 - recordCounts / 2;
+    const { recordsCounts, data, studentName, studentOrder, studentId } =
+      studentReport;
+    const totalRecordCounts = recordsCounts + 3;
+    const tableCellHeight = isStacked ? 5 : 33 - totalRecordCounts / 2;
     const tableBody = createTableBody(data, tableCellHeight / 3, isStacked);
 
     const content = [
@@ -4513,7 +4521,7 @@ async function showBulletins(dates, studentsIDS = null) {
         table: {
           headerRows: 2,
           heights: tableCellHeight,
-          widths: [32, 26, 30, 30, 20, 50, 35, 218, 35, 20],
+          widths: [32, 30, 30, 30, 20, 50, 35, 214, 35, 20],
           body: tableBody,
         },
         absolutePosition: {
@@ -4521,8 +4529,10 @@ async function showBulletins(dates, studentsIDS = null) {
             (isStacked
               ? 841.89 / 4 + (isSecond ? 841.89 / 2 : 0) - 10
               : 841.89 / 2 -
-                (recordCounts <= 25 ? -1.5 * recordCounts : recordCounts / 2)) -
-            (recordCounts / (isStacked ? 2 : recordCounts)) *
+                (totalRecordCounts <= 25
+                  ? -1.5 * totalRecordCounts
+                  : totalRecordCounts / 2)) -
+            (totalRecordCounts / (isStacked ? 2 : totalRecordCounts)) *
               (isStacked ? 13 : 345),
           x: 18,
         },
@@ -4606,7 +4616,7 @@ async function showBulletins(dates, studentsIDS = null) {
     const headerRows = [
       {},
       {
-        text: "إضافية",
+        text: isGirls ? "إضافية" : "الحلاقة",
         style: "tableHeader",
         alignment: "center",
         marginTop: marginTop,
@@ -4677,183 +4687,25 @@ async function showBulletins(dates, studentsIDS = null) {
       const monthMarginTop =
         marginTop + (isStacked ? 10 : marginTop * 3) * (monthRowSpan / 2);
 
-      records.forEach((record, recordIndex) => {
+      records.forEach((dayRecord, recordIndex) => {
+        const hasSecondDay = !dayRecord.secondDay ? false : true;
         const day = new Intl.DateTimeFormat("ar-DZ-u-ca-islamic-umalqura", {
           day: "numeric",
           weekday: "short",
         })
-          .format(new Date(record.day))
+          .format(new Date(dayRecord.day))
           .replace("،", "");
 
         // Handle absence
-        if (record.attendance !== 1) {
-          const row = createEmptyArray(10); // Create array with correct number of columns
+        if (!hasSecondDay) {
+          if (dayRecord.attendance !== 1) {
+            const row = createEmptyArray(10); // Create array with correct number of columns
 
-          // Set values for the row (RTL order - from right to left)
-          const baseIndex = 9;
-
-          row[baseIndex] =
-            recordIndex === 0
-              ? {
-                  text: monthYear,
-                  style: "tableCell",
-                  alignment: "center",
-                  rowSpan: monthRowSpan,
-                  margin: [-2, monthMarginTop, -1, -3],
-                }
-              : {};
-
-          row[baseIndex - 1] = {
-            text: day,
-            style: "tableCell",
-            alignment: "center",
-            margin: [-2, marginTop, -2, -2],
-          };
-
-          row[0] = {
-            text:
-              "غــــــــــــــــــــــــــــــــــــائــــــــــــــــــب" +
-              (isGirls ? "ــــــة" : "") +
-              (record.is_obligatory === 0 ? "   )حصة غير إلزامية(" : ""),
-            style: "tableCell",
-            alignment: "center",
-            bold: true,
-            colSpan: 8,
-            margin: [0, marginTop, 0, -2],
-          };
-
-          body.push(row);
-          return;
-        }
-
-        record.detail = JSON.parse(record.detail || "[]");
-        const recordDetailLength = record.detail.length;
-        const clothingValue =
-          Object.keys(usedEvaluationLaddersValues[record.day].clothing).find(
-            (k) =>
-              usedEvaluationLaddersValues[record.day].clothing[k] ===
-              record.clothing,
-          ) || "-";
-
-        const behaviorValue =
-          Object.keys(usedEvaluationLaddersValues[record.day].behavior).find(
-            (k) =>
-              usedEvaluationLaddersValues[record.day].behavior[k] ===
-              record.behavior,
-          ) || "-";
-
-        const retardOption =
-          parseInt(record.retard) > 0
-            ? `${parseInt(record.retard)}  د`
-            : "بلا  تأخر";
-
-        if (recordDetailLength < 2) {
-          const row = createEmptyArray(10);
-          const baseIndex = 9;
-
-          // Month (only for first record in month group)
-          row[baseIndex] =
-            recordIndex === 0
-              ? {
-                  text: monthYear,
-                  style: "tableCell",
-                  alignment: "center",
-                  rowSpan: monthRowSpan,
-                  margin: [-2, monthMarginTop, -1, -3],
-                }
-              : {};
-
-          // Day
-          row[baseIndex - 1] = {
-            text: day,
-            style: "tableCell",
-            alignment: "center",
-            margin: [-2, marginTop, -2, -2],
-          };
-
-          // Details
-          row[baseIndex - 2] = {
-            text: formatDetail(record.detail[0]),
-            style: "tableCell",
-            alignment: "right",
-            margin: [0, marginTop, 0, -2],
-          };
-          row[baseIndex - 3] = {
-            text: recordDetailLength ? formatQuantity(record.detail[0]) : "-",
-            style: "tableCell",
-            alignment: "center",
-            margin: [-3, marginTop, -3, -2],
-          };
-          row[baseIndex - 4] = {
-            text: recordDetailLength
-              ? formatEval(record.detail[0]["التقدير"])
-              : "-",
-            style: "tableCell",
-            bold: true,
-            alignment: "center",
-            margin: [-2, marginTop, -2, -2],
-          };
-
-          // retard
-          row[baseIndex - 5] = {
-            text: retardOption,
-            style: "tableCell",
-            alignment: "center",
-            margin: [-2, marginTop, -2, -2],
-          };
-
-          // Behavior
-          const behaviorIndex = baseIndex - 6;
-          row[behaviorIndex] = {
-            text: behaviorValue,
-            style: "tableCell",
-            alignment: "center",
-            margin: [-2, marginTop, -2, -2],
-          };
-
-          // Clothing
-          const clothingIndex = baseIndex - 7;
-          row[clothingIndex] = {
-            text: clothingValue,
-            style: "tableCell",
-            alignment: "center",
-            margin: [-2, marginTop, -2, -2],
-          };
-
-          // Additional points
-          const pointsIndex = baseIndex - 8;
-          row[pointsIndex] = {
-            text: record.added_points ? record.added_points : "-",
-            style: "tableCell",
-            alignment: "center",
-            margin: [-2, marginTop, -2, -2],
-          };
-
-          // day moyenne points
-          row[baseIndex - 9] = {
-            text: (
-              (record.requirements_score || 0) + (record.evaluation_score || 0)
-            ).toFixed(2),
-            bold: true,
-            style: "tableCell",
-            alignment: "center",
-            margin: [-2, marginTop, -2, -2],
-          };
-
-          body.push(row);
-        } else {
-          const marginTopMulti =
-            marginTop +
-            (isStacked ? 7 : marginTop * 3) *
-              (recordDetailLength / (isStacked ? 1.5 : 2.5));
-          // For multiple details, create multiple rows
-          record.detail.forEach((detail, detailIndex) => {
-            const row = createEmptyArray(10);
+            // Set values for the row (RTL order - from right to left)
             const baseIndex = 9;
 
-            // Month (only for first record and first detail in month group)
             row[baseIndex] =
-              recordIndex === 0 && detailIndex === 0
+              recordIndex === 0
                 ? {
                     text: monthYear,
                     style: "tableCell",
@@ -4863,33 +4715,106 @@ async function showBulletins(dates, studentsIDS = null) {
                   }
                 : {};
 
-            // Day (only for first detail in the record)
-            row[baseIndex - 1] =
-              detailIndex === 0
+            row[baseIndex - 1] = {
+              text: day,
+              style: "tableCell",
+              alignment: "center",
+              margin: [-2, marginTop, -2, -2],
+            };
+
+            row[0] = {
+              text:
+                "غــــــــــــــــــــــــــــــــــــائــــــــــــــــــب" +
+                (isGirls ? "ــــــة" : "") +
+                (dayRecord.is_obligatory === 0 ? "   )حصة غير إلزامية(" : ""),
+              style: "tableCell",
+              alignment: "center",
+              bold: true,
+              colSpan: 8,
+              margin: [0, marginTop, 0, -2],
+            };
+
+            body.push(row);
+            return;
+          }
+
+          dayRecord.detail = JSON.parse(dayRecord.detail || "[]");
+          const recordDetailLength = dayRecord.detail.length;
+          const clothingValue =
+            Object.keys(
+              usedEvaluationLaddersValues[dayRecord.day].clothing,
+            ).find(
+              (k) =>
+                usedEvaluationLaddersValues[dayRecord.day].clothing[k] ===
+                dayRecord.clothing,
+            ) || "-";
+
+          const behaviorValue =
+            Object.keys(
+              usedEvaluationLaddersValues[dayRecord.day].behavior,
+            ).find(
+              (k) =>
+                usedEvaluationLaddersValues[dayRecord.day].behavior[k] ===
+                dayRecord.behavior,
+            ) || "-";
+
+          const retardOption =
+            parseInt(dayRecord.retard) > 0
+              ? `${parseInt(dayRecord.retard)}  د`
+              : "بلا  تأخر";
+
+          const haircutValue =
+            Object.keys(
+              usedEvaluationLaddersValues[dayRecord.day].haircut,
+            ).find(
+              (k) =>
+                usedEvaluationLaddersValues[dayRecord.day].haircut[k] ===
+                dayRecord.haircut,
+            ) || "-";
+
+          if (recordDetailLength < 2) {
+            const row = createEmptyArray(10);
+            const baseIndex = 9;
+
+            // Month (only for first record in month group)
+            row[baseIndex] =
+              recordIndex === 0
                 ? {
-                    text: day,
+                    text: monthYear,
                     style: "tableCell",
                     alignment: "center",
-                    rowSpan: recordDetailLength,
-                    margin: [-2, marginTopMulti, -2, -2],
+                    rowSpan: monthRowSpan,
+                    margin: [-2, monthMarginTop, -1, -3],
                   }
                 : {};
 
-            // Detail
+            // Day
+            row[baseIndex - 1] = {
+              text: day,
+              style: "tableCell",
+              alignment: "center",
+              margin: [-2, marginTop, -2, -2],
+            };
+
+            // Details
             row[baseIndex - 2] = {
-              text: formatDetail(detail),
+              text: formatDetail(dayRecord.detail[0]),
               style: "tableCell",
               alignment: "right",
               margin: [0, marginTop, 0, -2],
             };
             row[baseIndex - 3] = {
-              text: formatQuantity(detail),
+              text: recordDetailLength
+                ? formatQuantity(dayRecord.detail[0])
+                : "-",
               style: "tableCell",
               alignment: "center",
               margin: [-3, marginTop, -3, -2],
             };
             row[baseIndex - 4] = {
-              text: formatEval(detail["التقدير"]) || "-",
+              text: recordDetailLength
+                ? formatEval(dayRecord.detail[0]["التقدير"])
+                : "-",
               style: "tableCell",
               bold: true,
               alignment: "center",
@@ -4897,75 +4822,876 @@ async function showBulletins(dates, studentsIDS = null) {
             };
 
             // retard
-            row[baseIndex - 5] =
-              detailIndex === 0
-                ? {
-                    text: retardOption,
-                    style: "tableCell",
-                    alignment: "center",
-                    rowSpan: recordDetailLength,
-                    margin: [-2, marginTopMulti, -2, -2],
-                  }
-                : {};
+            row[baseIndex - 5] = {
+              text: retardOption,
+              style: "tableCell",
+              alignment: "center",
+              margin: [-2, marginTop, -2, -2],
+            };
 
-            // Behavior (only for first detail)
+            // Behavior
             const behaviorIndex = baseIndex - 6;
-            row[behaviorIndex] =
-              detailIndex === 0
-                ? {
-                    text: behaviorValue,
-                    style: "tableCell",
-                    alignment: "center",
-                    rowSpan: recordDetailLength,
-                    margin: [-2, marginTopMulti, -2, -2],
-                  }
-                : {};
+            row[behaviorIndex] = {
+              text: behaviorValue,
+              style: "tableCell",
+              alignment: "center",
+              margin: [-2, marginTop, -2, -2],
+            };
 
-            // Clothing (only for first detail)
+            // Clothing
             const clothingIndex = baseIndex - 7;
-            row[clothingIndex] =
-              detailIndex === 0
-                ? {
-                    text: clothingValue,
-                    style: "tableCell",
-                    alignment: "center",
-                    rowSpan: recordDetailLength,
-                    margin: [-2, marginTopMulti, -2, -2],
-                  }
-                : {};
+            row[clothingIndex] = {
+              text: clothingValue,
+              style: "tableCell",
+              alignment: "center",
+              margin: [-2, marginTop, -2, -2],
+            };
 
-            // Additional points (only for first detail)
+            // Additional points
             const pointsIndex = baseIndex - 8;
-            row[pointsIndex] =
-              detailIndex === 0
-                ? {
-                    text: record.added_points ? record.added_points : "-",
-                    style: "tableCell",
-                    alignment: "center",
-                    rowSpan: recordDetailLength,
-                    margin: [-2, marginTopMulti, -2, -2],
-                  }
-                : {};
+            row[pointsIndex] = {
+              text: isGirls
+                ? dayRecord.added_points
+                  ? dayRecord.added_points
+                  : "-"
+                : haircutValue,
+              style: "tableCell",
+              alignment: "center",
+              margin: [-2, marginTop, -2, -2],
+            };
 
-            // day moyenne  (only for first detail)
-            const moyenneIndex = baseIndex - 9;
-            row[moyenneIndex] =
-              detailIndex === 0
-                ? {
-                    text: (
-                      (record.requirements_score || 0) +
-                      (record.evaluation_score || 0)
-                    ).toFixed(2),
-                    bold: true,
-                    style: "tableCell",
-                    alignment: "center",
-                    rowSpan: recordDetailLength,
-                    margin: [-2, marginTopMulti, -2, -2],
-                  }
-                : {};
+            // day moyenne points
+            row[baseIndex - 9] = {
+              text: (
+                (dayRecord.requirements_score || 0) +
+                (dayRecord.evaluation_score || 0)
+              ).toFixed(2),
+              bold: true,
+              style: "tableCell",
+              alignment: "center",
+              margin: [-2, marginTop, -2, -2],
+            };
 
             body.push(row);
-          });
+          } else {
+            const marginTopMulti =
+              marginTop +
+              (isStacked ? 7 : marginTop * 3) *
+                (recordDetailLength / (isStacked ? 1.5 : 2.5));
+            // For multiple details, create multiple rows
+            dayRecord.detail.forEach((detail, detailIndex) => {
+              const row = createEmptyArray(10);
+              const baseIndex = 9;
+
+              // Month (only for first record and first detail in month group)
+              row[baseIndex] =
+                recordIndex === 0 && detailIndex === 0
+                  ? {
+                      text: monthYear,
+                      style: "tableCell",
+                      alignment: "center",
+                      rowSpan: monthRowSpan,
+                      margin: [-2, monthMarginTop, -1, -3],
+                    }
+                  : {};
+
+              // Day (only for first detail in the record)
+              row[baseIndex - 1] =
+                detailIndex === 0
+                  ? {
+                      text: day,
+                      style: "tableCell",
+                      alignment: "center",
+                      rowSpan: recordDetailLength,
+                      margin: [-2, marginTopMulti, -2, -2],
+                    }
+                  : {};
+
+              // Detail
+              row[baseIndex - 2] = {
+                text: formatDetail(detail),
+                style: "tableCell",
+                alignment: "right",
+                margin: [0, marginTop, 0, -2],
+              };
+              row[baseIndex - 3] = {
+                text: formatQuantity(detail),
+                style: "tableCell",
+                alignment: "center",
+                margin: [-3, marginTop, -3, -2],
+              };
+              row[baseIndex - 4] = {
+                text: formatEval(detail["التقدير"]) || "-",
+                style: "tableCell",
+                bold: true,
+                alignment: "center",
+                margin: [-2, marginTop, -2, -2],
+              };
+
+              // retard
+              row[baseIndex - 5] =
+                detailIndex === 0
+                  ? {
+                      text: retardOption,
+                      style: "tableCell",
+                      alignment: "center",
+                      rowSpan: recordDetailLength,
+                      margin: [-2, marginTopMulti, -2, -2],
+                    }
+                  : {};
+
+              // Behavior (only for first detail)
+              const behaviorIndex = baseIndex - 6;
+              row[behaviorIndex] =
+                detailIndex === 0
+                  ? {
+                      text: behaviorValue,
+                      style: "tableCell",
+                      alignment: "center",
+                      rowSpan: recordDetailLength,
+                      margin: [-2, marginTopMulti, -2, -2],
+                    }
+                  : {};
+
+              // Clothing (only for first detail)
+              const clothingIndex = baseIndex - 7;
+              row[clothingIndex] =
+                detailIndex === 0
+                  ? {
+                      text: clothingValue,
+                      style: "tableCell",
+                      alignment: "center",
+                      rowSpan: recordDetailLength,
+                      margin: [-2, marginTopMulti, -2, -2],
+                    }
+                  : {};
+
+              // Additional points (only for first detail)
+              const pointsIndex = baseIndex - 8;
+              row[pointsIndex] =
+                detailIndex === 0
+                  ? {
+                      text: isGirls
+                        ? dayRecord.added_points
+                          ? dayRecord.added_points
+                          : "-"
+                        : haircutValue,
+                      style: "tableCell",
+                      alignment: "center",
+                      rowSpan: recordDetailLength,
+                      margin: [-2, marginTopMulti, -2, -2],
+                    }
+                  : {};
+
+              // day moyenne  (only for first detail)
+              const moyenneIndex = baseIndex - 9;
+              row[moyenneIndex] =
+                detailIndex === 0
+                  ? {
+                      text: (
+                        (dayRecord.requirements_score || 0) +
+                        (dayRecord.evaluation_score || 0)
+                      ).toFixed(2),
+                      bold: true,
+                      style: "tableCell",
+                      alignment: "center",
+                      rowSpan: recordDetailLength,
+                      margin: [-2, marginTopMulti, -2, -2],
+                    }
+                  : {};
+
+              body.push(row);
+            });
+          }
+        } else if (!dayRecord.attendance) {
+          const firstRow = createEmptyArray(10); // Create array with correct number of columns
+
+          // Set values for the row (RTL order - from right to left)
+          const baseIndex = 9;
+
+          firstRow[baseIndex] = {
+            text: monthYear,
+            style: "tableCell",
+            alignment: "center",
+            rowSpan: monthRowSpan,
+            margin: [-2, monthMarginTop, -1, -3],
+          };
+
+          firstRow[baseIndex - 1] = {
+            text: day,
+            style: "tableCell",
+            alignment: "center",
+            rowSpan: 2,
+            margin: [
+              -2,
+              (marginTop * 2 + 5) * (2 / (isStacked ? 1.5 : 2.5)),
+              -2,
+              -2,
+            ],
+          };
+
+          firstRow[0] = {
+            text:
+              "غـــــــــــــائـــــــب" +
+              (isGirls ? "ــــــة" : "") +
+              "  صــبــاحـــــا" +
+              (dayRecord.is_obligatory === 0 ? "   )حصة غير إلزامية(" : ""),
+            style: "tableCell",
+            alignment: "center",
+            bold: true,
+            colSpan: 8,
+            margin: [0, marginTop, 0, -2],
+          };
+
+          body.push(firstRow);
+
+          const secondRow = createEmptyArray(10); // Create array with correct number of columns
+
+          secondRow[0] = {
+            text:
+              "غـــــــــــــائـــــــب" +
+              (isGirls ? "ــــــة" : "") +
+              "  مـــسـاءً" +
+              (dayRecord.is_obligatory === 0 ? "   )حصة غير إلزامية(" : ""),
+            style: "tableCell",
+            alignment: "center",
+            bold: true,
+            colSpan: 8,
+            margin: [0, marginTop, 0, -2],
+          };
+
+          body.push(secondRow);
+
+          return;
+        } else {
+          dayRecord.detail = JSON.parse(dayRecord.detail || "[]");
+
+          const firstDayDetailsValue = dayRecord.detail.filter(
+            (detail) => JSON.parse(detail["الحصة المسائية"]) == false,
+          );
+          const secondDayDetailsValue = dayRecord.detail.filter(
+            (detail) => JSON.parse(detail["الحصة المسائية"]) == true,
+          );
+          const firstDayDetailLength = firstDayDetailsValue.length;
+          const secondDayDetailLength = secondDayDetailsValue.length;
+          const secondDayEvaluation = JSON.parse(
+            dayRecord.secondDayEval || "{}",
+          );
+          // ################################################
+          const dayMarginTop =
+            (marginTop * 2 + 5) *
+            (((firstDayDetailLength || 1) + (secondDayDetailLength || 1)) /
+              (isStacked ? 1.5 : 2.5));
+          if (dayRecord.attendance !== 1) {
+            const firstRow = createEmptyArray(10); // Create array with correct number of columns
+
+            // Set values for the row (RTL order - from right to left)
+            const baseIndex = 9;
+
+            firstRow[baseIndex] = {
+              text: monthYear,
+              style: "tableCell",
+              alignment: "center",
+              rowSpan: monthRowSpan,
+              margin: [-2, monthMarginTop, -1, -3],
+            };
+
+            firstRow[baseIndex - 1] = {
+              text: day,
+              style: "tableCell",
+              alignment: "center",
+              rowSpan: 1 + (secondDayDetailLength || 1),
+              margin: [-2, dayMarginTop, -2, -2],
+            };
+
+            firstRow[0] = {
+              text:
+                "غـــــــــــــائـــــــب" +
+                (isGirls ? "ــــــة" : "") +
+                "  صــبــاحـــــا" +
+                (dayRecord.is_obligatory === 0 ? "   )حصة غير إلزامية(" : ""),
+              style: "tableCell",
+              alignment: "center",
+              bold: true,
+              colSpan: 8,
+              margin: [0, marginTop, 0, -2],
+            };
+
+            body.push(firstRow);
+          } else {
+            const firstDayClothingValue =
+              Object.keys(
+                usedEvaluationLaddersValues[dayRecord.day].clothing,
+              ).find(
+                (k) =>
+                  usedEvaluationLaddersValues[dayRecord.day].clothing[k] ===
+                  dayRecord.clothing,
+              ) || "-";
+
+            const firstDayBehaviorValue =
+              Object.keys(
+                usedEvaluationLaddersValues[dayRecord.day].behavior,
+              ).find(
+                (k) =>
+                  usedEvaluationLaddersValues[dayRecord.day].behavior[k] ===
+                  dayRecord.behavior,
+              ) || "-";
+
+            const firstDayRetardOption =
+              parseInt(dayRecord.retard) > 0
+                ? `${parseInt(dayRecord.retard)}  د`
+                : "بلا  تأخر";
+
+            const firstDayhaircutValue =
+              Object.keys(
+                usedEvaluationLaddersValues[dayRecord.day].haircut,
+              ).find(
+                (k) =>
+                  usedEvaluationLaddersValues[dayRecord.day].haircut[k] ===
+                  dayRecord.haircut,
+              ) || "-";
+
+            const firstDayAddedPointsValue = dayRecord.added_points
+              ? dayRecord.added_points
+              : "-";
+            const firstDayMoyenneValue = (
+              (Number(secondDayEvaluation?.moyenne) || 0) +
+              (dayRecord.requirements_score || 0) +
+              (dayRecord.evaluation_score || 0)
+            ).toFixed(2);
+
+            if (firstDayDetailLength < 2) {
+              const row = createEmptyArray(10);
+              const baseIndex = 9;
+
+              // Month (only for first record in month group)
+              row[baseIndex] =
+                recordIndex === 0
+                  ? {
+                      text: monthYear,
+                      style: "tableCell",
+                      alignment: "center",
+                      rowSpan: monthRowSpan,
+                      margin: [-2, monthMarginTop, -1, -3],
+                    }
+                  : {};
+
+              // Day
+              row[baseIndex - 1] = {
+                text: day,
+                style: "tableCell",
+                alignment: "center",
+                rowSpan: 1 + (secondDayDetailLength || 1),
+                margin: [-2, dayMarginTop, -2, -2],
+              };
+
+              // Details
+              row[baseIndex - 2] = {
+                text: formatDetail(firstDayDetailsValue[0]),
+                style: "tableCell",
+                alignment: "right",
+                margin: [0, marginTop, 0, -2],
+              };
+              row[baseIndex - 3] = {
+                text: firstDayDetailLength
+                  ? formatQuantity(firstDayDetailsValue[0])
+                  : "-",
+                style: "tableCell",
+                alignment: "center",
+                margin: [-3, marginTop, -3, -2],
+              };
+              row[baseIndex - 4] = {
+                text: firstDayDetailLength
+                  ? formatEval(firstDayDetailsValue[0]["التقدير"])
+                  : "-",
+                style: "tableCell",
+                bold: true,
+                alignment: "center",
+                margin: [-2, marginTop, -2, -2],
+              };
+
+              // retard
+              row[baseIndex - 5] = {
+                text: firstDayRetardOption,
+                style: "tableCell",
+                alignment: "center",
+                margin: [-2, marginTop, -2, -2],
+              };
+
+              // Behavior
+              const behaviorIndex = baseIndex - 6;
+              row[behaviorIndex] = {
+                text: firstDayBehaviorValue,
+                style: "tableCell",
+                alignment: "center",
+                margin: [-2, marginTop, -2, -2],
+              };
+
+              // Clothing
+              const clothingIndex = baseIndex - 7;
+              row[clothingIndex] = {
+                text: firstDayClothingValue,
+                style: "tableCell",
+                alignment: "center",
+                margin: [-2, marginTop, -2, -2],
+              };
+
+              // Additional points
+              const pointsIndex = baseIndex - 8;
+              row[pointsIndex] = {
+                text: isGirls ? firstDayAddedPointsValue : firstDayhaircutValue,
+                style: "tableCell",
+                alignment: "center",
+                margin: [-2, marginTop, -2, -2],
+              };
+
+              // day moyenne points
+              row[baseIndex - 9] = {
+                text: firstDayMoyenneValue,
+                bold: true,
+                style: "tableCell",
+                alignment: "center",
+                rowSpan:
+                  1 +
+                  (!dayRecord.secondDayEval ? 0 : secondDayDetailLength || 1),
+                margin: [
+                  -2,
+                  !dayRecord.secondDayEval ? marginTop : dayMarginTop,
+                  -2,
+                  -2,
+                ],
+              };
+
+              body.push(row);
+            } else {
+              const marginTopMulti =
+                marginTop +
+                (isStacked ? 7 : marginTop * 3) *
+                  (firstDayDetailLength / (isStacked ? 1.5 : 2.5));
+
+              const dayMarginTop =
+                marginTopMulti +
+                (marginTop * 2 + 5) *
+                  (secondDayDetailLength / (isStacked ? 1.5 : 2.5));
+
+              // For multiple details, create multiple rows
+              firstDayDetailsValue.forEach((detail, detailIndex) => {
+                const row = createEmptyArray(10);
+                const baseIndex = 9;
+
+                // Month (only for first record and first detail in month group)
+                row[baseIndex] =
+                  recordIndex === 0 && detailIndex === 0
+                    ? {
+                        text: monthYear,
+                        style: "tableCell",
+                        alignment: "center",
+                        rowSpan: monthRowSpan,
+                        margin: [-2, monthMarginTop, -1, -3],
+                      }
+                    : {};
+
+                // Day (only for first detail in the record)
+                row[baseIndex - 1] =
+                  detailIndex === 0
+                    ? {
+                        text: day,
+                        style: "tableCell",
+                        alignment: "center",
+                        rowSpan:
+                          firstDayDetailLength + (secondDayDetailLength || 1),
+                        margin: [-2, dayMarginTop, -2, -2],
+                      }
+                    : {};
+
+                // Detail
+                row[baseIndex - 2] = {
+                  text: formatDetail(detail),
+                  style: "tableCell",
+                  alignment: "right",
+                  margin: [0, marginTop, 0, -2],
+                };
+                row[baseIndex - 3] = {
+                  text: formatQuantity(detail),
+                  style: "tableCell",
+                  alignment: "center",
+                  margin: [-3, marginTop, -3, -2],
+                };
+                row[baseIndex - 4] = {
+                  text: formatEval(detail["التقدير"]) || "-",
+                  style: "tableCell",
+                  bold: true,
+                  alignment: "center",
+                  margin: [-2, marginTop, -2, -2],
+                };
+
+                // retard
+                row[baseIndex - 5] =
+                  detailIndex === 0
+                    ? {
+                        text: firstDayRetardOption,
+                        style: "tableCell",
+                        alignment: "center",
+                        rowSpan: firstDayDetailLength,
+                        margin: [-2, marginTopMulti, -2, -2],
+                      }
+                    : {};
+
+                // Behavior (only for first detail)
+                const behaviorIndex = baseIndex - 6;
+                row[behaviorIndex] =
+                  detailIndex === 0
+                    ? {
+                        text: firstDayBehaviorValue,
+                        style: "tableCell",
+                        alignment: "center",
+                        rowSpan: firstDayDetailLength,
+                        margin: [-2, marginTopMulti, -2, -2],
+                      }
+                    : {};
+
+                // Clothing (only for first detail)
+                const clothingIndex = baseIndex - 7;
+                row[clothingIndex] =
+                  detailIndex === 0
+                    ? {
+                        text: firstDayClothingValue,
+                        style: "tableCell",
+                        alignment: "center",
+                        rowSpan: firstDayDetailLength,
+                        margin: [-2, marginTopMulti, -2, -2],
+                      }
+                    : {};
+
+                // Additional points (only for first detail)
+                const pointsIndex = baseIndex - 8;
+                row[pointsIndex] =
+                  detailIndex === 0
+                    ? {
+                        text: isGirls
+                          ? firstDayAddedPointsValue
+                          : firstDayhaircutValue,
+                        style: "tableCell",
+                        alignment: "center",
+                        rowSpan: firstDayDetailLength,
+                        margin: [-2, marginTopMulti, -2, -2],
+                      }
+                    : {};
+
+                // day moyenne  (only for first detail)
+                const moyenneIndex = baseIndex - 9;
+                row[moyenneIndex] =
+                  detailIndex === 0
+                    ? {
+                        text: firstDayMoyenneValue,
+                        bold: true,
+                        style: "tableCell",
+                        alignment: "center",
+                        rowSpan:
+                          firstDayDetailLength +
+                          (!dayRecord.secondDayEval
+                            ? 0
+                            : secondDayDetailLength || 1),
+                        margin: [
+                          -2,
+                          !dayRecord.secondDayEval
+                            ? marginTopMulti
+                            : dayMarginTop,
+                          -2,
+                          -2,
+                        ],
+                      }
+                    : {};
+
+                body.push(row);
+              });
+            }
+          }
+          // ####################################################""
+
+          if (!dayRecord.secondDayEval) {
+            const firstRow = createEmptyArray(10); // Create array with correct number of columns
+
+            const baseIndex = 9;
+
+            firstRow[baseIndex] = {
+              text: monthYear,
+              style: "tableCell",
+              alignment: "center",
+              rowSpan: monthRowSpan,
+              margin: [-2, monthMarginTop, -1, -3],
+            };
+
+            firstRow[baseIndex - 1] = {
+              text: day,
+              style: "tableCell",
+              alignment: "center",
+              rowSpan: 2,
+              margin: [
+                -2,
+                (marginTop * 2 + 5) * (2 / (isStacked ? 1.5 : 2.5)),
+                -2,
+                -2,
+              ],
+            };
+
+            firstRow[0] = {
+              text:
+                "غـــــــــــــائـــــــب" +
+                (isGirls ? "ــــــة" : "") +
+                "  مــــســــاء" +
+                (dayRecord.is_obligatory === 0 ? "   )حصة غير إلزامية(" : ""),
+              style: "tableCell",
+              alignment: "center",
+              bold: true,
+              colSpan: 8,
+              margin: [0, marginTop, 0, -2],
+            };
+
+            body.push(firstRow);
+          } else {
+            const secondDayClothingValue =
+              Object.keys(
+                usedEvaluationLaddersValues[dayRecord.day].clothing,
+              ).find(
+                (k) =>
+                  usedEvaluationLaddersValues[dayRecord.day].clothing[k] ===
+                  secondDayEvaluation.clothing,
+              ) || "-";
+
+            const secondDayBehaviorValue =
+              Object.keys(
+                usedEvaluationLaddersValues[dayRecord.day].behavior,
+              ).find(
+                (k) =>
+                  usedEvaluationLaddersValues[dayRecord.day].behavior[k] ===
+                  secondDayEvaluation.behavior,
+              ) || "-";
+
+            const secondDayRetardOption =
+              parseInt(secondDayEvaluation.retard) > 0
+                ? `${parseInt(secondDayEvaluation.retard)}  د`
+                : "بلا  تأخر";
+
+            const secondDayhaircutValue =
+              Object.keys(
+                usedEvaluationLaddersValues[dayRecord.day].haircut,
+              ).find(
+                (k) =>
+                  usedEvaluationLaddersValues[dayRecord.day].haircut[k] ===
+                  secondDayEvaluation.haircut,
+              ) || "-";
+
+            const secondDayAddedPointsValue = dayRecord.added_points
+              ? secondDayEvaluation.added_points
+              : "-";
+
+            if (secondDayDetailLength < 2) {
+              const row = createEmptyArray(10);
+              const baseIndex = 9;
+
+              // Details
+              row[baseIndex - 2] = {
+                text: formatDetail(secondDayDetailsValue[0]),
+                style: "tableCell",
+                alignment: "right",
+                margin: [0, marginTop, 0, -2],
+              };
+              row[baseIndex - 3] = {
+                text: secondDayDetailLength
+                  ? formatQuantity(secondDayDetailsValue[0])
+                  : "-",
+                style: "tableCell",
+                alignment: "center",
+                margin: [-3, marginTop, -3, -2],
+              };
+              row[baseIndex - 4] = {
+                text: secondDayDetailLength
+                  ? formatEval(secondDayDetailsValue[0]["التقدير"])
+                  : "-",
+                style: "tableCell",
+                bold: true,
+                alignment: "center",
+                margin: [-2, marginTop, -2, -2],
+              };
+
+              // retard
+              row[baseIndex - 5] = {
+                text: secondDayRetardOption,
+                style: "tableCell",
+                alignment: "center",
+                margin: [-2, marginTop, -2, -2],
+              };
+
+              // Behavior
+              const behaviorIndex = baseIndex - 6;
+              row[behaviorIndex] = {
+                text: secondDayBehaviorValue,
+                style: "tableCell",
+                alignment: "center",
+                margin: [-2, marginTop, -2, -2],
+              };
+
+              // Clothing
+              const clothingIndex = baseIndex - 7;
+              row[clothingIndex] = {
+                text: secondDayClothingValue,
+                style: "tableCell",
+                alignment: "center",
+                margin: [-2, marginTop, -2, -2],
+              };
+
+              // Additional points
+              const pointsIndex = baseIndex - 8;
+              row[pointsIndex] = {
+                text: isGirls
+                  ? secondDayAddedPointsValue
+                  : secondDayhaircutValue,
+                style: "tableCell",
+                alignment: "center",
+                margin: [-2, marginTop, -2, -2],
+              };
+              if (dayRecord.attendance !== 1) {
+                row[baseIndex - 9] = {
+                  text: secondDayEvaluation.moyenne
+                    ? secondDayEvaluation.moyenne
+                    : "-",
+                  bold: true,
+                  style: "tableCell",
+                  alignment: "center",
+                  margin: [-2, marginTop, -2, -2],
+                };
+              }
+
+              body.push(row);
+            } else {
+              const marginTopMulti =
+                marginTop +
+                (isStacked ? 7 : marginTop * 3) *
+                  (secondDayDetailLength / (isStacked ? 1.5 : 2.5));
+              // For multiple details, create multiple rows
+              secondDayDetailsValue.forEach((detail, detailIndex) => {
+                const row = createEmptyArray(10);
+                const baseIndex = 9;
+
+                // Month (only for first record and first detail in month group)
+                row[baseIndex] =
+                  recordIndex === 0 && detailIndex === 0
+                    ? {
+                        text: monthYear,
+                        style: "tableCell",
+                        alignment: "center",
+                        rowSpan: monthRowSpan,
+                        margin: [-2, monthMarginTop, -1, -3],
+                      }
+                    : {};
+
+                // Day (only for first detail in the record)
+                row[baseIndex - 1] =
+                  detailIndex === 0
+                    ? {
+                        text: day,
+                        style: "tableCell",
+                        alignment: "center",
+                        rowSpan: secondDayDetailLength,
+                        margin: [-2, marginTopMulti, -2, -2],
+                      }
+                    : {};
+
+                // Detail
+                row[baseIndex - 2] = {
+                  text: formatDetail(detail),
+                  style: "tableCell",
+                  alignment: "right",
+                  margin: [0, marginTop, 0, -2],
+                };
+                row[baseIndex - 3] = {
+                  text: formatQuantity(detail),
+                  style: "tableCell",
+                  alignment: "center",
+                  margin: [-3, marginTop, -3, -2],
+                };
+                row[baseIndex - 4] = {
+                  text: formatEval(detail["التقدير"]) || "-",
+                  style: "tableCell",
+                  bold: true,
+                  alignment: "center",
+                  margin: [-2, marginTop, -2, -2],
+                };
+
+                // retard
+                row[baseIndex - 5] =
+                  detailIndex === 0
+                    ? {
+                        text: secondDayRetardOption,
+                        style: "tableCell",
+                        alignment: "center",
+                        rowSpan: secondDayDetailLength,
+                        margin: [-2, marginTopMulti, -2, -2],
+                      }
+                    : {};
+
+                // Behavior (only for first detail)
+                const behaviorIndex = baseIndex - 6;
+                row[behaviorIndex] =
+                  detailIndex === 0
+                    ? {
+                        text: secondDayBehaviorValue,
+                        style: "tableCell",
+                        alignment: "center",
+                        rowSpan: secondDayDetailLength,
+                        margin: [-2, marginTopMulti, -2, -2],
+                      }
+                    : {};
+
+                // Clothing (only for first detail)
+                const clothingIndex = baseIndex - 7;
+                row[clothingIndex] =
+                  detailIndex === 0
+                    ? {
+                        text: secondDayClothingValue,
+                        style: "tableCell",
+                        alignment: "center",
+                        rowSpan: secondDayDetailLength,
+                        margin: [-2, marginTopMulti, -2, -2],
+                      }
+                    : {};
+
+                // Additional points (only for first detail)
+                const pointsIndex = baseIndex - 8;
+                row[pointsIndex] =
+                  detailIndex === 0
+                    ? {
+                        text: isGirls
+                          ? secondDayAddedPointsValue
+                          : secondDayhaircutValue,
+                        style: "tableCell",
+                        alignment: "center",
+                        rowSpan: secondDayDetailLength,
+                        margin: [-2, marginTopMulti, -2, -2],
+                      }
+                    : {};
+
+                if (dayRecord.attendance !== 1) {
+                  row[baseIndex - 9] =
+                    detailIndex === 0
+                      ? {
+                          text: secondDayEvaluation.moyenne
+                            ? secondDayEvaluation.moyenne
+                            : "-",
+                          bold: true,
+                          style: "tableCell",
+                          alignment: "center",
+                          rowSpan: secondDayDetailLength,
+                          margin: [-2, marginTopMulti, -2, -2],
+                        }
+                      : {};
+                }
+
+                body.push(row);
+              });
+            }
+          }
         }
       });
     });
@@ -4983,7 +5709,10 @@ async function showBulletins(dates, studentsIDS = null) {
 
     const total = validRecords.reduce(
       (sum, record) =>
-        sum + (record.requirements_score || 0) + (record.evaluation_score || 0),
+        sum +
+        (Number(JSON.parse(record.secondDayEval || "{}")?.moyenne) || 0) +
+        (record.requirements_score || 0) +
+        (record.evaluation_score || 0),
       0,
     );
     const resultRows = [
@@ -5086,15 +5815,22 @@ async function showBulletins(dates, studentsIDS = null) {
   }
 
   // Helper function to calculate total rowSpan for a month group
-  function calculateMonthRowSpan(records) {
+  function calculateMonthRowSpan(monthRecords) {
     let totalRows = 0;
 
-    records.forEach((record) => {
-      if (record.attendance !== 1) {
-        totalRows += 1; // Absent records take 1 row
+    monthRecords.forEach((dayRecord) => {
+      const hasSecondDay = !dayRecord.secondDay ? false : true;
+      if (!dayRecord.attendance) {
+        totalRows += hasSecondDay ? 2 : 1;
+      } else if (
+        dayRecord.attendance !== 1 &&
+        hasSecondDay &&
+        JSON.parse(dayRecord.secondDayEval || "{}").attendance !== 1
+      ) {
+        totalRows += 2;
       } else {
         // Parse detail if it's a string
-        let detailArray = record.detail;
+        let detailArray = dayRecord.detail;
         if (typeof detailArray === "string") {
           try {
             detailArray = JSON.parse(detailArray);
@@ -5104,6 +5840,20 @@ async function showBulletins(dates, studentsIDS = null) {
         }
         totalRows +=
           detailArray && Array.isArray(detailArray) ? detailArray.length : 1;
+
+        if (
+          hasSecondDay &&
+          !(
+            (detailArray || []).some(
+              (detail) => JSON.parse(detail["الحصة المسائية"]) == true,
+            ) &&
+            (detailArray || []).some(
+              (detail) => JSON.parse(detail["الحصة المسائية"]) == false,
+            )
+          )
+        ) {
+          totalRows += 1;
+        }
       }
     });
 
@@ -5117,42 +5867,56 @@ async function showBulletins(dates, studentsIDS = null) {
     isSecond,
     isStacked = false,
   ) {
-    const totalDays = studentData.length;
-    const validRecords = studentData.filter(
-      (record) => record.attendance !== null,
+    const totalDays = studentData
+      .map((i) => (!i.secondDay ? 1 : 2))
+      .reduce((accumulator, currentValue) => accumulator + currentValue, 0);
+
+    const validDays = studentData.filter(
+      (dayRecord) => dayRecord.attendance !== null,
     );
 
     if (totalDays === 0) return [];
 
     const fullAddedPoints =
       studentsAppends[studentData[0].student_name]?.points || 0;
-    const presentDays = validRecords.filter(
-      (record) => record.attendance === 1,
-    ).length;
+
+    const presentDays =
+      validDays.filter((record) => record.attendance === 1).length +
+      validDays.filter(
+        (record) => JSON.parse(record.secondDayEval || "{}")?.attendance === 1,
+      ).length;
 
     const totalSaveQuantity = (
-      validRecords.reduce(
+      validDays.reduce(
         (sum, record) =>
           sum +
-          (record.detail?.reduce(
-            (acc, val) =>
-              acc +
-              (val["النوع"] === "حفظ" ? parseFloat(val["المقدار"] || 0) : 0),
-            0,
-          ) || 0),
+          (Array.isArray(record.detail)
+            ? record.detail.reduce(
+                (acc, val) =>
+                  acc +
+                  (val["النوع"] === "حفظ"
+                    ? parseFloat(val["المقدار"] || 0)
+                    : 0),
+                0,
+              )
+            : 0),
         0,
       ) / 15
     ).toFixed(1);
     const totalReviseQuantity = (
-      validRecords.reduce(
+      validDays.reduce(
         (sum, record) =>
           sum +
-          (record.detail?.reduce(
-            (acc, val) =>
-              acc +
-              (val["النوع"] !== "حفظ" ? parseFloat(val["المقدار"] || 0) : 0),
-            0,
-          ) || 0),
+          (Array.isArray(record.detail)
+            ? record.detail.reduce(
+                (acc, val) =>
+                  acc +
+                  (val["النوع"] !== "حفظ"
+                    ? parseFloat(val["المقدار"] || 0)
+                    : 0),
+                0,
+              )
+            : 0),
         0,
       ) / 15
     ).toFixed(1);
@@ -5166,18 +5930,25 @@ async function showBulletins(dates, studentsIDS = null) {
         : "");
 
     const total =
-      validRecords.reduce(
+      validDays.reduce(
         (sum, record) =>
           sum +
+          (Number(JSON.parse(record.secondDayEval || "{}")?.moyenne) || 0) +
           (record.requirements_score || 0) +
           (record.evaluation_score || 0),
         0,
       ) + (fullAddedPoints || 0);
+
     const totalMoyenne =
       total /
       (totalDays -
         studentData.filter(
           (record) => record.attendance === 0 || record.is_obligatory === 0,
+        ).length -
+        studentData.filter(
+          (record) =>
+            Number(JSON.parse(record.secondDayEval || "{}")?.attendance) === 0 ||
+            Number(JSON.parse(record.secondDay || "{}")?.isObligatory) === 0,
         ).length);
 
     const attendanceRate = ((presentDays / totalDays) * 100).toFixed(1);
@@ -5201,9 +5972,9 @@ async function showBulletins(dates, studentsIDS = null) {
           widths: [
             70,
             100,
-            totalSaveQuantity > 0 && totalReviseQuantity > 0 ? 180 : 140,
-            95,
-            "*",
+            totalSaveQuantity > 0 && totalReviseQuantity > 0 ? 175 : 140,
+            90,
+            90,
           ],
           body: [
             [
@@ -5228,12 +5999,14 @@ async function showBulletins(dates, studentsIDS = null) {
                 marginTop: 3,
               },
               {
-                text: `إجمالي الصفحات: ${totalQuantity}`,
+                text: `إجمالي الصفحات: ${totalQuantity || "0"}`,
                 style: "tableCell",
                 alignment: "center",
                 border: [true, false, false, false],
                 fontSize: 10,
                 marginTop: 3,
+                marginLeft: -3,
+                marginRight: -3,
               },
               {
                 text: `نسبة  الحضور: ${attendanceRate}%`,
@@ -5242,14 +6015,17 @@ async function showBulletins(dates, studentsIDS = null) {
                 border: [true, false, false, false],
                 fontSize: 10,
                 marginTop: 3,
+                marginLeft: -3,
+                marginRight: -3,
               },
               {
-                text: `إجمالي  الأيام: ${totalDays}`,
+                text: `إجمالي  الحصص:${totalDays}`,
                 style: "tableCell",
-                alignment: "center",
+                alignment: "left",
                 border: [true, false, false, false],
                 fontSize: 10,
                 marginTop: 3,
+                marginLeft: 0,
               },
             ],
           ],
@@ -5324,7 +6100,7 @@ async function showBulletins(dates, studentsIDS = null) {
   }
 }
 
-async function showTalkinBulletins(dates, studentsIDS = null) {
+async function createTalkinBulletins(dates, studentsIDS = null) {
   const studentsList = studentsIDS || getStatisticsSelectedStudentsId();
   if (!studentsList) {
     window.showToast("warning", "يرجى اخيار طلاب من القائمة.");
@@ -5450,6 +6226,12 @@ async function showTalkinBulletins(dates, studentsIDS = null) {
           studentName: student.name,
           studentOrder: student.order,
           data: studentData,
+          recordCounts: studentData
+            .map((i) => JSON.parse(i.detail)?.length ?? 0)
+            .reduce(
+              (accumulator, currentValue) => accumulator + currentValue,
+              0,
+            ),
         });
       }
     }
@@ -5608,13 +6390,9 @@ async function showTalkinBulletins(dates, studentsIDS = null) {
     // First pass: categorize all students by their data length
     const resumePagesChecked = resumePagesCheck.checked;
     allStudentData.forEach((studentReport) => {
-      const studentDataRecordsLength = studentReport.data
-        .map((i) => JSON.parse(i.detail)?.length ?? 1)
-        .reduce((accumulator, currentValue) => accumulator + currentValue, 0);
-
-      if (resumePagesChecked && studentDataRecordsLength <= 20) {
+      if (resumePagesChecked && studentReport.recordCounts <= 20) {
         studentsWithFewRecords.push(studentReport);
-      } else if (studentDataRecordsLength < 52) {
+      } else if (studentReport.recordCounts < 52) {
         studentsWithManyRecords.push(studentReport);
       } else {
         throw new Error("عدد الصفوف تجاوز الحد الأقصى");
@@ -5649,16 +6427,12 @@ async function showTalkinBulletins(dates, studentsIDS = null) {
     isSecond,
     isStacked = false,
   ) {
-    const { data, studentName, studentOrder, studentId } = studentReport;
-    const recordCounts =
-      data
-        .map((i) => {
-          return i.detail ? JSON.parse(i.detail).length : 1;
-        })
-        .reduce((accumulator, current) => accumulator + current, 0) + 3;
+    const { recordCounts, data, studentName, studentOrder, studentId } =
+      studentReport;
+    const totalRecordCounts = recordCounts + 3;
     const tableCellHeight = isStacked
-      ? 38 - recordCounts
-      : 33 - recordCounts / 2;
+      ? 33 - totalRecordCounts
+      : 33 - totalRecordCounts / 2;
     const tableBody = createTableBody(data, tableCellHeight / 3, isStacked);
 
     const content = [
@@ -5725,10 +6499,12 @@ async function showTalkinBulletins(dates, studentsIDS = null) {
         absolutePosition: {
           y:
             (isStacked
-              ? 841.89 / 4 + (isSecond ? 841.89 / 2 : 0)
+              ? 841.89 / 5 + (isSecond ? 841.89 / 2 : 0)
               : 841.89 / 2 -
-                (recordCounts <= 25 ? -1.5 * recordCounts : recordCounts / 2)) -
-            (recordCounts / (isStacked ? 2 : recordCounts)) *
+                (totalRecordCounts <= 25
+                  ? -1.5 * totalRecordCounts
+                  : totalRecordCounts / 2)) -
+            (totalRecordCounts / (isStacked ? 2 : totalRecordCounts)) *
               (isStacked ? 13 : 345),
           x: 60,
         },
@@ -6026,7 +6802,7 @@ async function showTalkinBulletins(dates, studentsIDS = null) {
     return [
       {
         table: {
-          widths: [50, 90, 330],
+          widths: [60, 90, 330],
           body: [
             [
               {
@@ -6068,7 +6844,7 @@ async function showTalkinBulletins(dates, studentsIDS = null) {
           ],
         },
         absolutePosition: {
-          y: 841.89 / (isStacked && !isSecond ? 2 : 1) - 60,
+          y: 841.89 / (isStacked && !isSecond ? 2 : 1) - 40,
           x: 40,
         },
         margin: [0, 0, 0, 5],
@@ -6677,8 +7453,8 @@ async function showResultsStatistics() {
             action: async function () {
               await showLoadingModal("جاري إنشاء كشوف النقاط");
               initBullentinConfigs();
-              if (isTalkinClassroom) showTalkinBulletins(dates);
-              else showBulletins(dates);
+              if (isTalkinClassroom) createTalkinBulletins(dates);
+              else createBulletins(dates);
               hideLoadingModal();
             },
           },
@@ -7064,7 +7840,7 @@ async function showAvanceChart() {
       button.setAttribute("data-bs-target", "#collapseWidthExample");
       button.setAttribute("aria-expanded", "false");
       button.setAttribute("aria-controls", "collapseWidthExample");
-      button.textContent = "عرض الحل";
+      button.textContent = "الحل";
 
       // Append button to the paragraph
       pContainer.appendChild(button);
@@ -7080,9 +7856,8 @@ async function showAvanceChart() {
 
       // 4. Create the inner card <div>
       const cardDiv = document.createElement("div");
-      cardDiv.className = "card card-body";
-      cardDiv.textContent =
-      `${row[1][1]} [${quranData.verseInfo[randomAyatID + 1].ayah}] ${row[2][1]} [${quranData.verseInfo[randomAyatID + 2].ayah}]`
+      cardDiv.className = "card card-body swal-text";
+      cardDiv.textContent = `${row[1][1]} [${quranData.verseInfo[randomAyatID + 1].ayah}] ${row[2][1]} [${quranData.verseInfo[randomAyatID + 2].ayah}]`;
       // 5. Assemble the tree structure
       collapseDiv.appendChild(cardDiv);
       outerDiv.appendChild(collapseDiv);
@@ -7094,7 +7869,7 @@ async function showAvanceChart() {
         `${row[0][1]} [${row[0][0]} - ${quranData.verseInfo[randomAyatID].ayah}]`,
         {
           title: `السؤال رقم ${totalQuestions} / ${questionNumber}`,
-          content:outerOuterDiv,
+          content: outerOuterDiv,
           className: "quran-text",
           buttons: {
             finish: {
