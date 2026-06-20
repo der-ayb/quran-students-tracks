@@ -493,6 +493,14 @@ async function addServiceWorker() {
       });
     },
     onRegistered(r) {
+      window.addEventListener(
+        "online",
+        async () => {
+          r.update();
+        },
+        { once: true },
+      );
+
       document.getElementById("checkForUpdatesBtn").onclick =
         async function () {
           if (!navigator.onLine) {
@@ -3903,7 +3911,7 @@ async function showTab(tabId = null) {
     } else if (tabId === "pills-statistics") {
       tabTitleLabel.innerText = "الإحصائيات";
       fillStatistiscStudentsList();
-      if (devMode)
+      if (devMode && 1 === 6)
         createBulletins(
           ["2026-06-09", "2026-06-10", "2026-06-11"],
           // "83,82,84",
@@ -5947,7 +5955,8 @@ async function createBulletins(dates, studentsIDS = null) {
         ).length -
         studentData.filter(
           (record) =>
-            Number(JSON.parse(record.secondDayEval || "{}")?.attendance) === 0 ||
+            Number(JSON.parse(record.secondDayEval || "{}")?.attendance) ===
+              0 ||
             Number(JSON.parse(record.secondDay || "{}")?.isObligatory) === 0,
         ).length);
 
@@ -5988,6 +5997,8 @@ async function createBulletins(dates, studentsIDS = null) {
                 border: [true, true, true, true],
                 fontSize: 12,
                 marginTop: 3,
+                marginLeft: -3,
+                marginRight: -3,
               },
               {
                 text: `المعدل العام: ${totalMoyenne.toFixed(2)}`,
@@ -6019,7 +6030,7 @@ async function createBulletins(dates, studentsIDS = null) {
                 marginRight: -3,
               },
               {
-                text: `إجمالي  الحصص:${totalDays}`,
+                text: `إجمالي  الحصص: ${totalDays}`,
                 style: "tableCell",
                 alignment: "left",
                 border: [true, false, false, false],
