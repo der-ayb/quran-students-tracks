@@ -4106,42 +4106,6 @@ async function createBulletins(dates, studentsIDS = null) {
   };
 
   try {
-    const attendanceRes = {};
-    project_db
-      .exec(
-        `
-      WITH ${dates
-        .map(
-          (date, index) =>
-            `day_id${index} AS ( SELECT id FROM education_day WHERE date = '${date}' )`,
-        )
-        .join(",\n")}
-      SELECT
-          s.id,
-          -- مجموع الحضور (Total Present Days Count)
-          (${dates
-            .map(
-              (_, index) =>
-                `CASE WHEN de${index}.attendance = 0 THEN 1 ELSE 0 END`,
-            )
-            .join(" +\n        ")}) as "المجموع (/${dates.length})"
-      FROM students s
-      ${dates
-        .map(
-          (date, index) =>
-            `LEFT JOIN day_evaluations de${index} ON s.id = de${index}.student_id AND de${index}.day_id IN (SELECT id FROM day_id${index})`,
-        )
-        .join("\n")}
-      WHERE s.id in (${studentsList})
-      GROUP BY s.id
-      ORDER BY s.id;`,
-      )[0]
-      .values.forEach((row) => {
-        const studentId = row[0];
-        const totalPresent = row[1];
-        attendanceRes[studentId] = dates.length - totalPresent;
-      });
-
     // Get all student IDs from the table
     const dateCtes = dates
       .map(
@@ -4157,6 +4121,14 @@ async function createBulletins(dates, studentsIDS = null) {
           `(SELECT COALESCE(SUM(de.moyenne), 0) FROM day_evaluations de 
           WHERE de.student_id = s.id AND de.day_id IN (SELECT id FROM day_id${index}))
           + 
+          COALESCE(
+              (SELECT SUM(COALESCE(json_extract(de.second_day, '$.moyenne'), 0)) 
+              FROM day_evaluations de WHERE de.student_id = s.id 
+                AND de.second_day IS NOT NULL
+                AND de.day_id IN (SELECT id FROM day_id${index})), 
+              0
+          )
+          + 
           (SELECT COALESCE(SUM(dr.moyenne), 0) FROM day_requirements dr 
           WHERE dr.student_id = s.id AND dr.day_id IN (SELECT id FROM day_id${index}))
         `,
@@ -4165,15 +4137,43 @@ async function createBulletins(dates, studentsIDS = null) {
 
     const results = project_db.exec(`
       WITH ${dateCtes}
+      ,jabsence_counts AS (
+              SELECT 
+                student_id,
+                SUM(
+                  CASE WHEN attendance = 0 THEN 1 ELSE 0 END +
+                  CASE WHEN JSON_EXTRACT(second_day, '$.attendance') = 0 THEN 1 ELSE 0 END
+                ) AS count
+              FROM day_evaluations
+              WHERE day_id IN (
+                SELECT id 
+                FROM education_day 
+                WHERE class_room_id = ${workingClassroomId}
+                  AND date IN (${dates.map((d) => `'${d}'`).join(", ")})
+              )
+              GROUP BY student_id
+            )
+        ,obligatory_days_total_count AS (
+              SELECT 
+                SUM(
+                  CASE WHEN isObligatory = 1 THEN 1 ELSE 0 END +
+                  CASE WHEN second_day IS NOT NULL AND JSON_EXTRACT(second_day, '$.isObligatory') = true THEN 1 ELSE 0 END
+                ) AS total_count
+              FROM education_day
+              WHERE class_room_id = ${workingClassroomId}
+                AND date IN (${dates.map((d) => `'${d}'`).join(", ")})
+            )
       SELECT 
       s.id, s.fname, s.lname,
           -- المجموع (sum)
-          COALESCE( ROUND(
-              (${sumExpressions})
-          , 2), 0 )  as "المجموع"
+          COALESCE(ROUND(${sumExpressions}, 2), 0)  as "المجموع",
+          COALESCE(ROUND(
+            (COALESCE((SELECT * FROM obligatory_days_total_count), 0) - COALESCE(jac.count, 0))
+        , 2), 0) as "الحضور"
       FROM students s 
       LEFT JOIN day_evaluations de ON s.id = de.student_id 
       LEFT JOIN day_requirements dr ON dr.student_id = s.id 
+      LEFT JOIN jabsence_counts jac ON s.id = jac.student_id
       WHERE s.id in (${studentsList})
       GROUP BY s.id, s.fname, s.lname
       ORDER BY fname, lname;
@@ -4187,10 +4187,7 @@ async function createBulletins(dates, studentsIDS = null) {
     let students = results[0].values.map((row) => {
       const name = `${row[1]} ${row[2]}`;
       const fullAddedPoints = studentsAppends[name]?.points || 0;
-      const order = (
-        (row[3] + fullAddedPoints) /
-        attendanceRes[row[0]]
-      ).toFixed(2);
+      const order = ((row[3] + fullAddedPoints) / row[4]).toFixed(2);
       return {
         id: row[0],
         name: name,
@@ -6141,7 +6138,7 @@ async function createTalkinBulletins(dates, studentsIDS = null) {
               (_, index) =>
                 `CASE WHEN de${index}.attendance = 0 THEN 1 ELSE 0 END`,
             )
-            .join(" +\n        ")}) as "المجموع (/${dates.length})"
+            .join(" +\n        ")}) as "المجموع"
       FROM students s
       ${dates
         .map(
@@ -6171,10 +6168,7 @@ async function createTalkinBulletins(dates, studentsIDS = null) {
     const sumExpressions = dates
       .map(
         (date, index) =>
-          `(SELECT COALESCE(SUM(de.moyenne), 0) FROM day_evaluations de 
-          WHERE de.student_id = s.id AND de.day_id IN (SELECT id FROM day_id${index}))
-          + 
-          (SELECT COALESCE(SUM(dr.moyenne), 0) FROM day_requirements dr 
+          `(SELECT COALESCE(SUM(dr.moyenne), 0) FROM day_requirements dr 
           WHERE dr.student_id = s.id AND dr.day_id IN (SELECT id FROM day_id${index}))
         `,
       )
@@ -6204,10 +6198,7 @@ async function createTalkinBulletins(dates, studentsIDS = null) {
     let students = results[0].values.map((row) => {
       const name = `${row[1]} ${row[2]}`;
       const fullAddedPoints = studentsAppends[name]?.points || 0;
-      const order = (
-        (row[3] + fullAddedPoints) /
-        attendanceRes[row[0]]
-      ).toFixed(2);
+      const order = (row[3] + fullAddedPoints).toFixed(2);
       return {
         id: row[0],
         name: name,
@@ -7185,15 +7176,14 @@ async function showResultsStatistics() {
       (_, index) =>
         `${
           !isTalkinClassroom
-            ? `(SELECT COALESCE(SUM(de.moyenne), 0) 
-                FROM day_evaluations de 
-                WHERE de.student_id = s.id 
-                  AND de.day_id IN (SELECT id FROM day_id${index}))
+            ? `(
+                  SELECT COALESCE(SUM(de.moyenne), 0) FROM day_evaluations de 
+                  WHERE de.student_id = s.id AND de.day_id IN (SELECT id FROM day_id${index})
+                )
                 + 
                 COALESCE(
                     (SELECT SUM(COALESCE(json_extract(de.second_day, '$.moyenne'), 0)) 
-                    FROM day_evaluations de
-                    WHERE de.student_id = s.id 
+                    FROM day_evaluations de WHERE de.student_id = s.id 
                       AND de.second_day IS NOT NULL
                       AND de.day_id IN (SELECT id FROM day_id${index})), 
                     0
@@ -7254,7 +7244,7 @@ async function showResultsStatistics() {
         , 2), 0) as "المعدل",
         ROW_NUMBER() OVER (
           ORDER BY COALESCE(ROUND(
-              (${sumExpressions}) / (COALESCE((SELECT * FROM obligatory_days_total_count), 0) - COALESCE(jac.count, 0))
+            (${sumExpressions}) / (COALESCE((SELECT * FROM obligatory_days_total_count), 0) - COALESCE(jac.count, 0))
           , 2), 0) DESC
         ) as "الترتيب"`
             : `ROW_NUMBER() OVER (
