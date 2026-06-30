@@ -70,6 +70,7 @@ export let workingClassroomId = localStorage.getItem("workingClassroomId");
 let studentsTableDetailIsShow = false;
 let studentsDayTableDetailIsShow = false;
 let classroomsTableDetailIsShow = false;
+let currentDayEditable = false;
 let workingDay = new Date().toISOString().slice(0, 10);
 let workingDayID = null;
 let currentTabId = "pills-home";
@@ -1924,7 +1925,7 @@ function calcRetardTime(secondDayIsWorkingDay) {
   // For accurate diff calculation, set the date to today for both
   const startTimeToday = now.set({
     hour: startTime.hour,
-    minute: startTime.minute,
+    minute: startTime.minute+1,
   });
   return Math.round(now.diff(startTimeToday, "minutes").minutes);
 }
@@ -2288,7 +2289,7 @@ window.changeObligatory = async function (switchElement, secondDay = false) {
 
 function isCurrentDay() {
   const now = new Date();
-  if (now.toISOString().slice(0, 10) != workingDay) return false;
+  if (!currentDayEditable && now.toISOString().slice(0, 10) != workingDay) return false;
 
   const [targetHours, targetMinutes] = (
     studentsDayInfos.secondDayIsWorkingDay
@@ -2307,7 +2308,7 @@ function isCurrentDay() {
   );
 
   // Convert to minutes
-  return Math.floor((now - targetTime) / (1000 * 60)) <= 4 * 60;
+  return currentDayEditable || Math.floor((now - targetTime) / (1000 * 60)) <= 4 * 60;
 }
 
 async function loadDayStudentsList() {
@@ -2611,21 +2612,22 @@ async function loadDayStudentsList() {
           ? document.createElement("div")
           : null;
         if (!isTalkinClassroom) {
-          const evaluationDayIcon = document.createElement("i");
+          const evaluationDayIcon = isCurrentDay()?document.createElement("i"):null;
+          if(evaluationDayIcon){
           evaluationDayIcon.className = "fa-solid fa-pen-to-square";
-          evaluationDayIcon.onclick = () => editStudentDay(true);
+          evaluationDayIcon.onclick = () => editStudentDay(true);}
           if (!attendanceValue) {
             ("pass");
-          } else if (
+          } else if (evaluationDayIcon &&
             clothingValue == null &&
             haircutValue == null &&
             behaviorValue == null
           ) {
             evaluationDayIcon.textContent = "   " + evalMoyenneValue;
           } else {
-            evaluationDayContainer.append(evalMoyenneValue + "   ");
+            evaluationDayContainer.append(evalMoyenneValue+ "   ");
           }
-          evaluationDayContainer.append(evaluationDayIcon);
+          if(evaluationDayIcon) evaluationDayContainer.append(evaluationDayIcon);
         }
 
         const requirsMoyenneValue =
@@ -2637,11 +2639,11 @@ async function loadDayStudentsList() {
           attendanceValue ? requirsMoyenneValue : ""
         }    <i onclick="showRequirementsHistory(${student_id})" class="fa-solid fa-clock-rotate-left"></i>`;
 
-        const editBtn = attendanceValue ? document.createElement("i") : null;
-        if (editBtn) {
-          editBtn.className = "fa-solid fa-square-plus";
-          editBtn.style.cssText = "transform: scale(1.5); cursor: pointer;";
-          editBtn.onclick = () => editStudentDay(false);
+        const addRequirsBtn = attendanceValue && isCurrentDay() ? document.createElement("i") : null;
+        if (addRequirsBtn) {
+          addRequirsBtn.className = "fa-solid fa-square-plus";
+          addRequirsBtn.style.cssText = "transform: scale(1.5); cursor: pointer;";
+          addRequirsBtn.onclick = () => editStudentDay(false);
         }
 
         const retardText = !isTalkinClassroom
@@ -2686,7 +2688,7 @@ async function loadDayStudentsList() {
               : null,
           evalMoyenne: evaluationDayContainer,
           requirsMoyenne: requirmentsDayValue,
-          actions: editBtn,
+          actions: addRequirsBtn,
         });
       });
     } else {
@@ -2818,6 +2820,12 @@ async function loadDayStudentsList() {
               {
                 text: '<i class="fa-solid fa-pen-to-square"></i>',
                 action: async function (e, dt) {
+                  if(!isCurrentDay()){
+                    currentDayEditable = true;
+                    loadDayStudentsList();
+                    return
+                  }
+
                   if (isTalkinClassroom) {
                     window.showToast(
                       "info",
@@ -3125,6 +3133,7 @@ async function loadDayStudentsList() {
       true,
     );
     table.columns([4, 5]).visible(!isTalkinClassroom);
+    table.columns(0).visible(isCurrentDay());
     if (!isTalkinClassroom) {
       if (studentsDayInfos.secondDayInfos === null) {
         table.buttons(1).nodes().addClass("d-none");
@@ -3191,6 +3200,7 @@ async function InitDatePickers() {
             "#00ff4c";
         }
         workingDay = dateStr;
+        currentDayEditable = false;
         // studentsDayInfos.secondDayIsWorkingDay = false;
         await loadDayStudentsList();
         instance.altInput.value = formatHijriDate(selectedDates[0]);
