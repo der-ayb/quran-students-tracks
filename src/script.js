@@ -1627,14 +1627,10 @@ function calcRequirementMoyenne(quantity, evaluation, type, repit) {
   }
   const baseQuantity = type === "حفظ" ? quantity : quantity / 2;
   value += baseQuantity / position;
+  value -=
+    repit * (evaluationLaddersValues.requirments?.requirReducePerRepit || 10);
 
-  return (
-    value > 0
-      ? value -
-        repit *
-          (evaluationLaddersValues.requirments?.requirReducePerRepit || 10)
-      : 0
-  ).toFixed(2);
+  return (value > 0 ? value : 0).toFixed(2);
 }
 
 function calcRequirementsMoyenne() {
@@ -2624,7 +2620,7 @@ async function loadDayStudentsList() {
           }
 
           if (!attendanceValue) {
-            evaluationDayContainer.append("/           ")
+            evaluationDayContainer.append("/           ");
           } else if (
             evaluationDayIcon &&
             clothingValue == null &&
@@ -4484,7 +4480,12 @@ async function createBulletins(dates, studentsIDS = null) {
       studentReport;
     const totalRecordCounts = recordsCounts + 3;
     const tableCellHeight = isStacked ? 5 : 33 - totalRecordCounts / 2;
-    const tableBody = createTableBody(data,studentId, tableCellHeight / 3, isStacked);
+    const tableBody = createTableBody(
+      data,
+      studentId,
+      tableCellHeight / 3,
+      isStacked,
+    );
 
     const content = [
       // Student header
@@ -4586,14 +4587,25 @@ async function createBulletins(dates, studentsIDS = null) {
       },
 
       // Summary section
-      ...createCompactSummarySection(data,studentId, studentOrder, isSecond, isStacked),
+      ...createCompactSummarySection(
+        data,
+        studentId,
+        studentOrder,
+        isSecond,
+        isStacked,
+      ),
     ];
 
     return content;
   }
 
   // Create compact table body for stacked layout
-  function createTableBody(studentData,studentId, marginTop, isStacked = false) {
+  function createTableBody(
+    studentData,
+    studentId,
+    marginTop,
+    isStacked = false,
+  ) {
     // Arabic headers - two rows for date
     const topHeaderRows = [
       {
@@ -5719,8 +5731,7 @@ async function createBulletins(dates, studentsIDS = null) {
       });
     });
 
-    const fullAddedPoints =
-      studentsAppends[studentId]?.points || 0;
+    const fullAddedPoints = studentsAppends[studentId]?.points || 0;
     const totalDays =
       studentData.length -
       studentData.filter((record) => record.attendance == 0).length;
@@ -5885,7 +5896,8 @@ async function createBulletins(dates, studentsIDS = null) {
 
   // Create compact summary section
   function createCompactSummarySection(
-    studentData,studentId,
+    studentData,
+    studentId,
     studentOrder,
     isSecond,
     isStacked = false,
@@ -5900,8 +5912,7 @@ async function createBulletins(dates, studentsIDS = null) {
 
     if (totalDays === 0) return [];
 
-    const fullAddedPoints =
-      studentsAppends[studentId]?.points || 0;
+    const fullAddedPoints = studentsAppends[studentId]?.points || 0;
 
     const presentDays =
       validDays.filter((record) => record.attendance === 1).length +
@@ -6453,7 +6464,12 @@ async function createTalkinBulletins(dates, studentsIDS = null) {
     const tableCellHeight = isStacked
       ? 33 - totalRecordCounts
       : 33 - totalRecordCounts / 2;
-    const tableBody = createTableBody(data,studentId, tableCellHeight / 3, isStacked);
+    const tableBody = createTableBody(
+      data,
+      studentId,
+      tableCellHeight / 3,
+      isStacked,
+    );
 
     const content = [
       // Student header
@@ -6555,14 +6571,25 @@ async function createTalkinBulletins(dates, studentsIDS = null) {
       },
 
       // Summary section
-      ...createCompactSummarySection(data,studentId, studentOrder, isSecond, isStacked),
+      ...createCompactSummarySection(
+        data,
+        studentId,
+        studentOrder,
+        isSecond,
+        isStacked,
+      ),
     ];
 
     return content;
   }
 
   // Create compact table body for stacked layout
-  function createTableBody(studentData,studentId, marginTop, isStacked = false) {
+  function createTableBody(
+    studentData,
+    studentId,
+    marginTop,
+    isStacked = false,
+  ) {
     // Arabic headers - two rows for date
     const font_size = 10;
     const headerRows = [
@@ -6702,8 +6729,7 @@ async function createTalkinBulletins(dates, studentsIDS = null) {
       });
     });
 
-    const fullAddedPoints =
-      studentsAppends[studentId]?.points || 0;
+    const fullAddedPoints = studentsAppends[studentId]?.points || 0;
     const totalDays =
       studentData.length -
       studentData.filter((record) => record.attendance == 0).length;
@@ -6797,7 +6823,8 @@ async function createTalkinBulletins(dates, studentsIDS = null) {
 
   // Create compact summary section
   function createCompactSummarySection(
-    studentData,studentId,
+    studentData,
+    studentId,
     studentOrder,
     isSecond,
     isStacked = false,
@@ -6808,8 +6835,7 @@ async function createTalkinBulletins(dates, studentsIDS = null) {
     );
     if (totalDays === 0) return [];
 
-    const fullAddedPoints =
-      studentsAppends[studentId]?.points || 0;
+    const fullAddedPoints = studentsAppends[studentId]?.points || 0;
     const total =
       validRecords.reduce(
         (sum, record) => sum + (record.requirements_score || 0),
