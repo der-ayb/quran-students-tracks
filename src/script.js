@@ -1925,7 +1925,7 @@ function calcRetardTime(secondDayIsWorkingDay) {
   // For accurate diff calculation, set the date to today for both
   const startTimeToday = now.set({
     hour: startTime.hour,
-    minute: startTime.minute+1,
+    minute: startTime.minute + 1,
   });
   return Math.round(now.diff(startTimeToday, "minutes").minutes);
 }
@@ -2289,7 +2289,8 @@ window.changeObligatory = async function (switchElement, secondDay = false) {
 
 function isCurrentDay() {
   const now = new Date();
-  if (!currentDayEditable && now.toISOString().slice(0, 10) != workingDay) return false;
+  if (!currentDayEditable && now.toISOString().slice(0, 10) != workingDay)
+    return false;
 
   const [targetHours, targetMinutes] = (
     studentsDayInfos.secondDayIsWorkingDay
@@ -2308,7 +2309,9 @@ function isCurrentDay() {
   );
 
   // Convert to minutes
-  return currentDayEditable || Math.floor((now - targetTime) / (1000 * 60)) <= 4 * 60;
+  return (
+    currentDayEditable || Math.floor((now - targetTime) / (1000 * 60)) <= 4 * 60
+  );
 }
 
 async function loadDayStudentsList() {
@@ -2612,22 +2615,28 @@ async function loadDayStudentsList() {
           ? document.createElement("div")
           : null;
         if (!isTalkinClassroom) {
-          const evaluationDayIcon = isCurrentDay()?document.createElement("i"):null;
-          if(evaluationDayIcon){
-          evaluationDayIcon.className = "fa-solid fa-pen-to-square";
-          evaluationDayIcon.onclick = () => editStudentDay(true);}
+          const evaluationDayIcon = isCurrentDay()
+            ? document.createElement("i")
+            : null;
+          if (evaluationDayIcon) {
+            evaluationDayIcon.className = "fa-solid fa-pen-to-square";
+            evaluationDayIcon.onclick = () => editStudentDay(true);
+          }
+
           if (!attendanceValue) {
-            ("pass");
-          } else if (evaluationDayIcon &&
+            evaluationDayContainer.append("/           ")
+          } else if (
+            evaluationDayIcon &&
             clothingValue == null &&
             haircutValue == null &&
             behaviorValue == null
           ) {
             evaluationDayIcon.textContent = "   " + evalMoyenneValue;
           } else {
-            evaluationDayContainer.append(evalMoyenneValue+ "   ");
+            evaluationDayContainer.append(evalMoyenneValue + "   ");
           }
-          if(evaluationDayIcon) evaluationDayContainer.append(evaluationDayIcon);
+          if (evaluationDayIcon)
+            evaluationDayContainer.append(evaluationDayIcon);
         }
 
         const requirsMoyenneValue =
@@ -2635,14 +2644,18 @@ async function loadDayStudentsList() {
         const parentPhone = row[result.columns.indexOf("parentPhone")];
         const studentFName = row[result.columns.indexOf("studentFName")];
 
-        const requirmentsDayValue = `${
-          attendanceValue ? requirsMoyenneValue : ""
-        }    <i onclick="showRequirementsHistory(${student_id})" class="fa-solid fa-clock-rotate-left"></i>`;
+        const requirmentsDayValue = attendanceValue
+          ? requirsMoyenneValue
+          : null;
 
-        const addRequirsBtn = attendanceValue && isCurrentDay() ? document.createElement("i") : null;
+        const addRequirsBtn =
+          attendanceValue && isCurrentDay()
+            ? document.createElement("i")
+            : null;
         if (addRequirsBtn) {
           addRequirsBtn.className = "fa-solid fa-square-plus";
-          addRequirsBtn.style.cssText = "transform: scale(1.5); cursor: pointer;";
+          addRequirsBtn.style.cssText =
+            "transform: scale(1.5); cursor: pointer;";
           addRequirsBtn.onclick = () => editStudentDay(false);
         }
 
@@ -2681,6 +2694,7 @@ async function loadDayStudentsList() {
           select: "",
           id: student_id,
           student: full_name,
+          history: `<i onclick="showRequirementsHistory(${row[0]})" class="fa-solid fa-clock-rotate-left"></i>`,
           attendance: attendanceText,
           evaluation:
             attendanceValue && !isTalkinClassroom
@@ -2703,6 +2717,7 @@ async function loadDayStudentsList() {
         { data: "select" },
         { data: "id", visible: false },
         { data: "student" },
+        { data: "history", className: "px-0" },
         {
           data: "attendance",
           className: "text-start",
@@ -2757,13 +2772,6 @@ async function loadDayStudentsList() {
           className: "text-center",
           type: "num",
           defaultContent: "/",
-          render: function (data, type, row) {
-            if (type === "sort") {
-              if (!data) return 0;
-              else return parseFloat(data.split("    ")[0]);
-            }
-            return data;
-          },
         },
         { data: "actions" },
       ],
@@ -2820,10 +2828,10 @@ async function loadDayStudentsList() {
               {
                 text: '<i class="fa-solid fa-pen-to-square"></i>',
                 action: async function (e, dt) {
-                  if(!isCurrentDay()){
+                  if (!isCurrentDay()) {
                     currentDayEditable = true;
                     loadDayStudentsList();
-                    return
+                    return;
                   }
 
                   if (isTalkinClassroom) {
@@ -3132,7 +3140,7 @@ async function loadDayStudentsList() {
       false,
       true,
     );
-    table.columns([4, 5]).visible(!isTalkinClassroom);
+    table.columns([6, 5]).visible(!isTalkinClassroom);
     table.columns(0).visible(isCurrentDay());
     if (!isTalkinClassroom) {
       if (studentsDayInfos.secondDayInfos === null) {
@@ -4196,7 +4204,7 @@ async function createBulletins(dates, studentsIDS = null) {
 
     let students = results[0].values.map((row) => {
       const name = `${row[1]} ${row[2]}`;
-      const fullAddedPoints = studentsAppends[name]?.points || 0;
+      const fullAddedPoints = studentsAppends[row[0]]?.points || 0;
       const order = ((row[3] + fullAddedPoints) / row[4]).toFixed(2);
       return {
         id: row[0],
@@ -4476,7 +4484,7 @@ async function createBulletins(dates, studentsIDS = null) {
       studentReport;
     const totalRecordCounts = recordsCounts + 3;
     const tableCellHeight = isStacked ? 5 : 33 - totalRecordCounts / 2;
-    const tableBody = createTableBody(data, tableCellHeight / 3, isStacked);
+    const tableBody = createTableBody(data,studentId, tableCellHeight / 3, isStacked);
 
     const content = [
       // Student header
@@ -4578,14 +4586,14 @@ async function createBulletins(dates, studentsIDS = null) {
       },
 
       // Summary section
-      ...createCompactSummarySection(data, studentOrder, isSecond, isStacked),
+      ...createCompactSummarySection(data,studentId, studentOrder, isSecond, isStacked),
     ];
 
     return content;
   }
 
   // Create compact table body for stacked layout
-  function createTableBody(studentData, marginTop, isStacked = false) {
+  function createTableBody(studentData,studentId, marginTop, isStacked = false) {
     // Arabic headers - two rows for date
     const topHeaderRows = [
       {
@@ -5712,7 +5720,7 @@ async function createBulletins(dates, studentsIDS = null) {
     });
 
     const fullAddedPoints =
-      studentsAppends[studentData[0].student_name]?.points || 0;
+      studentsAppends[studentId]?.points || 0;
     const totalDays =
       studentData.length -
       studentData.filter((record) => record.attendance == 0).length;
@@ -5877,7 +5885,7 @@ async function createBulletins(dates, studentsIDS = null) {
 
   // Create compact summary section
   function createCompactSummarySection(
-    studentData,
+    studentData,studentId,
     studentOrder,
     isSecond,
     isStacked = false,
@@ -5893,7 +5901,7 @@ async function createBulletins(dates, studentsIDS = null) {
     if (totalDays === 0) return [];
 
     const fullAddedPoints =
-      studentsAppends[studentData[0].student_name]?.points || 0;
+      studentsAppends[studentId]?.points || 0;
 
     const presentDays =
       validDays.filter((record) => record.attendance === 1).length +
@@ -5968,7 +5976,7 @@ async function createBulletins(dates, studentsIDS = null) {
         ).length);
 
     const attendanceRate = ((presentDays / totalDays) * 100).toFixed(1);
-    const fullNote = studentsAppends[studentData[0].student_name]?.note || "";
+    const fullNote = studentsAppends[studentId]?.note || "";
 
     // Full summary for single student view
     return [
@@ -6207,7 +6215,7 @@ async function createTalkinBulletins(dates, studentsIDS = null) {
 
     let students = results[0].values.map((row) => {
       const name = `${row[1]} ${row[2]}`;
-      const fullAddedPoints = studentsAppends[name]?.points || 0;
+      const fullAddedPoints = studentsAppends[row[0]]?.points || 0;
       const order = (row[3] + fullAddedPoints).toFixed(2);
       return {
         id: row[0],
@@ -6445,7 +6453,7 @@ async function createTalkinBulletins(dates, studentsIDS = null) {
     const tableCellHeight = isStacked
       ? 33 - totalRecordCounts
       : 33 - totalRecordCounts / 2;
-    const tableBody = createTableBody(data, tableCellHeight / 3, isStacked);
+    const tableBody = createTableBody(data,studentId, tableCellHeight / 3, isStacked);
 
     const content = [
       // Student header
@@ -6547,14 +6555,14 @@ async function createTalkinBulletins(dates, studentsIDS = null) {
       },
 
       // Summary section
-      ...createCompactSummarySection(data, studentOrder, isSecond, isStacked),
+      ...createCompactSummarySection(data,studentId, studentOrder, isSecond, isStacked),
     ];
 
     return content;
   }
 
   // Create compact table body for stacked layout
-  function createTableBody(studentData, marginTop, isStacked = false) {
+  function createTableBody(studentData,studentId, marginTop, isStacked = false) {
     // Arabic headers - two rows for date
     const font_size = 10;
     const headerRows = [
@@ -6695,7 +6703,7 @@ async function createTalkinBulletins(dates, studentsIDS = null) {
     });
 
     const fullAddedPoints =
-      studentsAppends[studentData[0].student_name]?.points || 0;
+      studentsAppends[studentId]?.points || 0;
     const totalDays =
       studentData.length -
       studentData.filter((record) => record.attendance == 0).length;
@@ -6789,7 +6797,7 @@ async function createTalkinBulletins(dates, studentsIDS = null) {
 
   // Create compact summary section
   function createCompactSummarySection(
-    studentData,
+    studentData,studentId,
     studentOrder,
     isSecond,
     isStacked = false,
@@ -6801,14 +6809,14 @@ async function createTalkinBulletins(dates, studentsIDS = null) {
     if (totalDays === 0) return [];
 
     const fullAddedPoints =
-      studentsAppends[studentData[0].student_name]?.points || 0;
+      studentsAppends[studentId]?.points || 0;
     const total =
       validRecords.reduce(
         (sum, record) => sum + (record.requirements_score || 0),
         0,
       ) + (fullAddedPoints || 0);
 
-    const fullNote = studentsAppends[studentData[0].student_name]?.note || "";
+    const fullNote = studentsAppends[studentId]?.note || "";
 
     // Full summary for single student view
     return [
@@ -7316,12 +7324,12 @@ async function showResultsStatistics() {
               <h5 class="card-title" id="name-${student.id}">${student.name}</h5>
               <div class="input-group mb-3">
                 <span class="input-group-text">نقاط إضافية</span>
-                <input id="points-${student.id}" type="number" class="form-control text-center px-0" value="${preStudentAppends[student.name]?.points || 0}" step="1">
+                <input id="points-${student.id}" type="number" class="form-control text-center px-0" value="${preStudentAppends[student.id]?.points || 0}" step="1">
                 <span class="input-group-text">نقطة</span>
               </div>
               <div class="input-group">
                 <span class="input-group-text">الملاحظة</span>
-                <textarea id="note-${student.id}" class="form-control" aria-label="With textarea">${preStudentAppends[student.name]?.note || ""}</textarea>
+                <textarea id="note-${student.id}" class="form-control" aria-label="With textarea">${preStudentAppends[student.id]?.note || ""}</textarea>
               </div>
             </div>
           </div>`;
@@ -7348,7 +7356,7 @@ async function showResultsStatistics() {
                 ) || 0;
               const note =
                 document.getElementById(`note-${student.id}`).value || "";
-              obj[student.name] = { points, note };
+              obj[student.id] = { points, note };
             });
             const existingAppends = preStudentAppends || {};
             Object.assign(existingAppends, obj);
