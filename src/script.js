@@ -542,7 +542,7 @@ async function init() {
       await InitDatePickers();
       showTab("pills-home");
       nav_bar.style.removeProperty("display");
-      addServiceWorker();
+      window.addEventListener("load", addServiceWorker, { once: true });
       // display synchronization badge
       if (localStorage.getItem("newSaveExists"))
         document.querySelectorAll(".syncBadge").forEach((syncBadge) => {
@@ -972,7 +972,9 @@ async function loadClassRoomsList() {
   }
   try {
     workingClassroomSelect.options.length = 0;
-    const results = project_db.exec("SELECT * FROM class_rooms;");
+    const results = project_db.exec(
+      "SELECT * FROM class_rooms ORDER BY place;",
+    );
     const data = [];
     if (results.length) {
       const result = results[0];
@@ -2233,9 +2235,9 @@ window.showRequirementsHistory = function (student_id, page = 1) {
               requirsDates[index],
             )} (${DateTime.fromJSDate(requirsDates[index]).hasSame(DateTime.now(), "day") ? "اليوم" : fromNow(requirsDates[index]).replace("منذ", "قبل")})
             </strong> ` +
-          (index === 0
+          (index === 0 && JSON.parse(i).at(-1)["الكتاب"] === "القرآن الكريم"
             ? `<a href="${getNextRequirement(
-                JSON.parse(i)[0],
+                JSON.parse(i).at(-1),
                 false,
               )}" class="fa-solid fa-file-audio" target="_blank" rel="noopener noreferrer"></a>`
             : "") +
