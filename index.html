@@ -204,7 +204,7 @@
             <th class=""></th>
             <th class=""></th>
             <th class="px-4">الطالب</th>
-            <th ></th>
+            <th></th>
             <th class="">الحضور</th>
             <th class="">المعدل</th>
             <th class="">التقييم</t>
@@ -674,7 +674,7 @@
               <option value="إناث">إناث</option>
             </select>
             <label for="level">المستوى:</label>
-            <input list="levelOptions" class="form-control" id="level" placeholder="اختر أو أدخل قيمة..." required/>
+            <input list="levelOptions" class="form-control" id="level" placeholder="اختر أو أدخل قيمة..." required />
             <datalist id="levelOptions">
               <option value="تلقين">
             </datalist>
@@ -856,12 +856,14 @@
 
                     <div id="requirListView" class="requirement-list-view">
                     </div>
+
                     <div class="input-group my-3">
                       <span class="input-group-text">المجموع:</span>
                       <input type="number" class="form-control text-center fw-bold" id="requirsMoyenne" readonly
                         required />
                       <span class="input-group-text">نقطة</span>
                     </div>
+
                     <div class="card px-1 py-2 mb-2">
                       <div class="row">
                         <div class="col">
@@ -994,13 +996,22 @@
                           </div>
                         </div>
                         <div class="col">
-                          <div class="mt-3">
-                            <button type="button" data-requirlength="0" class="btn btn-lg btn-info mx-auto w-100"
-                              id="addQuranSelectionBtn">إضافة</button>
+                          <div class="btn-group btn-group-lg mx-auto w-100 mt-3">
+                            <button type="button" id="addQuranSelectionBtn" data-requirlength="0"
+                              class="btn btn-info">إضافة</button>
+                            <button type="button" class="btn btn-info dropdown-toggle dropdown-toggle-split px-0"
+                              data-bs-toggle="dropdown" aria-expanded="false">
+                              <span class="visually-hidden">Toggle Dropdown</span>
+                            </button>
+                            <ul class="dropdown-menu">
+                              <li><button class="dropdown-item" id="retryBtn" data-bs-dismiss="modal">إعادة</button>
+                              </li>
+                            </ul>
                           </div>
                         </div>
                       </div>
                     </div>
+
                   </div>
                 </div>
               </div>

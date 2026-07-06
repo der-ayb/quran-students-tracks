@@ -88,6 +88,7 @@ const dayDateInput = document.getElementById("dayDate");
 const dayNoteContainer = document.getElementById("dayNoteContainer");
 const statisticsDateInput = document.getElementById("statisticsrange");
 const addQuranSelectionBtn = document.getElementById("addQuranSelectionBtn");
+const retryBtn = document.getElementById("retryBtn");
 const retardInput = document.getElementById("retard");
 
 const requirementsTable = document.getElementById("requirementsTable");
@@ -1507,7 +1508,7 @@ document
     }
   });
 
-requireBookInput.onchange = function () {
+requireBookInput.oninput = function () {
   const quranSelectionSection = document.getElementById(
     "quranSelectionSection",
   );
@@ -2497,6 +2498,40 @@ async function loadDayStudentsList() {
         }
 
         function editStudentDay(isEvaluation = true) {
+          const preStudentsRetrys = localStorage.getItem("studentsRetrys")
+            ? JSON.parse(localStorage.getItem("studentsRetrys"))
+            : {};
+          setTimeout(() => {
+            requirRepitInput.value = preStudentsRetrys[student_id] || 0;
+            requirRepitInput.dispatchEvent(new Event("input"));
+          }, 200);
+          retryBtn.addEventListener(
+            "click",
+            async () => {
+              preStudentsRetrys[student_id] = preStudentsRetrys[student_id]
+                ? preStudentsRetrys[student_id] + 1
+                : 1;
+
+              localStorage.setItem(
+                "studentsRetrys",
+                JSON.stringify(preStudentsRetrys),
+              );
+            },
+            { once: true },
+          );
+
+          addQuranSelectionBtn.addEventListener(
+            "click",
+            async () => {
+              delete preStudentsRetrys[student_id];
+              localStorage.setItem(
+                "studentsRetrys",
+                JSON.stringify(preStudentsRetrys),
+              );
+            },
+            { once: true },
+          );
+
           teachersPoints = {};
           hideMaximizeModalBtn();
           showStudentDayModal(true);
@@ -2515,7 +2550,7 @@ async function loadDayStudentsList() {
             requirCollapse.show();
             setTimeout(() => {
               requireBookInput.scrollIntoView({ behavior: "instant" });
-            }, 500);
+            }, 200);
           }
 
           setAttendanceInputValue(attendanceValue);
@@ -2654,7 +2689,10 @@ async function loadDayStudentsList() {
           addRequirsBtn.className = "fa-solid fa-square-plus";
           addRequirsBtn.style.cssText =
             "transform: scale(1.5); cursor: pointer;";
-          addRequirsBtn.onclick = () => editStudentDay(false);
+
+          addRequirsBtn.onclick = () => {
+            editStudentDay(false);
+          };
         }
 
         const retardText = !isTalkinClassroom
@@ -3494,7 +3532,7 @@ function getNextRequirement(detail = null, setRequirementFields = true) {
 
   if (setRequirementFields) {
     requireBookInput.value = requireBookValue;
-    requireBookInput.dispatchEvent(new Event("change"));
+    requireBookInput.dispatchEvent(new Event("input"));
     if (requireBookValue == "القرآن الكريم") {
       requirTypeInput.value = requirTypeValue;
       requirTypeInput.dispatchEvent(new Event("change"));
@@ -3525,7 +3563,7 @@ window.editRequirement = function (button) {
     ".btn-success",
   ).disabled = true;
   requireBookInput.value = row.firstElementChild.textContent;
-  // requireBookInput.dispatchEvent(new Event("change"));
+  // requireBookInput.dispatchEvent(new Event("input"));
   requirTypeInput.value = row.firstElementChild.nextElementSibling.textContent;
   // requirTypeInput.dispatchEvent(new Event("change"));
   const detail =
@@ -3623,7 +3661,7 @@ window.removeRequirItem = function (button, student_id = null) {
     });
   } else {
     requireBookInput.value = row.firstElementChild.textContent;
-    requireBookInput.dispatchEvent(new Event("change"));
+    requireBookInput.dispatchEvent(new Event("input"));
     requirTypeInput.value =
       row.firstElementChild.nextElementSibling.textContent;
     requirTypeInput.dispatchEvent(new Event("change"));
@@ -7384,7 +7422,8 @@ async function showResultsStatistics() {
                 ) || 0;
               const note =
                 document.getElementById(`note-${student.id}`).value || "";
-              obj[student.id] = { points, note };
+              if (points || note) obj[student.id] = { points, note };
+              else delete obj[student.id];
             });
             const existingAppends = preStudentAppends || {};
             Object.assign(existingAppends, obj);
