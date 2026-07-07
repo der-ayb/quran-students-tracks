@@ -543,7 +543,7 @@ async function init() {
       await InitDatePickers();
       showTab("pills-home");
       nav_bar.style.removeProperty("display");
-      window.addEventListener("load", addServiceWorker, { once: true });
+      addServiceWorker;
       // display synchronization badge
       if (localStorage.getItem("newSaveExists"))
         document.querySelectorAll(".syncBadge").forEach((syncBadge) => {
