@@ -543,7 +543,7 @@ async function init() {
       await InitDatePickers();
       showTab("pills-home");
       nav_bar.style.removeProperty("display");
-      addServiceWorker;
+      addServiceWorker();
       // display synchronization badge
       if (localStorage.getItem("newSaveExists"))
         document.querySelectorAll(".syncBadge").forEach((syncBadge) => {
@@ -2508,6 +2508,7 @@ async function loadDayStudentsList() {
           retryBtn.addEventListener(
             "click",
             async () => {
+              studentDayModal.hide();
               preStudentsRetrys[student_id] = preStudentsRetrys[student_id]
                 ? preStudentsRetrys[student_id] + 1
                 : 1;
@@ -2767,9 +2768,9 @@ async function loadDayStudentsList() {
               } else if (data1.includes("قبل")) {
                 return parseInt(data1.replace("قبل", "").replace("د", "")) * -1;
               } else if (data1.includes("غياب مبرر")) {
-                return "";
+                return 1440;
               } else {
-                return null;
+                return 1441;
               }
             }
             return data;
@@ -2783,7 +2784,7 @@ async function loadDayStudentsList() {
           defaultContent: "/",
           render: function (data, type, row) {
             if (type === "sort" && !data) {
-              return 0;
+              return -1;
             }
             return data;
           },
@@ -2796,7 +2797,7 @@ async function loadDayStudentsList() {
           defaultContent: "/",
           render: function (data, type, row) {
             if (type === "sort") {
-              if (!data || data === "/") return 0;
+              if (!data || data === "/") return -1;
               else if (typeof data === "object")
                 return parseFloat(data.innerHTML.split("  ")[0]);
             }
@@ -2808,6 +2809,12 @@ async function loadDayStudentsList() {
           className: "text-center",
           type: "num",
           defaultContent: "/",
+          render: function (data, type, row) {
+            if (type === "sort") {
+              if (!data || data === "/") return -1;
+            }
+            return data;
+          },
         },
         { data: "actions" },
       ],
@@ -3558,7 +3565,10 @@ window.editRequirement = function (button) {
             ".btn-success",
           ).disabled = false),
       );
-  } else addQuranSelectionBtn.innerText = "تحديث";
+  } else {
+    addQuranSelectionBtn.innerText = "تحديث";
+    retryBtn.disabled = true;
+  }
   row.lastElementChild.previousElementSibling.querySelector(
     ".btn-success",
   ).disabled = true;
@@ -3613,6 +3623,7 @@ window.editRequirement = function (button) {
   addQuranSelectionBtn.onclick = () => {
     addRequirToTable(row);
     addQuranSelectionBtn.innerText = "إضافة";
+    retryBtn.disabled = false;
     addQuranSelectionBtn.onclick = () => addRequirToTable();
     requirTypeInput.dispatchEvent(new Event("change"));
   };
@@ -3620,6 +3631,7 @@ window.editRequirement = function (button) {
     "hide.bs.modal",
     (event) => {
       addQuranSelectionBtn.innerText = "إضافة";
+      retryBtn.disabled = false;
       addQuranSelectionBtn.onclick = () => addRequirToTable();
     },
     { once: true },
