@@ -543,7 +543,13 @@ async function init() {
       await InitDatePickers();
       showTab("pills-home");
       nav_bar.style.removeProperty("display");
-      addServiceWorker();
+      if (document.readyState === "complete") {
+        addServiceWorker();
+      } else {
+        window.addEventListener("load", () => {
+          setTimeout(addServiceWorker, 200);
+        });
+      }
       // display synchronization badge
       if (localStorage.getItem("newSaveExists"))
         document.querySelectorAll(".syncBadge").forEach((syncBadge) => {
@@ -2188,7 +2194,7 @@ async function showStudentDayModal(isUniqueStudent = true) {
 function parseRequirment(requir, book, bulletin = false) {
   if (book !== "القرآن الكريم")
     return `${book} ${bulletin ? ")" : "("}  ${requir.length > 35 ? requir.slice(0, 35) + "... " : requir} ${bulletin ? "(" : ")"}`;
-  const reqlist = requir.split(" ");
+  const reqlist = requir.split(requir.includes("#") ? "#" : " ");
   if (reqlist[0] == reqlist[4]) {
     const numberOfAyahs = quranData.surahs.find(
       (surah) => surah.name == reqlist[0],
@@ -3501,9 +3507,11 @@ function getNextRequirement(detail = null, setRequirementFields = true) {
   let firstAyahValue = "1";
   if (detail) {
     const Type = detail["النوع"];
-    const startSurahName = detail["التفاصيل"].split(" ").at(0);
-    const finishSurahName = detail["التفاصيل"].split(" ").at(-3);
-    const firstAyahNum = parseInt(detail["التفاصيل"].split(" ").at(-1)) + 1;
+    const splitChar = detail["التفاصيل"].includes("#") ? "#" : " ";
+    const startSurahName = detail["التفاصيل"].split(splitChar).at(0);
+    const finishSurahName = detail["التفاصيل"].split(splitChar).at(-3);
+    const firstAyahNum =
+      parseInt(detail["التفاصيل"].split(splitChar).at(-1)) + 1;
     requireBookValue = detail["الكتاب"];
 
     if (requireBookValue == "القرآن الكريم") {
@@ -3580,12 +3588,13 @@ window.editRequirement = function (button) {
     row.firstElementChild.nextElementSibling.nextElementSibling.nextElementSibling.textContent.trim();
 
   if (requireBookInput.value == "القرآن الكريم") {
-    const startSurahName = detail.split(" ").at(0);
-    const finishSurahName = detail.split(" ").at(-3);
+    const splitChar = detail.includes("#") ? "#" : " ";
+    const startSurahName = detail.split(splitChar).at(0);
+    const finishSurahName = detail.split(splitChar).at(-3);
     setOrGetOptionValueByText(firstSurahSelect, startSurahName);
     setOrGetOptionValueByText(secondSurahSelect, finishSurahName);
-    firstAyahSelect.value = detail.split(" ").at(2);
-    secondAyahSelect.value = detail.split(" ").at(-1);
+    firstAyahSelect.value = detail.split(splitChar).at(2);
+    secondAyahSelect.value = detail.split(splitChar).at(-1);
     secondAyahSelect.dispatchEvent(new Event("change"));
   } else {
     requirQuantityDetailInput.value = detail;
@@ -3680,11 +3689,12 @@ window.removeRequirItem = function (button, student_id = null) {
     const detail =
       row.firstElementChild.nextElementSibling.nextElementSibling.nextElementSibling.textContent.trim();
 
-    const startSurahName = detail.split(" ").at(0);
+    const splitChar = detail.includes("#") ? "#" : " ";
+    const startSurahName = detail.split(splitChar).at(0);
     if (requireBookInput.value == "القرآن الكريم") {
       setOrGetOptionValueByText(firstSurahSelect, startSurahName);
       firstSurahSelect.dispatchEvent(new Event("change"));
-      firstAyahSelect.value = detail.split(" ").at(2);
+      firstAyahSelect.value = detail.split(splitChar).at(2);
       firstAyahSelect.dispatchEvent(new Event("change"));
     }
     requirTeacherInput.value = "0";
@@ -7791,7 +7801,9 @@ async function showAvanceChart() {
   function parseEntry(entry) {
     if (!entry) return null;
 
-    const [sn1, , a1, , sn2, , a2] = entry.split(" ");
+    const [sn1, , a1, , sn2, , a2] = entry.split(
+      entry.includes("#") ? "#" : " ",
+    );
     const s1 = resolveSurah(sn1.trim()),
       s2 = resolveSurah(sn2.trim());
     if (!s1 || !s2) return null;
@@ -8264,9 +8276,9 @@ function setRequirQuantityDetailInput() {
   try {
     requirQuantityDetailInput.value = `${
       firstSurahSelect.options[firstSurahSelect.selectedIndex].text
-    } - ${firstAyahSelect.options[firstAyahSelect.selectedIndex].value} إلى ${
+    }#-#${firstAyahSelect.options[firstAyahSelect.selectedIndex].value}#إلى#${
       secondSurahSelect.options[secondSurahSelect.selectedIndex].text
-    } - ${secondAyahSelect.options[secondAyahSelect.selectedIndex].value}`;
+    }#-#${secondAyahSelect.options[secondAyahSelect.selectedIndex].value}`;
     setRequirEvalInput();
   } catch (err) {
     requirQuantityDetailInput.value = "";
