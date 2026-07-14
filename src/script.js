@@ -6483,7 +6483,7 @@ async function createTalkinBulletins(dates, studentsIDS = null) {
     // First pass: categorize all students by their data length
     const resumePagesChecked = resumePagesCheck.checked;
     allStudentData.forEach((studentReport) => {
-      if (resumePagesChecked && studentReport.recordCounts <= 20) {
+      if (resumePagesChecked && studentReport.recordCounts <= 16) {
         studentsWithFewRecords.push(studentReport);
       } else if (studentReport.recordCounts < 52) {
         studentsWithManyRecords.push(studentReport);
@@ -7005,97 +7005,94 @@ async function showAttendanceStatistics() {
     return;
   }
 
-  const dateColumns = dates
-    .map(
-      (date) => `
-        MAX(CASE 
-                WHEN d.date = '${date}' AND d.second_day IS NULL AND de.attendance = 1 THEN 'ح'
-                WHEN d.date = '${date}' AND d.second_day IS NULL AND de.attendance = 0 THEN 'غ م'
+  const dateList = dates.map((d) => `'${d}'`).join(", ");
 
-                WHEN d.date = '${date}' AND d.second_day IS NOT NULL AND de.attendance = 0 AND json_extract(de.second_day, '$.attendance')= 1 THEN 'غ م | ح'
-                WHEN d.date = '${date}' AND d.second_day IS NOT NULL AND de.attendance = 0 AND json_extract(de.second_day, '$.attendance')= 0 THEN 'غ م | غ م'
-                WHEN d.date = '${date}' AND d.second_day IS NOT NULL AND de.attendance = 0 AND de.second_day IS NULL THEN 'غ م | غ'
-
-                WHEN d.date = '${date}' AND d.second_day IS NOT NULL AND de.attendance = 1 AND de.second_day IS NULL THEN 'ح | غ'
-                WHEN d.date = '${date}' AND d.second_day IS NOT NULL AND de.attendance = 1 AND json_extract(de.second_day, '$.attendance')= 0 THEN 'ح | غ م'
-                WHEN d.date = '${date}' AND d.second_day IS NOT NULL AND de.attendance = 1 AND json_extract(de.second_day, '$.attendance')= 1 THEN 'ح | ح'
-
-                WHEN d.date = '${date}' AND d.second_day IS NOT NULL AND de.attendance = 2 AND json_extract(de.second_day, '$.attendance')= 1 THEN 'غ | ح'
-                WHEN d.date = '${date}' AND d.second_day IS NOT NULL AND de.attendance = 2 AND json_extract(de.second_day, '$.attendance')= 0 THEN 'غ | غ م'
-
-                ELSE ' غ'       
-            END
-            ) AS '${new Date(date)
+  // Precompute Arabic (Islamic calendar) labels for each date
+  const dateLabels = dates.map((date) => ({
+    date,
+    label: new Date(date)
               .toLocaleDateString("ar-DZ-u-ca-islamic-umalqura", {
                 year: "numeric",
                 month: "long",
                 day: "numeric",
                 weekday: "long",
               })
-              .replace("،", "")}'
-`,
-    )
-    .join(",\n");
+      .replace("،", ""),
+  }));
 
-  const attendanceSum = dates
+  // Pivot columns: just pick out the pre-computed per-day label, no recomputation
+  const dateColumns = dateLabels
     .map(
-      (date) =>
-        `SUM((CASE WHEN d.date = '${date}' AND de.attendance = 1 THEN 1 ELSE 0 END) +
-             (CASE WHEN d.date = '${date}' AND json_extract(de.second_day, '$.attendance') = 1 THEN 1 ELSE 0 END)
-            )`,
+      ({ date, label }) =>
+        `MAX(CASE WHEN pd.date = '${date}' THEN pd.label END) AS '${label}'`,
     )
-    .join(" +\n        ");
-
-  const attendanceObligatorySum = dates
-    .map(
-      (date) =>
-        `SUM((CASE WHEN d.date = '${date}' AND d.isObligatory = 1 AND de.attendance IN (1,0) THEN 1 ELSE 0 END)+
-             (CASE WHEN d.date = '${date}' AND json_extract(d.second_day, '$.isObligatory')=true AND json_extract(de.second_day, '$.attendance') IN (1,0) THEN 1 ELSE 0 END)
-             )`,
-    )
-    .join(" +\n        ");
+    .join(",\n    ");
 
   const query = `
-    WITH second_days_total_count AS (
-          SELECT 
-            SUM(
-              CASE WHEN second_day IS NOT NULL THEN 1 ELSE 0 END
-            ) AS total_count
+    WITH days AS (
+      SELECT id, date, isObligatory, second_day
           FROM education_day
           WHERE class_room_id = ${workingClassroomId}
-            AND date IN (${dates.map((d) => `'${d}'`).join(", ")})
+        AND date IN (${dateList})
+    ),
+    second_days_total_count AS (
+      SELECT SUM(CASE WHEN second_day IS NOT NULL THEN 1 ELSE 0 END) AS total_count
+      FROM days
         ),
         obligatory_days_count AS ( 
               SELECT SUM(
                       CASE WHEN isObligatory = 1 THEN 1 ELSE 0 END +
-                      CASE WHEN JSON_EXTRACT(second_day, '$.isObligatory') = true THEN 1 ELSE 0 END
-                    )
-              FROM education_day 
-              WHERE class_room_id = ${workingClassroomId} 
-                AND date IN (${dates.map((date) => `'${date}'`).join(", ")})
+        CASE WHEN json_extract(second_day, '$.isObligatory') = true THEN 1 ELSE 0 END
+      ) AS total_count
+      FROM days
+    ),
+    per_day AS (
+      SELECT
+        s.id AS student_id,
+        d.date,
+        CASE
+          WHEN d.second_day IS NULL AND de.attendance = 1 THEN 'ح'
+          WHEN d.second_day IS NULL AND de.attendance = 0 THEN 'غ م'
+          WHEN d.second_day IS NOT NULL AND de.attendance = 0 AND json_extract(de.second_day,'$.attendance') = 1 THEN 'غ م | ح'
+          WHEN d.second_day IS NOT NULL AND de.attendance = 0 AND json_extract(de.second_day,'$.attendance') = 0 THEN 'غ م | غ م'
+          WHEN d.second_day IS NOT NULL AND de.attendance = 0 AND de.second_day IS NULL THEN 'غ م | غ'
+          WHEN d.second_day IS NOT NULL AND de.attendance = 1 AND de.second_day IS NULL THEN 'ح | غ'
+          WHEN d.second_day IS NOT NULL AND de.attendance = 1 AND json_extract(de.second_day,'$.attendance') = 0 THEN 'ح | غ م'
+          WHEN d.second_day IS NOT NULL AND de.attendance = 1 AND json_extract(de.second_day,'$.attendance') = 1 THEN 'ح | ح'
+          WHEN d.second_day IS NOT NULL AND de.attendance = 2 AND json_extract(de.second_day,'$.attendance') = 1 THEN 'غ | ح'
+          WHEN d.second_day IS NOT NULL AND de.attendance = 2 AND json_extract(de.second_day,'$.attendance') = 0 THEN 'غ | غ م'
+          ELSE ' غ'
+        END AS label,
+        (CASE WHEN de.attendance = 1 THEN 1 ELSE 0 END
+        + CASE WHEN json_extract(de.second_day,'$.attendance') = 1 THEN 1 ELSE 0 END) AS present_count,
+        (CASE WHEN d.isObligatory = 1 AND de.attendance IN (1,0) THEN 1 ELSE 0 END
+        + CASE WHEN json_extract(d.second_day,'$.isObligatory') = true
+                AND json_extract(de.second_day,'$.attendance') IN (1,0) THEN 1 ELSE 0 END) AS obligatory_present_count
+      FROM students s
+      CROSS JOIN days d
+      LEFT JOIN day_evaluations de ON de.student_id = s.id AND de.day_id = d.id
+      WHERE s.id IN (${studentsList})
+    ),
+    totals AS (
+      SELECT student_id,
+        SUM(present_count) AS total_present,
+        SUM(obligatory_present_count) AS total_obligatory_present
+      FROM per_day
+      GROUP BY student_id
             )
     SELECT
-    ROW_NUMBER() OVER (ORDER BY s.id) as "#",
-    s.fname || ' ' || s.lname as "اسم الطالب",
+      ROW_NUMBER() OVER (ORDER BY s.id) AS "#",
+      s.fname || ' ' || s.lname AS "اسم الطالب",
 
     ${dateColumns},
 
-    ${attendanceSum} as "المجموع ",
-
-    ROUND(
-         (${attendanceObligatorySum}) * 100.0 / COALESCE((SELECT * FROM obligatory_days_count), 0)
-         , 1) as "إلزامي (%)",
-
-    ROUND(
-         (${attendanceSum}) * 100.0 / (${dates.length} + COALESCE((SELECT * FROM second_days_total_count), 0))
-         , 1) as "النسبة (%)"
+      t.total_present AS "المجموع ",
+      ROUND(t.total_obligatory_present * 100.0 / NULLIF((SELECT total_count FROM obligatory_days_count), 0), 1) AS "إلزامي (%)",
+      ROUND(t.total_present * 100.0 / NULLIF(${dates.length} + (SELECT total_count FROM second_days_total_count), 0), 1) AS "النسبة (%)"
     FROM students s
-    LEFT JOIN day_evaluations de ON s.id = de.student_id
-    LEFT JOIN education_day d ON d.id = de.day_id
-
-    WHERE s.id IN (${studentsList})
-
-    GROUP BY s.id
+    JOIN per_day pd ON pd.student_id = s.id
+    JOIN totals t ON t.student_id = s.id
+    GROUP BY s.id, t.total_present, t.total_obligatory_present
     ORDER BY s.id;
 `;
 
@@ -7234,137 +7231,116 @@ async function showResultsStatistics() {
     return;
   }
 
-  const dateCtes = dates
-    .map(
-      (date, index) =>
-        `day_id${index} AS ( SELECT id FROM education_day WHERE date = '${date}' )`,
-    )
-    .join(", \n");
+  const dateList = dates.map((d) => `'${d}'`).join(", ");
 
-  // Generate date columns
-  const dateColumns = dates
-    .map(
-      (date, index) =>
-        `COALESCE(ROUND(
-            NULLIF(
-              ${
-                isTalkinClassroom
-                  ? ""
-                  : `(SELECT COALESCE(SUM(CASE WHEN de.attendance = 1 THEN de.moyenne END), 0) 
-                      FROM day_evaluations de WHERE de.student_id = s.id 
-                      AND de.day_id IN (SELECT id FROM day_id${index})
-                      ) + 
-                      COALESCE(
-                          (SELECT SUM(CASE WHEN json_extract(de.second_day, '$.attendance') = 1 
-                                           THEN json_extract(de.second_day, '$.moyenne') END) 
-                          FROM day_evaluations de WHERE de.student_id = s.id 
-                            AND de.second_day IS NOT NULL
-                            AND de.day_id IN (SELECT id FROM day_id${index})), 
-                          0
-                      ) +`
-              } 
-                  (SELECT COALESCE(SUM(moyenne), 0) FROM day_requirements WHERE student_id = s.id AND day_id IN (SELECT id FROM day_id${index}))
-            ,0)
-        , 2), "/") as '${new Date(date)
+  // Precompute Arabic (Islamic calendar) labels for each date, same as before
+  const dateLabels = dates.map((date) => ({
+    date,
+    label: new Date(date)
           .toLocaleDateString("ar-DZ-u-ca-islamic-umalqura", {
             year: "numeric",
             month: "long",
             day: "numeric",
             weekday: "long",
           })
-          .replace("،", "")}'`,
+      .replace("،", ""),
+  }));
+
+  // Pivot the per-day scores into named columns
+  const dateColumns = dateLabels
+    .map(
+      ({ date, label }) =>
+        `MAX(CASE WHEN pd.date = '${date}' THEN ROUND(NULLIF(pd.gated_score, 0), 2) END) as '${label}'`,
     )
     .join(",\n    ");
 
-  // Generate sum expressions for المجموع
-  const sumExpressions = dates
-    .map(
-      (_, index) =>
-        `${
-          !isTalkinClassroom
-            ? `(
-                  SELECT COALESCE(SUM(de.moyenne), 0) FROM day_evaluations de 
-                  WHERE de.student_id = s.id AND de.day_id IN (SELECT id FROM day_id${index})
-                )
-                + 
-                COALESCE(
-                    (SELECT SUM(COALESCE(json_extract(de.second_day, '$.moyenne'), 0)) 
-                    FROM day_evaluations de WHERE de.student_id = s.id 
-                      AND de.second_day IS NOT NULL
-                      AND de.day_id IN (SELECT id FROM day_id${index})), 
-                    0
-                ) +`
-            : ""
-        } 
-          (SELECT COALESCE(SUM(dr.moyenne), 0) FROM day_requirements dr 
-          WHERE dr.student_id = s.id AND dr.day_id IN (SELECT id FROM day_id${index}))
-        `,
-    )
-    .join(" +\n        ");
-
   const query = `
-    WITH ${dateCtes}
-    ${
-      !isTalkinClassroom
-        ? `,jabsence_counts AS (
-              SELECT 
-                student_id,
-                SUM(
-                  CASE WHEN attendance = 0 THEN 1 ELSE 0 END +
-                  CASE WHEN JSON_EXTRACT(second_day, '$.attendance') = 0 THEN 1 ELSE 0 END
-                ) AS count
-              FROM day_evaluations
-              WHERE day_id IN (
-                SELECT id 
+      WITH days AS (
+        SELECT id, date
                 FROM education_day 
                 WHERE class_room_id = ${workingClassroomId}
-                  AND date IN (${dates.map((d) => `'${d}'`).join(", ")})
-              )
-              GROUP BY student_id
-            )`
-        : ""
-    }
+          AND date IN (${dateList})
+      ),
     ${
       !isTalkinClassroom
-        ? `,obligatory_days_total_count AS (
-              SELECT 
-                SUM(
+          ? `obligatory_days_total_count AS (
+        SELECT SUM(
                   CASE WHEN isObligatory = 1 THEN 1 ELSE 0 END +
-                  CASE WHEN second_day IS NOT NULL AND JSON_EXTRACT(second_day, '$.isObligatory') = true THEN 1 ELSE 0 END
+          CASE WHEN second_day IS NOT NULL AND json_extract(second_day,'$.isObligatory') = true THEN 1 ELSE 0 END
                 ) AS total_count
               FROM education_day
-              WHERE class_room_id = ${workingClassroomId}
-                AND date IN (${dates.map((d) => `'${d}'`).join(", ")})
-            )`
+        WHERE id IN (SELECT id FROM days)
+      ),
+      jabsence_counts AS (
+        SELECT student_id,
+          SUM(CASE WHEN attendance = 0 THEN 1 ELSE 0 END +
+              CASE WHEN json_extract(second_day,'$.attendance') = 0 THEN 1 ELSE 0 END) AS count
+        FROM day_evaluations
+        WHERE day_id IN (SELECT id FROM days)
+        GROUP BY student_id
+      ),
+      evals_per_day AS (
+        SELECT student_id, day_id,
+          SUM(CASE WHEN attendance = 1 THEN moyenne ELSE 0 END
+              + CASE WHEN json_extract(second_day,'$.attendance') = 1
+                    THEN json_extract(second_day,'$.moyenne') ELSE 0 END) AS gated_score,
+          SUM(moyenne + COALESCE(json_extract(second_day,'$.moyenne'), 0)) AS ungated_score
+        FROM day_evaluations
+        WHERE day_id IN (SELECT id FROM days)
+        GROUP BY student_id, day_id
+      ),`
         : ""
     }
+      reqs_per_day AS (
+        SELECT student_id, day_id, SUM(moyenne) AS req_score
+        FROM day_requirements
+        WHERE day_id IN (SELECT id FROM days)
+        GROUP BY student_id, day_id
+      ),
+      per_day AS (
     SELECT 
-        ROW_NUMBER() OVER (ORDER BY s.id) as "#", 
-        s.fname || ' ' || s.lname as "اسم الطالب",
+          s.id AS student_id, d.id AS day_id, d.date,
+          ${
+            !isTalkinClassroom
+              ? `COALESCE(e.gated_score, 0) + COALESCE(r.req_score, 0) AS gated_score,
+          COALESCE(e.ungated_score, 0) + COALESCE(r.req_score, 0) AS ungated_score`
+              : `COALESCE(r.req_score, 0) AS gated_score,
+          COALESCE(r.req_score, 0) AS ungated_score`
+          }
+        FROM students s
+        CROSS JOIN days d
+        ${!isTalkinClassroom ? "LEFT JOIN evals_per_day e ON e.student_id = s.id AND e.day_id = d.id" : ""}
+        LEFT JOIN reqs_per_day r ON r.student_id = s.id AND r.day_id = d.id
+        WHERE s.id IN (${studentsList})
+      ),
+      totals AS (
+        SELECT student_id, SUM(ungated_score) AS total_score
+        FROM per_day
+        GROUP BY student_id
+      )
+      SELECT
+        ROW_NUMBER() OVER (ORDER BY s.id) AS "#",
+        s.fname || ' ' || s.lname AS "اسم الطالب",
         ${dateColumns},
-        COALESCE(ROUND(${sumExpressions}, 2), 0) as "المجموع",
+        ROUND(t.total_score, 2) AS "المجموع",
         ${
           !isTalkinClassroom
-            ? `COALESCE(ROUND(
-            (${sumExpressions}) / (COALESCE((SELECT * FROM obligatory_days_total_count), 0) - COALESCE(jac.count, 0))
-        , 2), 0) as "المعدل",
+            ? `ROUND(t.total_score / NULLIF(o.total_count - COALESCE(jac.count, 0), 0), 2) AS "المعدل",
         ROW_NUMBER() OVER (
-          ORDER BY COALESCE(ROUND(
-            (${sumExpressions}) / (COALESCE((SELECT * FROM obligatory_days_total_count), 0) - COALESCE(jac.count, 0))
-          , 2), 0) DESC
-        ) as "الترتيب"`
-            : `ROW_NUMBER() OVER (
-          ORDER BY COALESCE(ROUND(${sumExpressions}, 2), 0) DESC
-        ) as "الترتيب"`
+          ORDER BY t.total_score / NULLIF(o.total_count - COALESCE(jac.count, 0), 0) DESC
+        ) AS "الترتيب"`
+            : `ROW_NUMBER() OVER (ORDER BY t.total_score DESC) AS "الترتيب"`
         }
     FROM students s 
-    ${!isTalkinClassroom ? "LEFT JOIN day_evaluations de ON s.id = de.student_id" : ""} 
-    LEFT JOIN day_requirements dr ON dr.student_id = s.id 
-    ${!isTalkinClassroom ? "LEFT JOIN jabsence_counts jac ON s.id = jac.student_id" : ""} 
+      JOIN per_day pd ON pd.student_id = s.id
+      JOIN totals t ON t.student_id = s.id
+      ${!isTalkinClassroom ? "LEFT JOIN jabsence_counts jac ON jac.student_id = s.id" : ""}
+      ${!isTalkinClassroom ? "CROSS JOIN obligatory_days_total_count o" : ""}
     WHERE s.id IN (${studentsList})
-    GROUP BY s.id, "اسم الطالب" ${!isTalkinClassroom ? ",jac.count" : ""}
+      GROUP BY s.id, t.total_score${!isTalkinClassroom ? ", jac.count, o.total_count" : ""}
     ORDER BY s.id;
 `;
+
   const buttons = [
     {
       text: '<i class="fa-solid fa-puzzle-piece"></i>',
