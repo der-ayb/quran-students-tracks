@@ -6603,7 +6603,7 @@ async function createTalkinBulletins(dates, studentsIDS = null) {
                   ? -1.5 * totalRecordCounts
                   : totalRecordCounts / 2)) -
             (totalRecordCounts / (isStacked ? 2 : totalRecordCounts)) *
-              (isStacked ? 13 : 345),
+              (isStacked ? 14 : 345),
           x: 60,
         },
         layout: {
@@ -7421,7 +7421,10 @@ async function showResultsStatistics() {
               const note =
                 document.getElementById(`note-${student.id}`).value || "";
               if (points || note) obj[student.id] = { points, note };
-              else delete obj[student.id];
+              else {
+                delete obj[student.id];
+                delete preStudentAppends[student.id];
+              }
             });
             const existingAppends = preStudentAppends || {};
             Object.assign(existingAppends, obj);
