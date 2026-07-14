@@ -1639,7 +1639,7 @@ function calcRequirementMoyenne(quantity, evaluation, type, repit) {
   value -=
     repit * (evaluationLaddersValues.requirments?.requirReducePerRepit || 10);
 
-  return (value > 0 ? value : 0).toFixed(2);
+  return (value > 0.25 ? value : 0.25).toFixed(2);
 }
 
 function calcRequirementsMoyenne() {
@@ -7695,8 +7695,8 @@ async function showAvanceChart() {
   function getGroupLabel(gi, by) {
     if (by === "surah")
       return `${quranData.surahs[gi].number}. ${quranData.surahs[gi].name}`;
-    if (by === "hizb") return `الحزب ${quranData.ahzab[gi].n}`;
-    if (by === "page") return `صفحة ${quranData.pages[gi].n}`;
+    if (by === "hizb") return `الحزب ${61 - quranData.ahzab[gi].n}`;
+    if (by === "page") return `صفحة ${605 - quranData.pages[gi].n}`;
     return "";
   }
 
