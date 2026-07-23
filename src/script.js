@@ -2514,7 +2514,6 @@ async function loadDayStudentsList() {
           retryBtn.addEventListener(
             "click",
             async () => {
-              studentDayModal.hide();
               preStudentsRetrys[student_id] = preStudentsRetrys[student_id]
                 ? preStudentsRetrys[student_id] + 1
                 : 1;
@@ -2523,6 +2522,7 @@ async function loadDayStudentsList() {
                 "studentsRetrys",
                 JSON.stringify(preStudentsRetrys),
               );
+              studentDayModal.hide();
             },
             { once: true },
           );
