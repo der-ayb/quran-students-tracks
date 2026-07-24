@@ -24,5 +24,7 @@ dev-dist/
 *.njsproj
 *.sln
 *.sw?
-.claude
+# .claude
+.mcp.json
 utils
+.claude/settings.local.json

@@ -62,12 +62,6 @@ input {
   transition: all .6s ease;
 }
 
-/* Apply to the table cells */
-table.dataTable td,
-table.dataTable th {
-  white-space: nowrap;
-}
-
 /* nav bar */
 .nav-bar {
   position: fixed;
@@ -181,6 +175,16 @@ table.dataTable th {
 }
 
 /* datatables ------------------------------------------*/
+/* #dayListTable_wrapper thead {
+    display: none;
+} */
+
+/* Apply to the table cells */
+table.dataTable td,
+table.dataTable th {
+  white-space: nowrap;
+}
+
 /* Hides the duplicate header in the scrollable body */
 .dt-scroll-body thead tr {
   visibility: collapse !important;

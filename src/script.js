@@ -23,7 +23,7 @@ import initSqlJs from "sql.js";
 import { jQuery, $ } from "jquery";
 import DataTable from "datatables.net-bs5";
 import "datatables.net-buttons-bs5";
-import "datatables.net-buttons/js/buttons.colVis.mjs";
+// import "datatables.net-buttons/js/buttons.colVis.mjs";
 import "datatables.net-buttons/js/buttons.html5.mjs";
 import "datatables.net-buttons/js/buttons.print.mjs";
 import "datatables.net-fixedcolumns-bs5";
@@ -2319,6 +2319,20 @@ function isCurrentDay() {
   );
 }
 
+function getAttendanceValue(data) {
+  const data1 = data.replace("🟢", "");
+  if (data1.includes("في الوقت")) return 0;
+  else if (data1.includes("بعد")) {
+    return parseInt(data1.replace("بعد", "").replace("د", ""));
+  } else if (data1.includes("قبل")) {
+    return parseInt(data1.replace("قبل", "").replace("د", "")) * -1;
+  } else if (data1.includes("غياب مبرر")) {
+    return 1440;
+  } else {
+    return 1441;
+  }
+}
+
 async function loadDayStudentsList() {
   dayNoteContainer.style.display = "none";
   if (!project_db) {
@@ -2440,6 +2454,9 @@ async function loadDayStudentsList() {
     const data = [];
     requirTeacherInput.options.length = 0;
     requirTeacherInput.add(new Option("المعلم", "0", true));
+    const prePriorityObj = sessionStorage.getItem(
+      "priority_" + workingClassroomId,
+    );
     if (results.length) {
       const result = results[0];
       result.values.forEach((row) => {
@@ -2745,6 +2762,10 @@ async function loadDayStudentsList() {
               : null,
           evalMoyenne: evaluationDayContainer,
           requirsMoyenne: requirmentsDayValue,
+          priority:
+            retardValue && prePriorityObj
+              ? JSON.parse(prePriorityObj)[student_id] || "/"
+              : "/",
           actions: addRequirsBtn,
         });
       });
@@ -2767,17 +2788,7 @@ async function loadDayStudentsList() {
           type: "num",
           render: function (data, type, row) {
             if (type === "sort") {
-              const data1 = data.replace("🟢", "");
-              if (data1.includes("في الوقت")) return 0;
-              else if (data1.includes("بعد")) {
-                return parseInt(data1.replace("بعد", "").replace("د", ""));
-              } else if (data1.includes("قبل")) {
-                return parseInt(data1.replace("قبل", "").replace("د", "")) * -1;
-              } else if (data1.includes("غياب مبرر")) {
-                return 1440;
-              } else {
-                return 1441;
-              }
+              return getAttendanceValue(data);
             }
             return data;
           },
@@ -2822,6 +2833,17 @@ async function loadDayStudentsList() {
             return data;
           },
         },
+        {
+          data: "priority",
+          type: "num",
+          className: "fw-bold",
+          render: function (data, type, row) {
+            if (type === "sort") {
+              if (!data || data === "/") return 1440;
+            }
+            return data;
+          },
+        },
         { data: "actions" },
       ],
       {
@@ -2856,9 +2878,38 @@ async function loadDayStudentsList() {
         layout: {
           topStart: {
             buttons: [
+              // {
+              //   extend: "colvis",
+              //   text: '<i class="fa-solid fa-table"></i>',
+              // },
               {
-                extend: "colvis",
-                text: '<i class="fa-solid fa-table"></i>',
+                extend: "collection",
+                text: '<i class="fa-solid fa-arrow-down-short-wide"></i>',
+                fade: 0,
+                autoClose: true,
+                buttons: [
+                  {
+                    text: "ترتيب عشوائي للجميع",
+                    action: async function (e, dt) {
+                      randomizePriority(dt, false);
+                    },
+                  },
+                  {
+                    text: "ترتيب عشوائي (حسب الوقت)",
+                    action: async function (e, dt) {
+                      randomizePriority(dt, true);
+                    },
+                  },
+                  {
+                    text: "إعادة تعيين الترتيب",
+                    action: async function (e, dt) {
+                      sessionStorage.removeItem(
+                        "priority_" + workingClassroomId,
+                      );
+                      loadDayStudentsList();
+                    },
+                  },
+                ],
               },
               {
                 text: '<i class="fa-solid fa-1"></i>',
@@ -3201,6 +3252,99 @@ async function loadDayStudentsList() {
         table.button("4-0").nodes().addClass("d-none");
         table.button("4-1").nodes().removeClass("d-none");
       }
+    }
+
+    function randomizePriority(dt, onlySameRetardtime) {
+      var rows = [];
+      const priorityObj = {};
+      dt.rows().every(function (index) {
+        var rowData = this.data();
+        var attendance = getAttendanceValue(rowData.attendance);
+        var isPresent =
+          attendance !== null &&
+          attendance !== "null" &&
+          attendance !== "" &&
+          attendance !== 1440 &&
+          attendance !== 1441 &&
+          attendance !== undefined;
+
+        rows.push({
+          index: index,
+          data: rowData,
+          position: attendance,
+          hasPosition: isPresent,
+        });
+      });
+
+      // Separate rows with and without position
+      var rowsWithPosition = rows.filter((row) => row.hasPosition);
+      var rowsWithoutPosition = rows.filter((row) => !row.hasPosition);
+
+      if (onlySameRetardtime) {
+        // Group by position
+        var groups = {};
+        rowsWithPosition.forEach(function (row) {
+          if (!groups[row.position]) {
+            groups[row.position] = [];
+          }
+          groups[row.position].push(row);
+        });
+
+        // Randomize each group separately
+        var allRandomized = [];
+        var groupKeys = Object.keys(groups).sort((a, b) => a - b);
+
+        groupKeys.forEach(function (key) {
+          var group = groups[key];
+          // Shuffle within group
+          for (var i = group.length - 1; i > 0; i--) {
+            var j = Math.floor(Math.random() * (i + 1));
+            var temp = group[i];
+            group[i] = group[j];
+            group[j] = temp;
+          }
+          allRandomized = allRandomized.concat(group);
+        });
+
+        // Assign priorities sequentially (1 to N) based on position groups
+        var priorityCounter = 1;
+        allRandomized.forEach(function (row) {
+          dt.cell(row.index, 8).data(priorityCounter++);
+          priorityObj[row.data.id] = priorityCounter - 1;
+        });
+      } else {
+        // Shuffle ALL rows with position (original behavior)
+        for (var i = rowsWithPosition.length - 1; i > 0; i--) {
+          var j = Math.floor(Math.random() * (i + 1));
+          var temp = rowsWithPosition[i];
+          rowsWithPosition[i] = rowsWithPosition[j];
+          rowsWithPosition[j] = temp;
+        }
+
+        // Assign priorities (start from 1)
+        var priorityCounter = 1;
+        rowsWithPosition.forEach(function (row) {
+          dt.cell(row.index, 8).data(priorityCounter++);
+          priorityObj[row.data.id] = priorityCounter - 1;
+        });
+      }
+
+      // Mark rows without position with '-'
+      rowsWithoutPosition.forEach(function (row) {
+        dt.cell(row.index, 8).data("/");
+        priorityObj[row.data.id] = null;
+      });
+
+      dt.draw();
+      sessionStorage.setItem(
+        "priority_" + workingClassroomId,
+        JSON.stringify({
+          ...JSON.parse(
+            sessionStorage.getItem("priority_" + workingClassroomId) || "{}",
+          ),
+          ...priorityObj,
+        }),
+      );
     }
   } catch (e) {
     console.error(e);
@@ -4506,6 +4650,10 @@ async function createBulletins(dates, studentsIDS = null) {
       } else if (studentReport.recordsCounts < 52) {
         studentsWithManyRecords.push(studentReport);
       } else {
+        window.showToast(
+          "warning",
+          `عدد الصفوف لـ${studentReport.studentName} تجاوز الحد بـ${studentReport.recordsCounts - 52} صف`,
+        );
         throw new Error("عدد الصفوف تجاوز الحد الأقصى");
       }
     });
@@ -6485,9 +6633,13 @@ async function createTalkinBulletins(dates, studentsIDS = null) {
     allStudentData.forEach((studentReport) => {
       if (resumePagesChecked && studentReport.recordCounts <= 16) {
         studentsWithFewRecords.push(studentReport);
-      } else if (studentReport.recordCounts < 52) {
+      } else if (studentReport.recordCounts < 42) {
         studentsWithManyRecords.push(studentReport);
       } else {
+        window.showToast(
+          "warning",
+          `عدد الصفوف لـ${studentReport.studentName} تجاوز الحد بـ${42 - studentReport.recordCounts} صف`,
+        );
         throw new Error("عدد الصفوف تجاوز الحد الأقصى");
       }
     });
@@ -7011,12 +7163,12 @@ async function showAttendanceStatistics() {
   const dateLabels = dates.map((date) => ({
     date,
     label: new Date(date)
-              .toLocaleDateString("ar-DZ-u-ca-islamic-umalqura", {
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-                weekday: "long",
-              })
+      .toLocaleDateString("ar-DZ-u-ca-islamic-umalqura", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        weekday: "long",
+      })
       .replace("،", ""),
   }));
 
@@ -7031,17 +7183,17 @@ async function showAttendanceStatistics() {
   const query = `
     WITH days AS (
       SELECT id, date, isObligatory, second_day
-          FROM education_day
-          WHERE class_room_id = ${workingClassroomId}
+      FROM education_day
+      WHERE class_room_id = ${workingClassroomId}
         AND date IN (${dateList})
     ),
     second_days_total_count AS (
       SELECT SUM(CASE WHEN second_day IS NOT NULL THEN 1 ELSE 0 END) AS total_count
       FROM days
-        ),
-        obligatory_days_count AS ( 
-              SELECT SUM(
-                      CASE WHEN isObligatory = 1 THEN 1 ELSE 0 END +
+    ),
+    obligatory_days_count AS (
+      SELECT SUM(
+        CASE WHEN isObligatory = 1 THEN 1 ELSE 0 END +
         CASE WHEN json_extract(second_day, '$.isObligatory') = true THEN 1 ELSE 0 END
       ) AS total_count
       FROM days
@@ -7079,12 +7231,12 @@ async function showAttendanceStatistics() {
         SUM(obligatory_present_count) AS total_obligatory_present
       FROM per_day
       GROUP BY student_id
-            )
+    )
     SELECT
       ROW_NUMBER() OVER (ORDER BY s.id) AS "#",
       s.fname || ' ' || s.lname AS "اسم الطالب",
 
-    ${dateColumns},
+      ${dateColumns},
 
       t.total_present AS "المجموع ",
       ROUND(t.total_obligatory_present * 100.0 / NULLIF((SELECT total_count FROM obligatory_days_count), 0), 1) AS "إلزامي (%)",
@@ -7094,10 +7246,13 @@ async function showAttendanceStatistics() {
     JOIN totals t ON t.student_id = s.id
     GROUP BY s.id, t.total_present, t.total_obligatory_present
     ORDER BY s.id;
-`;
+    `;
 
+  const eduDatesCount = parseInt(
+    statisticsDateInput._flatpickr.altInput.value.split("(")[1].split(")")[0],
+  );
   const buttons =
-    dates.length > 15
+    eduDatesCount > 15
       ? []
       : [
           {
@@ -7237,12 +7392,12 @@ async function showResultsStatistics() {
   const dateLabels = dates.map((date) => ({
     date,
     label: new Date(date)
-          .toLocaleDateString("ar-DZ-u-ca-islamic-umalqura", {
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-            weekday: "long",
-          })
+      .toLocaleDateString("ar-DZ-u-ca-islamic-umalqura", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        weekday: "long",
+      })
       .replace("،", ""),
   }));
 
@@ -7257,18 +7412,18 @@ async function showResultsStatistics() {
   const query = `
       WITH days AS (
         SELECT id, date
-                FROM education_day 
-                WHERE class_room_id = ${workingClassroomId}
+        FROM education_day
+        WHERE class_room_id = ${workingClassroomId}
           AND date IN (${dateList})
       ),
-    ${
-      !isTalkinClassroom
+      ${
+        !isTalkinClassroom
           ? `obligatory_days_total_count AS (
         SELECT SUM(
-                  CASE WHEN isObligatory = 1 THEN 1 ELSE 0 END +
+          CASE WHEN isObligatory = 1 THEN 1 ELSE 0 END +
           CASE WHEN second_day IS NOT NULL AND json_extract(second_day,'$.isObligatory') = true THEN 1 ELSE 0 END
-                ) AS total_count
-              FROM education_day
+        ) AS total_count
+        FROM education_day
         WHERE id IN (SELECT id FROM days)
       ),
       jabsence_counts AS (
@@ -7289,8 +7444,8 @@ async function showResultsStatistics() {
         WHERE day_id IN (SELECT id FROM days)
         GROUP BY student_id, day_id
       ),`
-        : ""
-    }
+          : ""
+      }
       reqs_per_day AS (
         SELECT student_id, day_id, SUM(moyenne) AS req_score
         FROM day_requirements
@@ -7298,7 +7453,7 @@ async function showResultsStatistics() {
         GROUP BY student_id, day_id
       ),
       per_day AS (
-    SELECT 
+        SELECT
           s.id AS student_id, d.id AS day_id, d.date,
           ${
             !isTalkinClassroom
@@ -7331,111 +7486,21 @@ async function showResultsStatistics() {
         ) AS "الترتيب"`
             : `ROW_NUMBER() OVER (ORDER BY t.total_score DESC) AS "الترتيب"`
         }
-    FROM students s 
+      FROM students s
       JOIN per_day pd ON pd.student_id = s.id
       JOIN totals t ON t.student_id = s.id
       ${!isTalkinClassroom ? "LEFT JOIN jabsence_counts jac ON jac.student_id = s.id" : ""}
       ${!isTalkinClassroom ? "CROSS JOIN obligatory_days_total_count o" : ""}
-    WHERE s.id IN (${studentsList})
+      WHERE s.id IN (${studentsList})
       GROUP BY s.id, t.total_score${!isTalkinClassroom ? ", jac.count, o.total_count" : ""}
-    ORDER BY s.id;
-`;
+      ORDER BY s.id;
+      `;
 
+  const eduDatesCount = parseInt(
+    statisticsDateInput._flatpickr.altInput.value.split("(")[1].split(")")[0],
+  );
   const buttons = [
-    {
-      text: '<i class="fa-solid fa-puzzle-piece"></i>',
-      action: async function () {
-        const bulletinAppendsModal = new bootstrap.Modal(
-          "#bulletinAppendsModal",
-        );
-        const bulletinAppendsModalBody = document.querySelector(
-          "#bulletinAppendsModal .modal-body",
-        );
-        const preStudentAppends = localStorage.getItem("studentsAppends")
-          ? JSON.parse(localStorage.getItem("studentsAppends"))
-          : {};
-
-        bulletinAppendsModalBody.innerHTML = `
-          <div class="card">
-            <div class="card-body">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-              <h5 class="card-title">الجميع</h5>
-              <button class="btn btn-sm btn-outline-secondary" id="setAllAppendsBtn">تطبيق</button>
-            </div>
-              <div class="input-group mb-3">
-                <span class="input-group-text">نقاط إضافية</span>
-                <input id="points-all" type="number" class="form-control text-center px-0" value="0" step="1">
-                <span class="input-group-text">نقطة</span>
-              </div>
-              <div class="input-group">
-                <span class="input-group-text">الملاحظة</span>
-                <textarea id="note-all" class="form-control" aria-label="With textarea"></textarea>
-              </div>
-            </div>
-          </div>
-          <hr class="my-2"></hr>`;
-        const statisticsSelectedStudentsList = Array.from(
-          document.querySelectorAll(".statisStudentItem:checked"),
-        ).map((item) => ({
-          name: item.nextElementSibling.textContent,
-          id: item.value,
-        }));
-
-        statisticsSelectedStudentsList.forEach((student) => {
-          bulletinAppendsModalBody.innerHTML += `
-          <div class="card">
-            <div class="card-body">
-              <h5 class="card-title" id="name-${student.id}">${student.name}</h5>
-              <div class="input-group mb-3">
-                <span class="input-group-text">نقاط إضافية</span>
-                <input id="points-${student.id}" type="number" class="form-control text-center px-0" value="${preStudentAppends[student.id]?.points || 0}" step="1">
-                <span class="input-group-text">نقطة</span>
-              </div>
-              <div class="input-group">
-                <span class="input-group-text">الملاحظة</span>
-                <textarea id="note-${student.id}" class="form-control" aria-label="With textarea">${preStudentAppends[student.id]?.note || ""}</textarea>
-              </div>
-            </div>
-          </div>`;
-        });
-        document.getElementById("setAllAppendsBtn").onclick = function () {
-          const points =
-            parseInt(document.getElementById("points-all").value) || 0;
-          const note = document.getElementById("note-all").value || "";
-          statisticsSelectedStudentsList.forEach((student) => {
-            document.getElementById(`points-${student.id}`).value = points;
-            document.getElementById(`note-${student.id}`).value = note;
-          });
-        };
-
-        bulletinAppendsModal.show();
-        document.getElementById("saveBullentinAppends").onclick =
-          async function () {
-            bulletinAppendsModal.hide();
-            const obj = {};
-            statisticsSelectedStudentsList.forEach((student) => {
-              const points =
-                parseInt(
-                  document.getElementById(`points-${student.id}`).value,
-                ) || 0;
-              const note =
-                document.getElementById(`note-${student.id}`).value || "";
-              if (points || note) obj[student.id] = { points, note };
-              else {
-                delete obj[student.id];
-                delete preStudentAppends[student.id];
-              }
-            });
-            const existingAppends = preStudentAppends || {};
-            Object.assign(existingAppends, obj);
-            localStorage.setItem(
-              "studentsAppends",
-              JSON.stringify(existingAppends),
-            );
-          };
-      },
-    },
-    ...(dates.length > 13
+    ...(eduDatesCount > 13
       ? []
       : [
           {
@@ -7532,17 +7597,114 @@ async function showResultsStatistics() {
             },
           },
         ]),
-    ...(dates.length > 25
+    ...(!isTalkinClassroom && eduDatesCount >= 52
       ? []
       : [
           {
             text: "كشوف النقاط",
             action: async function () {
-              await showLoadingModal("جاري إنشاء كشوف النقاط");
-              initBullentinConfigs();
-              if (isTalkinClassroom) createTalkinBulletins(dates);
-              else createBulletins(dates);
-              hideLoadingModal();
+              const bulletinAppendsModal = new bootstrap.Modal(
+                "#bulletinAppendsModal",
+              );
+              const bulletinAppendsModalBody = document.querySelector(
+                "#bulletinAppendsModal .modal-body",
+              );
+              const preStudentAppends = localStorage.getItem("studentsAppends")
+                ? JSON.parse(localStorage.getItem("studentsAppends"))
+                : {};
+
+              bulletinAppendsModalBody.innerHTML = `
+          <div class="card">
+            <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+              <h5 class="card-title">الجميع</h5>
+              <button class="btn btn-sm btn-outline-secondary" id="setAllAppendsBtn">تطبيق</button>
+            </div>
+              <div class="input-group mb-3">
+                <span class="input-group-text">نقاط إضافية</span>
+                <input id="points-all" type="number" class="form-control text-center px-0" value="0" step="1">
+                <span class="input-group-text">نقطة</span>
+              </div>
+              <div class="input-group">
+                <span class="input-group-text">الملاحظة</span>
+                <textarea id="note-all" class="form-control" aria-label="With textarea"></textarea>
+              </div>
+            </div>
+          </div>
+          <hr class="my-2"></hr>`;
+              const statisticsSelectedStudentsList = Array.from(
+                document.querySelectorAll(".statisStudentItem:checked"),
+              ).map((item) => ({
+                name: item.nextElementSibling.textContent,
+                id: item.value,
+              }));
+
+              statisticsSelectedStudentsList.forEach((student) => {
+                bulletinAppendsModalBody.innerHTML += `
+          <div class="card">
+            <div class="card-body">
+              <h5 class="card-title" id="name-${student.id}">${student.name}</h5>
+              <div class="input-group mb-3">
+                <span class="input-group-text">نقاط إضافية</span>
+                <input id="points-${student.id}" type="number" class="form-control text-center px-0" value="${preStudentAppends[student.id]?.points || 0}" step="1">
+                <span class="input-group-text">نقطة</span>
+              </div>
+              <div class="input-group">
+                <span class="input-group-text">الملاحظة</span>
+                <textarea id="note-${student.id}" class="form-control" aria-label="With textarea">${preStudentAppends[student.id]?.note || ""}</textarea>
+              </div>
+            </div>
+          </div>`;
+              });
+              document.getElementById("setAllAppendsBtn").onclick =
+                function () {
+                  const points =
+                    parseInt(document.getElementById("points-all").value) || 0;
+                  const note = document.getElementById("note-all").value || "";
+                  statisticsSelectedStudentsList.forEach((student) => {
+                    document.getElementById(`points-${student.id}`).value =
+                      points;
+                    document.getElementById(`note-${student.id}`).value = note;
+                  });
+                };
+
+              bulletinAppendsModal.show();
+              document.getElementById("saveBullentinAppends").onclick =
+                async function () {
+                  bulletinAppendsModal.hide();
+                  const obj = {};
+                  statisticsSelectedStudentsList.forEach((student) => {
+                    const points =
+                      parseInt(
+                        document.getElementById(`points-${student.id}`).value,
+                      ) || 0;
+                    const note =
+                      document.getElementById(`note-${student.id}`).value || "";
+                    if (points || note) obj[student.id] = { points, note };
+                    else {
+                      delete obj[student.id];
+                      delete preStudentAppends[student.id];
+                    }
+                  });
+                  const existingAppends = preStudentAppends || {};
+                  Object.assign(existingAppends, obj);
+                  localStorage.setItem(
+                    "studentsAppends",
+                    JSON.stringify(existingAppends),
+                  );
+                };
+
+              document.getElementById("createBulletinBtn").onclick =
+                async function () {
+                  document
+                    .getElementById("saveBullentinAppends")
+                    .dispatchEvent(new Event("click"));
+                  await showLoadingModal("جاري إنشاء كشوف النقاط");
+                  initBullentinConfigs();
+                  if (isTalkinClassroom) createTalkinBulletins(dates);
+                  else createBulletins(dates);
+                  hideLoadingModal();
+                };
             },
           },
         ]),
