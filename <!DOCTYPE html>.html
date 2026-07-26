@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/select/1.6.2/css/select.dataTables.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .tag-group-container {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+
+        .tag-input-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .tag-input {
+            flex: 1;
+            min-width: 200px;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .tag-input:focus {
+            outline: none;
+            border-color: #80bdff;
+            box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+        }
+
+        .btn-tag {
+            padding: 8px 16px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .btn-tag:hover {
+            background: #0056b3;
+        }
+
+        .btn-tag-danger {
+            background: #dc3545;
+        }
+
+        .btn-tag-danger:hover {
+            background: #c82333;
+        }
+
+        .tag-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            margin: 2px 4px;
+            background: #28a745;
+            color: white;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .tag-badge .remove-tag {
+            margin-left: 6px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .tag-badge .remove-tag:hover {
+            color: #ffc107;
+        }
+
+        .selected-count {
+            font-weight: bold;
+            color: #007bff;
+        }
+
+        .group-info {
+            margin-top: 10px;
+            padding: 10px;
+            background: #e9ecef;
+            border-radius: 4px;
+            display: none;
+        }
+
+        .group-info.active {
+            display: block;
+        }
+
+        .selected-row {
+            background-color: #b8d4fe !important;
+        }
+
+        .select-all-wrapper {
+            margin: 10px 0;
+        }
+
+        .tag-filter {
+            margin: 10px 0;
+            padding: 10px;
+            background: #f1f3f5;
+            border-radius: 4px;
+        }
+
+        .tag-filter select {
+            padding: 5px 10px;
+            margin-left: 10px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+    </style>
+</head>
+<body>
+    <div class="container" style="padding: 20px; max-width: 1200px; margin: 0 auto;">
+        <h2>DataTables with Tag/Group Feature</h2>
+
+        <!-- Tag Management UI -->
+        <div class="tag-group-container">
+            <div class="tag-input-group">
+                <input type="text" id="tagInput" class="tag-input" placeholder="Enter tag name...">
+                <button id="addTagBtn" class="btn-tag">
+                    <i class="fas fa-plus"></i> Add Tag
+                </button>
+                <button id="removeSelectedBtn" class="btn-tag btn-tag-danger">
+                    <i class="fas fa-trash"></i> Remove Selected
+                </button>
+            </div>
+
+            <div id="tagList" style="margin-top: 10px;">
+                <!-- Tags will appear here -->
+            </div>
+
+            <div class="group-info" id="groupInfo">
+                <strong>Group Info:</strong>
+                <span id="selectedCount">0</span> items selected
+                <span id="groupTagName"></span>
+                <button id="clearSelectionBtn" class="btn-tag" style="margin-left: 10px; padding: 4px 12px; font-size: 12px;">
+                    Clear Selection
+                </button>
+            </div>
+        </div>
+
+        <!-- Filter by Tag -->
+        <div class="tag-filter">
+            <label><strong>Filter by Tag:</strong></label>
+            <select id="tagFilterSelect">
+                <option value="">All Items</option>
+            </select>
+        </div>
+
+        <!-- DataTable -->
+        <table id="myTable" class="display" style="width:100%">
+            <thead>
+                <tr>
+                    <th></th>
+                    <th>Name</th>
+                    <th>Position</th>
+                    <th>Office</th>
+                    <th>Age</th>
+                    <th>Salary</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Sample data - replace with your data -->
+                <tr>
+                    <td>1</td>
+                    <td>Tiger Nixon</td>
+                    <td>System Architect</td>
+                    <td>Edinburgh</td>
+                    <td>61</td>
+                    <td>$320,800</td>
+                </tr>
+                <tr>
+                    <td>2</td>
+                    <td>Garrett Winters</td>
+                    <td>Accountant</td>
+                    <td>Tokyo</td>
+                    <td>63</td>
+                    <td>$170,750</td>
+                </tr>
+                <!-- Add more rows as needed -->
+            </tbody>
+        </table>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/select/1.6.2/js/dataTables.select.min.js"></script>
+    <script>
+        $(document).ready(function() {
+        // Initialize DataTable
+        var table = $('#myTable').DataTable({
+            columnDefs: [
+                {
+                    targets: 0,
+                    orderable: false,
+                    className: 'dt-left select-checkbox',
+                    render: function (data, type, full, meta) {
+                        if (type === 'display') {
+                            return '<input type="checkbox">';
+                        }
+                        return data;
+                    }
+                }
+            ],
+            pageLength: 10,
+            responsive: true
+        });
+
+        // Initialize Select extension
+        table.select({
+            style: 'multi',
+            selector: 'td:not(:first-child)' // Exclude ID column from selection
+        });
+
+        // Store tags data
+        let tags = {};
+        let selectedRows = [];
+
+        // Update the header checkbox
+        function updateHeaderCheckbox() {
+            var rowsCount = table.rows({ page: 'current' }).count(); // Current page only
+            var checkedCount = table.rows({ page: 'current', selected: true }).count();
+            var $headerCheckbox = $('#myTable thead input[type="checkbox"]');
+            if ($headerCheckbox.length > 0) {
+                $headerCheckbox.prop('checked', rowsCount > 0 && checkedCount === rowsCount);
+                $headerCheckbox.prop('indeterminate', (checkedCount > 0 && checkedCount < rowsCount));
+            }
+        }
+
+        // Add tag to selected rows
+        $('#addTagBtn').click(function() {
+            const tagName = $('#tagInput').val().trim();
+            if (!tagName) {
+                alert('Please enter a tag name');
+                return;
+            }
+
+            const selectedData = table.rows({ selected: true }).data();
+            if (selectedData.length === 0) {
+                alert('Please select at least one row');
+                return;
+            }
+
+            // Initialize tag if not exists
+            if (!tags[tagName]) {
+                tags[tagName] = [];
+            }
+
+            // Add selected rows to tag
+            const rowIds = [];
+            selectedData.each(function(rowData) {
+                const rowId = rowData[0]; // Assuming first column is ID
+                if (!tags[tagName].includes(rowId)) {
+                    tags[tagName].push(rowId);
+                    rowIds.push(rowId);
+                }
+            });
+
+            if (rowIds.length === 0) {
+                alert('Selected rows already have this tag');
+                return;
+            }
+
+            // Update UI
+            updateTagUI(tagName);
+            updateFilterOptions();
+            highlightTaggedRows(tagName);
+
+            // Clear selection
+            table.rows({ selected: true }).deselect();
+            $('#tagInput').val('');
+
+            // Update group info
+            updateGroupInfo();
+
+            alert(`Added tag "${tagName}" to ${rowIds.length} row(s)`);
+        });
+
+        // Remove selected rows from tags
+        $('#removeSelectedBtn').click(function() {
+            const selectedData = table.rows({ selected: true }).data();
+            if (selectedData.length === 0) {
+                alert('Please select at least one row');
+                return;
+            }
+
+            const rowIds = [];
+            selectedData.each(function(rowData) {
+                rowIds.push(rowData[0]);
+            });
+
+            // Remove from all tags
+            let removedCount = 0;
+            Object.keys(tags).forEach(tagName => {
+                const originalLength = tags[tagName].length;
+                tags[tagName] = tags[tagName].filter(id => !rowIds.includes(id));
+                removedCount += originalLength - tags[tagName].length;
+
+                // Remove empty tags
+                if (tags[tagName].length === 0) {
+                    delete tags[tagName];
+                    $(`#tag-${tagName}`).remove();
+                } else {
+                    updateTagUI(tagName);
+                }
+            });
+
+            if (removedCount === 0) {
+                alert('Selected rows have no tags');
+                return;
+            }
+
+            updateFilterOptions();
+            highlightTaggedRows();
+            updateGroupInfo();
+            table.rows({ selected: true }).deselect();
+
+            alert(`Removed ${removedCount} tag associations`);
+        });
+
+        // Clear all selections
+        $('#clearSelectionBtn').click(function() {
+            table.rows({ selected: true }).deselect();
+            updateGroupInfo();
+        });
+
+        // Remove specific tag
+        $(document).on('click', '.remove-tag', function() {
+            const tagName = $(this).data('tag');
+            if (confirm(`Remove tag "${tagName}" from all rows?`)) {
+                delete tags[tagName];
+                $(`#tag-${tagName}`).remove();
+                updateFilterOptions();
+                highlightTaggedRows();
+                updateGroupInfo();
+            }
+        });
+
+        // Filter by tag
+        $('#tagFilterSelect').change(function() {
+            const selectedTag = $(this).val();
+            if (selectedTag) {
+                const rowIds = tags[selectedTag] || [];
+                table.rows().every(function() {
+                    const rowData = this.data();
+                    const rowId = rowData[0];
+                    if (rowIds.includes(rowId)) {
+                        this.nodes().to$().show();
+                    } else {
+                        this.nodes().to$().hide();
+                    }
+                });
+            } else {
+                table.rows().every(function() {
+                    this.nodes().to$().show();
+                });
+            }
+        });
+
+        // Update selection count and checkboxes
+        table.on('select deselect draw', function () {
+            updateGroupInfo();
+            // Update checkboxes for selected rows on current page
+            table.rows({ page: 'current' }).every(function () {
+                var $row = $(this.node());
+                var selected = this.any();
+                $row.find('input[type="checkbox"]').prop('checked', selected);
+            });
+            updateHeaderCheckbox();
+        });
+
+        // Highlight tagged rows
+        function highlightTaggedRows(highlightTag = null) {
+            // Remove all highlighting
+            $('#myTable tbody tr').removeClass('tagged-row');
+
+            // Add highlighting for all tagged rows
+            Object.keys(tags).forEach(tagName => {
+                if (highlightTag && tagName !== highlightTag) return;
+
+                const rowIds = tags[tagName];
+                table.rows().every(function() {
+                    const rowData = this.data();
+                    const rowId = rowData[0];
+                    if (rowIds.includes(rowId)) {
+                        this.nodes().to$().addClass('tagged-row');
+                    }
+                });
+            });
+        }
+
+        // Update tag UI
+        function updateTagUI(tagName = null) {
+            const tagList = $('#tagList');
+            tagList.empty();
+
+            Object.keys(tags).forEach(tag => {
+                const count = tags[tag].length;
+                const badge = $(`
+                    <span class="tag-badge" id="tag-${tag}">
+                        ${tag} (${count})
+                        <span class="remove-tag" data-tag="${tag}">×</span>
+                    </span>
+                `);
+                tagList.append(badge);
+            });
+        }
+
+        // Update filter dropdown
+        function updateFilterOptions() {
+            const select = $('#tagFilterSelect');
+            const currentValue = select.val();
+            select.empty();
+            select.append('<option value="">All Items</option>');
+
+            Object.keys(tags).forEach(tag => {
+                select.append(`<option value="${tag}">${tag} (${tags[tag].length})</option>`);
+            });
+
+            if (currentValue && tags[currentValue]) {
+                select.val(currentValue);
+            }
+        }
+
+        // Update group info
+        function updateGroupInfo() {
+            const selectedCount = table.rows({ selected: true }).count();
+            const groupInfo = $('#groupInfo');
+
+            if (selectedCount > 0) {
+                groupInfo.addClass('active');
+                $('#selectedCount').text(selectedCount);
+
+                // Show tags for selected rows
+                const selectedIds = [];
+                table.rows({ selected: true }).data().each(function(rowData) {
+                    selectedIds.push(rowData[0]);
+                });
+
+                const associatedTags = [];
+                Object.keys(tags).forEach(tagName => {
+                    if (tags[tagName].some(id => selectedIds.includes(id))) {
+                        associatedTags.push(tagName);
+                    }
+                });
+
+                if (associatedTags.length > 0) {
+                    $('#groupTagName').html(`with tags: <strong>${associatedTags.join(', ')}</strong>`);
+                } else {
+                    $('#groupTagName').text('(no tags)');
+                }
+            } else {
+                groupInfo.removeClass('active');
+            }
+        }
+
+        // Handle checkbox clicks in the table body
+        $('#myTable tbody').on('click', 'input[type="checkbox"]', function(e) {
+            var $row = $(this).closest('tr');
+            var checked = this.checked;
+            if (checked) {
+                table.row($row).select();
+            } else {
+                table.row($row).deselect();
+            }
+            // Stop propagation to prevent row selection from triggering again
+            e.stopPropagation();
+        });
+
+        // Handle header checkbox click
+        $('#myTable thead').on('click', 'input[type="checkbox"]', function(e) {
+            var checked = this.checked;
+            table.rows({ page: 'current' }).every(function () {
+                var $row = $(this.node());
+                $row.find('input[type="checkbox"]').prop('checked', checked);
+                if (checked) {
+                    table.row(this).select();
+                } else {
+                    table.row(this).deselect();
+                }
+            });
+            // Update header checkbox state (in case of indeterminate)
+            updateHeaderCheckbox();
+            e.stopPropagation();
+        });
+
+        // Enter key to add tag
+        $('#tagInput').keypress(function(e) {
+            if (e.which === 13) {
+                $('#addTagBtn').click();
+            }
+        });
+
+        // Initial UI update
+        updateTagUI();
+        updateFilterOptions();
+        updateGroupInfo();
+    });
+    </script>
+</body>
+</html>
