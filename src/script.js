@@ -1206,14 +1206,42 @@ async function loadStudentsList() {
       [workingClassroomId],
     );
     const data = [];
+    const pausedStudents = localStorage.getItem("pausedStudents")
+      ? JSON.parse(localStorage.getItem("pausedStudents"))
+      : [];
+
     if (results.length) {
       const result = results[0];
       result.values.forEach((row) => {
+        const isPaused = pausedStudents.includes(row[0]);
         // action buttons
         const action_button_group = document.createElement("div");
         action_button_group.className = "btn-group btn-group-sm";
         action_button_group.setAttribute("role", "group");
         action_button_group.setAttribute("aria-label", "Basic example");
+        // pause
+        const pauseBtn = document.createElement("button");
+        pauseBtn.className = "btn btn-sm"+ (!isPaused ? " active" : "");
+        pauseBtn.setAttribute("data-bs-toggle", "button");
+        pauseBtn.innerHTML = !isPaused ? 'إيقاف <i class="fa-solid fa-pause"></i>' : 'تفعيل <i class="fa-solid fa-play"></i>';
+        pauseBtn.onclick = async function (){
+          if (!isPaused &&
+            !(await swal({
+              text: "هل أنت متأكد أنك تريد إيقاف هذا الطالب ؟",
+              icon: "warning",
+              buttons: ["لا", "نعم"],
+            }))
+          ) {
+            return;
+          }
+          localStorage.setItem("pausedStudents", JSON.stringify(
+            isPaused
+              ? pausedStudents.filter((id) => id !== row[0])
+              : [...pausedStudents, row[0]]
+          ));
+          loadStudentsList();
+        }
+        action_button_group.appendChild(pauseBtn);
         // Edit
         const editBtn = document.createElement("button");
         editBtn.className = "btn btn-info btn-sm";
@@ -2446,7 +2474,7 @@ async function loadDayStudentsList() {
       FROM students s
       LEFT JOIN day_requirements dr ON s.id = dr.student_id AND dr.day_id = '${workingDayID}'
       LEFT JOIN day_evaluations de ON s.id = de.student_id AND de.day_id = '${workingDayID}'
-      WHERE s.class_room_id = ${workingClassroomId}
+      WHERE s.class_room_id = ${workingClassroomId} AND s.id NOT IN (${JSON.parse(localStorage.getItem("pausedStudents")).join(", ")})
       GROUP BY s.id, studentFName , studentLName
       ORDER BY s.id
       LIMIT 100`);
@@ -4233,7 +4261,7 @@ async function fillStatistiscStudentsList(uniqueStudent = false) {
   }
   try {
     const results = project_db.exec(
-      "SELECT id,fname,lname FROM students WHERE class_room_id = ?;",
+      `SELECT id,fname,lname FROM students WHERE class_room_id = ? AND id NOT IN (${JSON.parse(localStorage.getItem("pausedStudents")).join(", ")});`,
       [workingClassroomId],
     );
     const data = [];
