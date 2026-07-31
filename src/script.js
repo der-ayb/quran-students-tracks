@@ -61,11 +61,12 @@ const PROJECT_DB_KEY = "quranstudentsDB";
 const QURAN_DB_KEY = "quranDB";
 const evaluationLaddersValues = {
   retard: { initialPresenceMark: 30, retardPointsPerMinute: 0.4 },
-  behavior: { ممتاز: 5, جيد: 4, متوسط: 3, سيء: -5, "سيئ جدا": -10 },
-  clothing: { ممتاز: 5, جيد: 3, حسن: 2, "غير مقبول": -5 },
+  behavior: { ممتاز: 17, جيد: 8, متوسط: 3, سيء: -10, "سيئ جدا": -20 },
+  clothing: { ممتاز: 10, جيد: 3, حسن: 2, "غير مقبول": -5 },
   haircut: { جيد: 5, متوسط: 2, "غير مقبول": -5 },
   requirments: { requirReducePerRepit: 10, requirReducePerAlert: 2 },
 };
+const minimizeBag = {};
 export let workingClassroomId = localStorage.getItem("workingClassroomId");
 let studentsTableDetailIsShow = false;
 let studentsDayTableDetailIsShow = false;
@@ -97,7 +98,7 @@ const firstAyahSelect = document.getElementById("first-ayah");
 const secondSurahSelect = document.getElementById("second-surah");
 const firstSurahSelect = document.getElementById("first-surah");
 const requirEvaluationInput = document.getElementById("requirEvaluation");
-const requireBookInput = document.getElementById("requirBook");
+const requirBookInput = document.getElementById("requirBook");
 const saveStateErrorsInput = document.getElementById("saveStateErrors");
 const saveStateAlertsInput = document.getElementById("saveStateAlerts");
 const requirMoyenneInput = document.getElementById("requirMoyenne");
@@ -141,6 +142,7 @@ const studentDayForm = document.getElementById("studentDayForm");
 const studentDayFormSubmitBtn = document.getElementById(
   "studentDayFormSubmitBtn",
 );
+const minimizeModalBtn = document.getElementById("minimizeModalBtn");
 
 const newStudentDayModalBody = document.getElementById(
   "newStudentDayModalBody",
@@ -186,9 +188,26 @@ function hideMaximizeModalBtn() {
   studentDayModalElement.style.display = "block";
   document.querySelector(".modal-backdrop")?.classList.remove("no-backdrop");
   maximizeModalBtn.style.display = "none";
+  minimizeModalBtn.disabled = false;
 }
 
-maximizeModalBtn.onclick = hideMaximizeModalBtn;
+function showMaximizeModalBtn() {
+  studentDayModalElement.style.display = "none";
+  document.querySelector(".modal-backdrop")?.classList.add("no-backdrop");
+  maximizeModalBtn.style.removeProperty("display");
+  document
+    .querySelector(".container-fluid.modal-open")
+    ?.style.removeProperty("overflow");
+}
+
+maximizeModalBtn.onclick = function () {
+  minimizeBag.target.dispatchEvent(
+    new CustomEvent("click", {
+      detail: true,
+    }),
+  );
+  hideMaximizeModalBtn();
+};
 
 async function initPlusMinusButtons(numberField) {
   const minusBtn = numberField.previousElementSibling;
@@ -1548,7 +1567,7 @@ document
     }
   });
 
-requireBookInput.oninput = function () {
+requirBookInput.oninput = function () {
   const quranSelectionSection = document.getElementById(
     "quranSelectionSection",
   );
@@ -1766,6 +1785,63 @@ $([
   requirRepitInput,
 ]).on("change input", setRequirEvalInput);
 
+// Helper function to build requirements list
+function fillReuirementsTable(
+  detailDataJson,
+  student_id,
+  setRequirementFields = true,
+) {
+  requirementsTable.querySelector("tbody").innerHTML = "";
+  detailDataJson.forEach((item, index, arr) => {
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>${item["الكتاب"]}</td>
+      <td>${item["النوع"]}</td>
+      <td>${item["المقدار"]}</td>
+      <td>${item["التفاصيل"]}</td>
+      <td>${item["التقدير"]}</td>
+      <td>${item["الأخطاء"] || ""}</td>
+      <td>${item["التنبيهات"] || ""}</td>
+      <td>${item["المعدل"]}</td>
+      <td>${item["المعرض"] || ""}</td>
+      <td>${item["الإعادة"] || ""}</td>
+      <td>
+        <div class="btn-group" role="group" aria-label="Vertical button group">
+          <button type="button" class="btn btn-success" onclick="editRequirement(this);"><i class="fa-solid fa-pen-to-square"></i></button>
+          <button class="btn btn-danger btn-sm" onclick="removeRequirItem(this,${student_id})"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+      </td>
+      <td>${item["الحصة المسائية"] || ""}</td>`;
+    requirementsTable.querySelector("tbody").appendChild(row);
+
+    if (setRequirementFields && index === arr.length - 1) {
+      getNextRequirement({
+        الكتاب: item["الكتاب"],
+        النوع: item["النوع"],
+        التفاصيل: item["التفاصيل"],
+      });
+    }
+  });
+}
+
+function buildRequirList() {
+  const requirList = [];
+  const headers = Array.from(
+    requirementsTable.querySelectorAll("thead th"),
+  ).map((header) => header.textContent.trim());
+  const rows = requirementsTable.querySelectorAll("tbody tr");
+  rows.forEach((row) => {
+    const cells = row.querySelectorAll("td");
+    const rowData = {};
+    cells.forEach((cell, index) => {
+      const key = headers[index];
+      if (key) rowData[key] = cell.textContent.trim();
+    });
+    requirList.push(rowData);
+  });
+  return requirList;
+}
+
 function update_student_day_notes(studentId, working_day_id, attendance) {
   if (!project_db) {
     window.showToast("info", "لا يوجد قاعدة بيانات مفتوحة.");
@@ -1773,25 +1849,6 @@ function update_student_day_notes(studentId, working_day_id, attendance) {
   }
 
   const attendanceInputValue = getAttendanceInputValue();
-
-  // Helper function to build requirements list
-  const buildRequirList = () => {
-    const requirList = [];
-    const headers = Array.from(
-      requirementsTable.querySelectorAll("thead th"),
-    ).map((header) => header.textContent.trim());
-    const rows = requirementsTable.querySelectorAll("tbody tr");
-    rows.forEach((row) => {
-      const cells = row.querySelectorAll("td");
-      const rowData = {};
-      cells.forEach((cell, index) => {
-        const key = headers[index];
-        if (key) rowData[key] = cell.textContent.trim();
-      });
-      requirList.push(rowData);
-    });
-    return requirList;
-  };
 
   // Handle requirements insertion for present students
   if (attendanceInputValue === 1) {
@@ -1997,7 +2054,12 @@ async function showOffCanvas(title, body, side = "top") {
     new bootstrap.Offcanvas(myOffcanvas).show();
 }
 
-window.markPresence = async function (studentId, attendance, noRetard = false) {
+window.markPresence = async function (
+  studentId,
+  isPrePriorityObj,
+  attendance,
+  noRetard = false,
+) {
   const retard_time = noRetard
     ? 0
     : calcRetardTime(studentsDayInfos.secondDayIsWorkingDay);
@@ -2065,6 +2127,31 @@ window.markPresence = async function (studentId, attendance, noRetard = false) {
       ],
     );
   }
+
+  if (isPrePriorityObj) {
+    const prePriorityObj = localStorage.getItem(
+      "priority_" + workingClassroomId,
+    );
+    const maxPriority = Math.max(
+      ...Object.values(JSON.parse(prePriorityObj)).map((i) => {
+        if (typeof i === "number") {
+          return i;
+        } else {
+          return 0;
+        }
+      }),
+    );
+    localStorage.setItem(
+      "priority_" + workingClassroomId,
+      JSON.stringify({
+        ...JSON.parse(
+          localStorage.getItem("priority_" + workingClassroomId) || "{}",
+        ),
+        [`${studentId}`]: maxPriority + 1,
+      }),
+    );
+  }
+
   saveToIndexedDB(project_db.export());
   await loadDayStudentsList();
 };
@@ -2075,6 +2162,7 @@ function showAppointmentTimePicker(secondDay = false) {
   addNewStudyDayBtn.onclick = () => {
     addNewStudyDay((secondDay = secondDay));
   };
+  obligatoryCheck.checked = true;
   new bootstrap.Modal("#timeModal").show();
 }
 
@@ -2488,9 +2576,11 @@ async function loadDayStudentsList() {
     const data = [];
     requirTeacherInput.options.length = 0;
     requirTeacherInput.add(new Option("المعلم", "0", true));
-    const prePriorityObj = sessionStorage.getItem(
-      "priority_" + workingClassroomId,
-    );
+    let prePriorityObj = localStorage.getItem("priority_" + workingClassroomId);
+    if (JSON.parse(prePriorityObj)?.date !== workingDay) {
+      prePriorityObj = null;
+    }
+
     if (results.length) {
       const result = results[0];
       result.values.forEach((row) => {
@@ -2554,7 +2644,7 @@ async function loadDayStudentsList() {
           requirTeacherInput.add(new Option(full_name, student_id));
         }
 
-        function editStudentDay(isEvaluation = true) {
+        function editStudentDay(isEvaluation = true, event = null) {
           const preStudentsRetrys = localStorage.getItem("studentsRetrys")
             ? JSON.parse(localStorage.getItem("studentsRetrys"))
             : {};
@@ -2562,21 +2652,17 @@ async function loadDayStudentsList() {
             requirRepitInput.value = preStudentsRetrys[student_id] || 0;
             requirRepitInput.dispatchEvent(new Event("input"));
           }, 200);
-          retryBtn.addEventListener(
-            "click",
-            async () => {
-              preStudentsRetrys[student_id] = preStudentsRetrys[student_id]
-                ? preStudentsRetrys[student_id] + 1
-                : 1;
+          retryBtn.onclick = async () => {
+            preStudentsRetrys[student_id] = preStudentsRetrys[student_id]
+              ? preStudentsRetrys[student_id] + 1
+              : 1;
 
-              localStorage.setItem(
-                "studentsRetrys",
-                JSON.stringify(preStudentsRetrys),
-              );
-              studentDayModal.hide();
-            },
-            { once: true },
-          );
+            localStorage.setItem(
+              "studentsRetrys",
+              JSON.stringify(preStudentsRetrys),
+            );
+            studentDayModal.hide();
+          };
 
           addQuranSelectionBtn.addEventListener(
             "click",
@@ -2592,6 +2678,17 @@ async function loadDayStudentsList() {
 
           teachersPoints = {};
           hideMaximizeModalBtn();
+
+          if (
+            !studentDayModalElement.classList.contains("show") &&
+            maximizeModalBtn.style.display === "none"
+          ) {
+            minimizeModalBtn.disabled = false;
+            minimizeBag.target = event.target;
+          } else {
+            minimizeModalBtn.disabled = true;
+          }
+
           showStudentDayModal(true);
 
           for (const option of requirTeacherInput.options) {
@@ -2607,82 +2704,104 @@ async function loadDayStudentsList() {
             evaluationCollapse.hide();
             requirCollapse.show();
             setTimeout(() => {
-              requireBookInput.scrollIntoView({ behavior: "instant" });
+              requirBookInput.scrollIntoView({ behavior: "instant" });
             }, 200);
           }
 
-          setAttendanceInputValue(attendanceValue);
+          setAttendanceInputValue(
+            event.detail === true ? minimizeBag.attendance : attendanceValue,
+          );
+
           if (!isTalkinClassroom) {
-            retardInput.value =
-              retardValue !== null
-                ? retardValue
-                : calcRetardTime(secondDayIsWorkingDay);
-            clothingInput.value = clothingValue || "0";
-            haircutInput.value = haircutValue || "0";
-            behaviorInput.value = behaviorValue || "0";
-            prayerInput.value = prayerValue || "0";
-            addedPointsInput.value = addedPointsValue || "0";
-            evalMoyenne.value =
-              parseFloat(evalMoyenneValue).toFixed(2) ||
-              calcEvaluationMoyenne(
-                retardInput.value,
-                clothingInput.value,
-                haircutInput.value,
-                behaviorInput.value,
-                prayerInput.value,
-                addedPointsInput.value,
-              );
+            if (event.detail === true) {
+              retardInput.value = minimizeBag.retard || "0";
+              clothingInput.value = minimizeBag.clothing || "0";
+              haircutInput.value = minimizeBag.haircut || "0";
+              behaviorInput.value = minimizeBag.behavior || "0";
+              prayerInput.value = minimizeBag.prayer || "0";
+              addedPointsInput.value = minimizeBag.addedPoints || "0";
+              retardInput.dispatchEvent(new Event("change"));
+            } else {
+              retardInput.value =
+                retardValue !== null
+                  ? retardValue
+                  : calcRetardTime(secondDayIsWorkingDay);
+              clothingInput.value = clothingValue || "0";
+              haircutInput.value = haircutValue || "0";
+              behaviorInput.value = behaviorValue || "0";
+              prayerInput.value = prayerValue || "0";
+              addedPointsInput.value = addedPointsValue || "0";
+              evalMoyenne.value =
+                parseFloat(evalMoyenneValue).toFixed(2) ||
+                calcEvaluationMoyenne(
+                  retardInput.value,
+                  clothingInput.value,
+                  haircutInput.value,
+                  behaviorInput.value,
+                  prayerInput.value,
+                  addedPointsInput.value,
+                );
+            }
           }
 
           historyRequirBtn.onclick = () =>
             window.showRequirementsHistory(student_id);
 
-          requirsMoyenneInput.value =
-            row[result.columns.indexOf("requirsMoyenne")] || "0.00";
-          requirementsTable.querySelector("tbody").innerHTML = "";
-          const detailDataJson = JSON.parse(
-            row[result.columns.indexOf("detail")] || "[]",
-          );
-          detailDataJson.forEach((item, index, arr) => {
-            const row = document.createElement("tr");
-            row.innerHTML = `
-                <td>${item["الكتاب"]}</td>
-                <td>${item["النوع"]}</td>
-                <td>${item["المقدار"]}</td>
-                <td>${item["التفاصيل"]}</td>
-                <td>${item["التقدير"]}</td>
-                <td>${item["الأخطاء"] || ""}</td>
-                <td>${item["التنبيهات"] || ""}</td>
-                <td>${item["المعدل"]}</td>
-                <td>${item["المعرض"] || ""}</td>
-                <td>${item["الإعادة"] || ""}</td>
-                <td>
-                  <div class="btn-group" role="group" aria-label="Vertical button group">
-                    <button type="button" class="btn btn-success" onclick="editRequirement(this);"><i class="fa-solid fa-pen-to-square"></i></button>
-                    <button class="btn btn-danger btn-sm" onclick="removeRequirItem(this,${student_id})"><i class="fa-solid fa-xmark"></i></button>
-                  </div>
-                </td>
-                <td>${item["الحصة المسائية"] || ""}</td>`;
-            requirementsTable.querySelector("tbody").appendChild(row);
-            if (index === arr.length - 1) {
-              getNextRequirement({
-                الكتاب: item["الكتاب"],
-                النوع: item["النوع"],
-                التفاصيل: item["التفاصيل"],
-              });
+          if (event.detail === true) {
+            fillReuirementsTable(
+              minimizeBag.preRequirementsList,
+              student_id,
+              false,
+            );
+            requirsMoyenneInput.value = calcRequirementsMoyenne();
+            requirTypeInput.value = minimizeBag.requirType;
+            requirBookInput.value = minimizeBag.requirBook;
+            requirBookInput.dispatchEvent(new Event("input"));
+            if (minimizeBag.requirBook == "القرآن الكريم") {
+              firstSurahSelect.value = minimizeBag["firstSurah"];
+              firstSurahSelect.dispatchEvent(new Event("change"));
+              firstAyahSelect.value = minimizeBag["firstAyah"];
+              firstAyahSelect.dispatchEvent(new Event("change"));
+              secondSurahSelect.value = minimizeBag["secondSurah"];
+              secondSurahSelect.dispatchEvent(new Event("change"));
+              secondAyahSelect.value = minimizeBag["secondAyah"];
+            } else {
+              requirQuantityDetailInput.value =
+                minimizeBag["requirQuantityDetail"];
+              requirQuantityInput.value = minimizeBag["requirQuantity"];
             }
-          });
-          if (!detailDataJson.length) {
-            const lsR = project_db.exec(`
+            saveStateErrorsInput.value = minimizeBag["errors"];
+            saveStateAlertsInput.value = minimizeBag["alerts"];
+            setTimeout(() => {
+              requirRepitInput.value = minimizeBag["requirRepit"];
+              requirRepitInput.dispatchEvent(new Event("input"));
+            }, 400);
+            requirTeacherInput.value = minimizeBag["teacher"];
+          } else {
+            const detailDataJson = JSON.parse(
+              row[result.columns.indexOf("detail")] || "[]",
+            );
+
+            if (!detailDataJson.length) {
+              requirementsTable.querySelector("tbody").innerHTML = "";
+              const lsR = project_db.exec(`
                     SELECT dr.detail
                     FROM day_requirements dr
                     INNER JOIN education_day ed ON dr.day_id = ed.id
                     WHERE dr.student_id = ${student_id}
                     ORDER BY ed.date DESC
                     LIMIT 1;`);
-            getNextRequirement(
-              lsR.length ? JSON.parse(lsR[0].values[0][0]).at(-1) : null,
-            );
+              getNextRequirement(
+                lsR.length ? JSON.parse(lsR[0].values[0][0]).at(-1) : null,
+              );
+            } else {
+              fillReuirementsTable(
+                JSON.parse(row[result.columns.indexOf("detail")] || "[]"),
+                student_id,
+              );
+            }
+            requirsMoyenneInput.value =
+              row[result.columns.indexOf("requirsMoyenne")] || "0.00";
           }
 
           const working_day_id = workingDayID;
@@ -2711,7 +2830,7 @@ async function loadDayStudentsList() {
             : null;
           if (evaluationDayIcon) {
             evaluationDayIcon.className = "fa-solid fa-pen-to-square";
-            evaluationDayIcon.onclick = () => editStudentDay(true);
+            evaluationDayIcon.onclick = (e) => editStudentDay(true, e);
           }
 
           if (!attendanceValue) {
@@ -2748,8 +2867,8 @@ async function loadDayStudentsList() {
           addRequirsBtn.style.cssText =
             "transform: scale(1.5); cursor: pointer;";
 
-          addRequirsBtn.onclick = () => {
-            editStudentDay(false);
+          addRequirsBtn.onclick = (e) => {
+            editStudentDay(false, e);
           };
         }
 
@@ -2773,11 +2892,11 @@ async function loadDayStudentsList() {
             : attendanceValue == 0
               ? "غياب مبرر"
               : isCurrentDay()
-                ? `<button oncontextmenu="const cscy=window.scrollY;markPresence(${student_id},${row[result.columns.indexOf("attendance")]},true);window.scrollTo({top: cscy,behavior: 'instant'});" 
-                           onclick="const cscy=window.scrollY;markPresence(${student_id},${row[result.columns.indexOf("attendance")]});window.scrollTo({top: cscy,behavior: 'instant'});" 
+                ? `<button oncontextmenu="const cscy=window.scrollY;markPresence(${student_id},${prePriorityObj ? true : false},${row[result.columns.indexOf("attendance")]},true);window.scrollTo({top: cscy,behavior: 'instant'});" 
+                           onclick="const cscy=window.scrollY;markPresence(${student_id},${prePriorityObj ? true : false},${row[result.columns.indexOf("attendance")]});window.scrollTo({top: cscy,behavior: 'instant'});" 
                            class="btn fa-solid fa-square-check px-1" style="transform: scale(1.3); cursor: pointer;"></button>` +
                   (parentPhone
-                    ? `<input type="checkbox" id="sms_btn${student_id}" onclick="window.location.href='sms:${parentPhone}?body=ليكن في علمكم أن إبن${isGirls ? "ت" : ""}كم ${studentFName} غائب${
+                    ? `<input type="checkbox" id="sms_btn${student_id}" onclick="window.location.href='sms:${parentPhone}?body= السلام عليكم. ليكن في علمكم أن إبن${isGirls ? "ت" : ""}كم ${studentFName} غائب${
                         isGirls ? "ة" : ""
                       } عن حصة تحفيظ القرآن اليوم'" class="btn-check" autocomplete="off">
                     <label class="btn fa-solid fa-comment-sms px-2" for="sms_btn${student_id}"></label>`
@@ -2797,7 +2916,7 @@ async function loadDayStudentsList() {
           evalMoyenne: evaluationDayContainer,
           requirsMoyenne: requirmentsDayValue,
           priority:
-            retardValue && prePriorityObj
+            retardValue !== null && prePriorityObj
               ? JSON.parse(prePriorityObj)[student_id] || "/"
               : "/",
           actions: addRequirsBtn,
@@ -2937,9 +3056,7 @@ async function loadDayStudentsList() {
                   {
                     text: "إعادة تعيين الترتيب",
                     action: async function (e, dt) {
-                      sessionStorage.removeItem(
-                        "priority_" + workingClassroomId,
-                      );
+                      localStorage.removeItem("priority_" + workingClassroomId);
                       loadDayStudentsList();
                     },
                   },
@@ -3343,8 +3460,8 @@ async function loadDayStudentsList() {
         // Assign priorities sequentially (1 to N) based on position groups
         var priorityCounter = 1;
         allRandomized.forEach(function (row) {
-          dt.cell(row.index, 8).data(priorityCounter++);
-          priorityObj[row.data.id] = priorityCounter - 1;
+          // dt.cell(row.index, 8).data(priorityCounter++);
+          priorityObj[row.data.id] = priorityCounter++;
         });
       } else {
         // Shuffle ALL rows with position (original behavior)
@@ -3358,27 +3475,29 @@ async function loadDayStudentsList() {
         // Assign priorities (start from 1)
         var priorityCounter = 1;
         rowsWithPosition.forEach(function (row) {
-          dt.cell(row.index, 8).data(priorityCounter++);
-          priorityObj[row.data.id] = priorityCounter - 1;
+          // dt.cell(row.index, 8).data(priorityCounter++);
+          priorityObj[row.data.id] = priorityCounter++;
         });
       }
 
       // Mark rows without position with '-'
       rowsWithoutPosition.forEach(function (row) {
-        dt.cell(row.index, 8).data("/");
+        // dt.cell(row.index, 8).data("/");
         priorityObj[row.data.id] = null;
       });
 
-      dt.draw();
-      sessionStorage.setItem(
+      // dt.draw();
+      localStorage.setItem(
         "priority_" + workingClassroomId,
         JSON.stringify({
           ...JSON.parse(
-            sessionStorage.getItem("priority_" + workingClassroomId) || "{}",
+            localStorage.getItem("priority_" + workingClassroomId) || "{}",
           ),
+          ...{ date: workingDay },
           ...priorityObj,
         }),
       );
+      loadDayStudentsList();
     }
   } catch (e) {
     console.error(e);
@@ -3679,7 +3798,7 @@ function initializeToast() {
 }
 
 function getNextRequirement(detail = null, setRequirementFields = true) {
-  let requireBookValue = "";
+  let requirBookValue = "";
   let requirTypeValue;
   let firstSurahValue = "1";
   let firstAyahValue = "1";
@@ -3690,9 +3809,9 @@ function getNextRequirement(detail = null, setRequirementFields = true) {
     const finishSurahName = detail["التفاصيل"].split(splitChar).at(-3);
     const firstAyahNum =
       parseInt(detail["التفاصيل"].split(splitChar).at(-1)) + 1;
-    requireBookValue = detail["الكتاب"];
+    requirBookValue = detail["الكتاب"];
 
-    if (requireBookValue == "القرآن الكريم") {
+    if (requirBookValue == "القرآن الكريم") {
       firstSurahValue = quranData.surahs.find(
         (surah) => surah.name == finishSurahName,
       ).number;
@@ -3724,9 +3843,9 @@ function getNextRequirement(detail = null, setRequirementFields = true) {
   }
 
   if (setRequirementFields) {
-    requireBookInput.value = requireBookValue;
-    requireBookInput.dispatchEvent(new Event("input"));
-    if (requireBookValue == "القرآن الكريم") {
+    requirBookInput.value = requirBookValue;
+    requirBookInput.dispatchEvent(new Event("input"));
+    if (requirBookValue == "القرآن الكريم") {
       requirTypeInput.value = requirTypeValue;
       requirTypeInput.dispatchEvent(new Event("change"));
       firstSurahSelect.value = firstSurahValue;
@@ -3758,14 +3877,14 @@ window.editRequirement = function (button) {
   row.lastElementChild.previousElementSibling.querySelector(
     ".btn-success",
   ).disabled = true;
-  requireBookInput.value = row.firstElementChild.textContent;
-  // requireBookInput.dispatchEvent(new Event("input"));
+  requirBookInput.value = row.firstElementChild.textContent;
+  // requirBookInput.dispatchEvent(new Event("input"));
   requirTypeInput.value = row.firstElementChild.nextElementSibling.textContent;
   // requirTypeInput.dispatchEvent(new Event("change"));
   const detail =
     row.firstElementChild.nextElementSibling.nextElementSibling.nextElementSibling.textContent.trim();
 
-  if (requireBookInput.value == "القرآن الكريم") {
+  if (requirBookInput.value == "القرآن الكريم") {
     const splitChar = detail.includes("#") ? "#" : " ";
     const startSurahName = detail.split(splitChar).at(0);
     const finishSurahName = detail.split(splitChar).at(-3);
@@ -3799,7 +3918,7 @@ window.editRequirement = function (button) {
 
   setOrGetOptionValueByText(requirTeacherInput, teacherName);
   setRequirEvalInput();
-  requireBookInput.scrollIntoView({ behavior: "instant" });
+  requirBookInput.scrollIntoView({ behavior: "instant" });
 
   if (requirTeacherInput.value !== "0") {
     teachersPoints[requirTeacherInput.value] =
@@ -3859,8 +3978,8 @@ window.removeRequirItem = function (button, student_id = null) {
           .nextElementSibling.textContent,
     });
   } else {
-    requireBookInput.value = row.firstElementChild.textContent;
-    requireBookInput.dispatchEvent(new Event("input"));
+    requirBookInput.value = row.firstElementChild.textContent;
+    requirBookInput.dispatchEvent(new Event("input"));
     requirTypeInput.value =
       row.firstElementChild.nextElementSibling.textContent;
     requirTypeInput.dispatchEvent(new Event("change"));
@@ -3869,7 +3988,7 @@ window.removeRequirItem = function (button, student_id = null) {
 
     const splitChar = detail.includes("#") ? "#" : " ";
     const startSurahName = detail.split(splitChar).at(0);
-    if (requireBookInput.value == "القرآن الكريم") {
+    if (requirBookInput.value == "القرآن الكريم") {
       setOrGetOptionValueByText(firstSurahSelect, startSurahName);
       firstSurahSelect.dispatchEvent(new Event("change"));
       firstAyahSelect.value = detail.split(splitChar).at(2);
@@ -3881,7 +4000,7 @@ window.removeRequirItem = function (button, student_id = null) {
 
 function addRequirToTable(row = false) {
   if (
-    !requireBookInput.value ||
+    !requirBookInput.value ||
     !requirQuantityDetailInput.value ||
     !requirTypeInput.value ||
     !requirQuantityInput.value ||
@@ -3893,7 +4012,7 @@ function addRequirToTable(row = false) {
   const newRow = document.createElement("tr");
   const removeBtnId = `removeRequirBtn-${requirementsTable.querySelectorAll("tbody tr").length + 1}`;
   newRow.innerHTML = `
-    <td>${requireBookInput.value}</td>
+    <td>${requirBookInput.value}</td>
     <td>${requirTypeInput.value}</td>
     <td>${requirQuantityInput.value}</td>
     <td>${requirQuantityDetailInput.value}</td>
@@ -3936,7 +4055,7 @@ function addRequirToTable(row = false) {
   studentDayFormSubmitBtn.disabled = false;
   studentDayFormSubmitBtn.nextElementSibling.disabled = false;
   getNextRequirement({
-    الكتاب: requireBookInput.value,
+    الكتاب: requirBookInput.value,
     النوع: requirTypeInput.value,
     التفاصيل: requirQuantityDetailInput.value,
   });
@@ -4004,7 +4123,7 @@ function populateEvalSelects() {
   for (const type of ["behavior", "clothing", "haircut"]) {
     const select = document.getElementById(type);
     select.innerHTML = "";
-    for (const [key, value] of Object.entries(evaluationLaddersValues[type])) {
+    for (const [key, value] of Object.entries(evaluationLaddersValues[type]).toSorted((a, b) => b[1] - a[1])) {
       const option = document.createElement("option");
       option.value = value;
       option.textContent = key.charAt(0).toUpperCase() + key.slice(1);
@@ -4028,7 +4147,7 @@ function displayEvalLadder(evalLaddersValues = null) {
     const list = document.getElementById(type + "-marksList");
     list.innerHTML = "";
 
-    for (const [key, value] of Object.entries(evalLaddersValues[type])) {
+    for (const [key, value] of Object.entries(evalLaddersValues[type]).toSorted((a, b) => b[1] - a[1])) {
       const item = document.createElement("div");
       item.className = "input-group mb-3";
       item.innerHTML = `
@@ -4090,18 +4209,46 @@ function updateEvalLadder() {
   window.showToast("info", "تم تحديث سلم النقيط بنجاح!");
 }
 
-function addEvalLadder(type) {
-  const markName = prompt("اسم الملاحظة:");
+async function addEvalLadder(type) {
+  const markName = await swal({
+    text: "اسم الملاحظة:",
+    content: "input",
+    buttons: true,
+  });
+
   if (markName && markName.trim()) {
     const trimmedName = markName.trim().toLowerCase();
     if (evaluationLaddersValues[type].hasOwnProperty(trimmedName)) {
-      alert("هذه الملاحظة موجودة من قبل!");
+      await swal({
+        title: "خطأ",
+        text: "هذه الملاحظة موجودة من قبل!",
+        icon: "error",
+      });
       return;
     }
-    const markValue = prompt(`أدخل القيمة`, "0");
-    if (markValue !== null && !isNaN(markValue)) {
+
+    const markValue = await swal({
+      text: "أدخل القيمة",
+      content: {
+        element: "input",
+        attributes: {
+          value: "0",
+          type: "number",
+          inputmode: "decimal",
+        },
+      },
+      buttons: true,
+    });
+
+    if (markValue !== null && markValue !== "" && !isNaN(markValue)) {
       evaluationLaddersValues[type][trimmedName] = parseFloat(markValue);
       displayEvalLadder();
+    } else if (markValue !== null) {
+      await swal({
+        title: "خطأ",
+        text: "القيمة غير صالحة.",
+        icon: "error",
+      });
     }
   }
 }
@@ -8847,15 +8994,54 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   // Minimize Modal Button
-  const minimizeModalBtn = document.getElementById("minimizeModalBtn");
   if (minimizeModalBtn) {
     minimizeModalBtn.onclick = async function () {
-      studentDayModalElement.style.display = "none";
-      document.querySelector(".modal-backdrop")?.classList.add("no-backdrop");
-      maximizeModalBtn.style.removeProperty("display");
-      document
-        .querySelector(".container-fluid.modal-open")
-        .style.removeProperty("overflow");
+      showMaximizeModalBtn();
+
+      minimizeBag["attendance"] = getAttendanceInputValue();
+      minimizeBag["retard"] = retardInput.value;
+      minimizeBag["behavior"] = behaviorInput.value;
+      minimizeBag["haircut"] = haircutInput.value;
+      minimizeBag["clothing"] = clothingInput.value;
+      minimizeBag["prayer"] = prayerInput.value;
+      minimizeBag["addedPoints"] = addedPointsInput.value;
+
+      minimizeBag["preRequirementsList"] = buildRequirList();
+      minimizeBag["requirType"] = requirTypeInput.value;
+      minimizeBag["requirBook"] = requirBookInput.value;
+      if (requirBookInput.value == "القرآن الكريم") {
+        minimizeBag["firstSurah"] = firstSurahSelect.value;
+        minimizeBag["firstAyah"] = firstAyahSelect.value;
+        minimizeBag["secondSurah"] = secondSurahSelect.value;
+        minimizeBag["secondAyah"] = secondAyahSelect.value;
+      } else {
+        minimizeBag["requirQuantityDetail"] = requirQuantityDetailInput.value;
+        minimizeBag["requirQuantity"] = requirQuantityInput.value;
+      }
+      minimizeBag["errors"] = saveStateErrorsInput.value;
+      minimizeBag["alerts"] = saveStateAlertsInput.value;
+      minimizeBag["requirRepit"] = requirRepitInput.value;
+      minimizeBag["teacher"] = requirTeacherInput.value;
+    };
+  }
+  const closeDaStudentModalBtn = document.getElementById(
+    "closeDaStudentModalBtn",
+  );
+  const closeDaStudentModalBtn2 = document.getElementById(
+    "closeDaStudentModalBtn2",
+  );
+  if (closeDaStudentModalBtn) {
+    closeDaStudentModalBtn.onclick = async function () {
+      if (minimizeModalBtn.disabled) {
+        showMaximizeModalBtn();
+      } else studentDayModal.hide();
+    };
+  }
+  if (closeDaStudentModalBtn2) {
+    closeDaStudentModalBtn2.onclick = async function () {
+      if (minimizeModalBtn.disabled) {
+        showMaximizeModalBtn();
+      } else studentDayModal.hide();
     };
   }
 
@@ -8864,6 +9050,9 @@ document.addEventListener("DOMContentLoaded", function () {
   if (saveAndCloseBtn) {
     saveAndCloseBtn.onclick = function () {
       studentDayFormSubmitBtn.dispatchEvent(new Event("click"));
+      if (minimizeModalBtn.disabled) {
+        showMaximizeModalBtn();
+      } else studentDayModal.hide();
     };
   }
 

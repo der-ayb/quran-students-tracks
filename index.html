@@ -231,7 +231,7 @@
         <button class="btn btn-secondary dropdown-toggle" data-bs-toggle="dropdown">تخصيص التلاميذ</button>
         <div class="dropdown-menu statisticsStudentsMenu p-2" style="max-height: 60vh; overflow-y: auto;"></div>
         <select id="statisticType" class="form-select text-center" aria-label="Default select example">
-          <option value="0">-- اختر نوع الإحصاء --</option>
+          <option value="0">--- نوع الإحصاء ---</option>
           <option value="attendance">الحضور</option>
           <option value="results" data-bs-toggle="tab" data-bs-target="#profile-tab-pane">النتائج</option>
           <option value="avance_chart">التقدم</option>
@@ -730,7 +730,7 @@
         <div class="modal-header">
           <h5 class="modal-title" id="newStudentDayModalLabel" style="white-space: nowrap;">يوم التلميذ</h5>
           <input type="text" class="form-control mx-2 text-center" id="studentName" readonly />
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
+          <button type="button" class="btn-close" id="closeDaStudentModalBtn2" aria-label="Close">
           </button>
         </div>
         <div class="modal-body">
@@ -1021,12 +1021,12 @@
         </div>
         <div class="modal-footer d-flex justify-content-between px-2 py-2">
           <div class="btn-group" role="group">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إغلاق</button>
+            <button type="button" class="btn btn-secondary" id="closeDaStudentModalBtn">إغلاق</button>
             <button type="button" class="btn btn-secondary" id="minimizeModalBtn">تصغير</button>
           </div>
           <div class="btn-group" role="group">
             <button id="studentDayFormSubmitBtn" class="btn btn-primary">حفظ</button>
-            <button id="saveAndCloseBtn" class="btn btn-primary" data-bs-dismiss="modal">حفظ و إغلاق</button>
+            <button id="saveAndCloseBtn" class="btn btn-primary">حفظ و إغلاق</button>
           </div>
         </div>
       </div>
