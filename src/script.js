@@ -2712,7 +2712,6 @@ async function loadDayStudentsList() {
             event.detail === true ? minimizeBag.attendance : attendanceValue,
           );
 
-          if (!isTalkinClassroom) {
             if (event.detail === true) {
               retardInput.value = minimizeBag.retard || "0";
               clothingInput.value = minimizeBag.clothing || "0";
@@ -2722,6 +2721,7 @@ async function loadDayStudentsList() {
               addedPointsInput.value = minimizeBag.addedPoints || "0";
               retardInput.dispatchEvent(new Event("change"));
             } else {
+            if (!isTalkinClassroom) {
               retardInput.value =
                 retardValue !== null
                   ? retardValue
@@ -2765,6 +2765,7 @@ async function loadDayStudentsList() {
               secondSurahSelect.value = minimizeBag["secondSurah"];
               secondSurahSelect.dispatchEvent(new Event("change"));
               secondAyahSelect.value = minimizeBag["secondAyah"];
+              secondAyahSelect.dispatchEvent(new Event("change"));
             } else {
               requirQuantityDetailInput.value =
                 minimizeBag["requirQuantityDetail"];
@@ -8999,13 +9000,14 @@ document.addEventListener("DOMContentLoaded", function () {
       showMaximizeModalBtn();
 
       minimizeBag["attendance"] = getAttendanceInputValue();
+      if (!isTalkinClassroom) {
       minimizeBag["retard"] = retardInput.value;
       minimizeBag["behavior"] = behaviorInput.value;
       minimizeBag["haircut"] = haircutInput.value;
       minimizeBag["clothing"] = clothingInput.value;
       minimizeBag["prayer"] = prayerInput.value;
       minimizeBag["addedPoints"] = addedPointsInput.value;
-
+      }
       minimizeBag["preRequirementsList"] = buildRequirList();
       minimizeBag["requirType"] = requirTypeInput.value;
       minimizeBag["requirBook"] = requirBookInput.value;
