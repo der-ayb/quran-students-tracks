@@ -2,12 +2,7 @@ import "./style.css";
 import "./fonts.css";
 import "./yearpicker.css";
 import "./yearpicker.js";
-import {
-  fromNow,
-  initializeGoogleAuth,
-  initAuth,
-  uploadDBtoDrive,
-} from "./auth.js";
+import { fromNow, initAuth, uploadDBtoDrive } from "./auth.js";
 
 import download from "downloadjs";
 import flatpickr from "flatpickr";
@@ -1374,7 +1369,7 @@ async function loadStudentsList() {
       [
         { data: "select" },
         { data: "id" },
-        { data: "num", className: "text-center" },
+        { data: "num", className: "text-center px-0" },
         { data: "name" },
         { data: "history", className: "text-right px-0" },
         { data: "age", className: "text-center px-0" },
@@ -1613,10 +1608,8 @@ function getAttendanceInputValue() {
   switch (document.querySelector(`input[name=attendance]:checked`).id) {
     case "present":
       return 1;
-      break;
     case "JustifiedAbsence":
       return 0;
-      break;
     default:
       return 2;
   }
@@ -1842,7 +1835,12 @@ function buildRequirList() {
   return requirList;
 }
 
-function update_student_day_notes(studentId, working_day_id, attendance) {
+function update_student_day_notes(
+  studentId,
+  working_day_id,
+  is_talkin_classroom,
+  attendance,
+) {
   if (!project_db) {
     window.showToast("info", "لا يوجد قاعدة بيانات مفتوحة.");
     return;
@@ -1871,7 +1869,7 @@ function update_student_day_notes(studentId, working_day_id, attendance) {
     }
   }
 
-  if (isTalkinClassroom) {
+  if (is_talkin_classroom) {
     if (attendanceInputValue === 1) {
       project_db.run(
         "INSERT OR REPLACE INTO day_evaluations (student_id, day_id, attendance) VALUES (?, ?, ?);",
@@ -2290,7 +2288,11 @@ function setOrGetOptionValueByText(selector, text, get = false) {
   }
 }
 
-async function showStudentDayModal(isUniqueStudent = true) {
+async function showStudentDayModal(
+  isUniqueStudent = true,
+  is_talkin_classroom = false,
+  isMaximizeModal = false,
+) {
   studentDayModal.show();
   studentDayModalElement.dispatchEvent(new Event("show.bs.modal"));
   studentDayFormSubmitBtn.disabled = true;
@@ -2305,10 +2307,24 @@ async function showStudentDayModal(isUniqueStudent = true) {
     evaluationCollapse.show();
     document.getElementById("present").parentElement.style.display = "none";
   }
+
   document.getElementById("requirCollapse").parentElement.style.display =
     isUniqueStudent ? "block" : "none";
+
+  if (!isMaximizeModal) {
   document.getElementById("evaluationCollapse").parentElement.style.display =
     !isTalkinClassroom ? "block" : "none";
+    document.getElementById("JustifiedAbsence").disabled =
+      (studentsDayInfos.secondDayIsWorkingDay
+    ? studentsDayInfos.secondDayInfos.isObligatory
+    : studentsDayInfos.isObligatory) && !isTalkinClassroom ? false : true;
+  } else {
+    document.getElementById("evaluationCollapse").parentElement.style.display =
+      !is_talkin_classroom ? "block" : "none";
+    document.getElementById("JustifiedAbsence").disabled =
+      minimizeBag.justifiedAbsenceInputDisabled;
+  }
+
   evalMoyenne.disabled = !isUniqueStudent;
   retardInput.disabled = !isUniqueStudent;
 }
@@ -2341,7 +2357,8 @@ window.showRequirementsHistory = function (student_id, page = 1) {
   let requirsDates = [];
   project_db
     .exec(
-      ` SELECT dr.detail,(SELECT date FROM education_day WHERE id = dr.day_id) AS day_date FROM day_requirements dr
+      ` SELECT dr.detail,(SELECT date FROM education_day 
+        WHERE id = dr.day_id) AS day_date FROM day_requirements dr
         WHERE dr.student_id = ${student_id} ORDER BY dr.day_id DESC
         LIMIT ${page * 5}`,
     )[0]
@@ -2539,8 +2556,6 @@ async function loadDayStudentsList() {
     dayResult[0].values[0][dayResult[0].columns.indexOf("isObligatory")];
   document.getElementById("dayListTable").style.display = "block";
   addNewDayBtn.style.display = "none";
-  document.getElementById("JustifiedAbsence").disabled =
-    studentsDayInfos.isObligatory && !isTalkinClassroom ? false : true;
 
   try {
     const results = project_db.exec(`
@@ -2644,6 +2659,7 @@ async function loadDayStudentsList() {
           requirTeacherInput.add(new Option(full_name, student_id));
         }
 
+        const is_talkin_classroom = isTalkinClassroom;
         function editStudentDay(isEvaluation = true, event = null) {
           const preStudentsRetrys = localStorage.getItem("studentsRetrys")
             ? JSON.parse(localStorage.getItem("studentsRetrys"))
@@ -2689,7 +2705,11 @@ async function loadDayStudentsList() {
             minimizeModalBtn.disabled = true;
           }
 
-          showStudentDayModal(true);
+          showStudentDayModal(
+            true,
+            is_talkin_classroom,
+            event.detail === true,
+          );
 
           for (const option of requirTeacherInput.options) {
             option.disabled = option.value == student_id;
@@ -2814,6 +2834,7 @@ async function loadDayStudentsList() {
             update_student_day_notes(
               student_id,
               working_day_id,
+              is_talkin_classroom,
               row[result.columns.indexOf("attendance")],
             );
             this.disabled = true;
@@ -3506,15 +3527,17 @@ async function loadDayStudentsList() {
   }
 }
 
-async function InitDatePickers() {
-  function formatHijriDate(date, isRange = false) {
+function formatHijriDate(date, isRange = false, year = false) {
     date.setHours(new Date().getHours());
     const formatter = new Intl.DateTimeFormat("ar-DZ-u-ca-islamic-umalqura", {
       day: "numeric",
       month: "long",
+    year: year ? "numeric" : undefined,
     });
     return `${formatter.format(date)} ${isRange ? "" : `(${DateTime.fromJSDate(date).hasSame(DateTime.now(), "day") ? "اليوم" : fromNow(date).replace("منذ", "قبل")})`}`;
   }
+
+async function InitDatePickers() {
   dayDateInput._flatpickr = flatpickr(dayDateInput, {
     mode: "single",
     altInput: true,
@@ -4124,7 +4147,9 @@ function populateEvalSelects() {
   for (const type of ["behavior", "clothing", "haircut"]) {
     const select = document.getElementById(type);
     select.innerHTML = "";
-    for (const [key, value] of Object.entries(evaluationLaddersValues[type]).toSorted((a, b) => b[1] - a[1])) {
+    for (const [key, value] of Object.entries(
+      evaluationLaddersValues[type],
+    ).toSorted((a, b) => b[1] - a[1])) {
       const option = document.createElement("option");
       option.value = value;
       option.textContent = key.charAt(0).toUpperCase() + key.slice(1);
@@ -4148,7 +4173,9 @@ function displayEvalLadder(evalLaddersValues = null) {
     const list = document.getElementById(type + "-marksList");
     list.innerHTML = "";
 
-    for (const [key, value] of Object.entries(evalLaddersValues[type]).toSorted((a, b) => b[1] - a[1])) {
+    for (const [key, value] of Object.entries(evalLaddersValues[type]).toSorted(
+      (a, b) => b[1] - a[1],
+    )) {
       const item = document.createElement("div");
       item.className = "input-group mb-3";
       item.innerHTML = `
@@ -4313,8 +4340,8 @@ async function showTab(tabId = null) {
     } else if (tabId === "pills-statistics") {
       tabTitleLabel.innerText = "الإحصائيات";
       fillStatistiscStudentsList();
-      if (devMode && 1 === 6)
-        createBulletins(
+      if (devMode && 1 == 2)
+        createAvanceChartBulletin(
           ["2026-06-09", "2026-06-10", "2026-06-11"],
           // "83,82,84",
           "43,44,45,46",
@@ -4327,17 +4354,17 @@ async function showTab(tabId = null) {
   window.scrollTo({ top: 0, behavior: "instant" });
 }
 
-function getDatesInRange() {
+function getDatesInRange(start_date = null, end_date = null) {
   const result = project_db.exec(
     `SELECT date FROM education_day WHERE class_room_id = ${workingClassroomId};`,
   );
   if (result.length && result[0].values.length) {
     const selectedDates = statisticsDateInput._flatpickr.selectedDates;
     if (selectedDates.length < 2) return [];
-    const startDate = DateTime.fromJSDate(selectedDates[0])
+    const startDate = DateTime.fromJSDate(start_date || selectedDates[0])
       .startOf("day")
       .toJSDate();
-    const endDate = DateTime.fromJSDate(selectedDates[1])
+    const endDate = DateTime.fromJSDate(end_date || selectedDates[1])
       .startOf("day")
       .toJSDate();
 
@@ -4389,7 +4416,7 @@ statisticType.onchange = async function () {
       document
         .getElementById("avance_chart-tab-pane")
         .classList.add("show", "active");
-      showAvanceChart();
+      buildAvanceChart();
       hideLoadingModal();
       break;
     default:
@@ -4489,6 +4516,943 @@ function formatEval(rating) {
   if (rating >= 5) return "مـتــوســط";
   return "دون  المتوسط";
 }
+
+// import html2canvas from "html2canvas";
+// async function createAvanceChartBulletin(dates, studentsIDS = null) {
+//   // await import("pdfmake-rtl/build/pdfmake.js");
+//   // await import("pdfmake-rtl/build/vfs_fonts.js");
+//   // await import("pdfmake-rtl/fonts/Cairo");
+
+//   await buildAvanceChart(43);
+//   const element = document.getElementById("verse-grid");
+//   // element.style.display = "none";
+//   element.style.width = "450px";
+//   element.style.maxWidth = element.style.width;
+
+//   const canvas = await html2canvas(element, {
+//     onclone: (clonedDocument) => {
+//       const e = clonedDocument.querySelector("#verse-grid");
+//       e.style.paddingTop = "0px";
+//       // e.style.removeProperty("display");
+//       clonedDocument.querySelectorAll(".group-header").forEach((header) => {
+//         header.style.paddingTop = "12px";
+//       });
+//     },
+//     // scale: 1,
+//   });
+
+//   function splitCanvasVertically(sourceCanvas) {
+//     const width = sourceCanvas.width;
+//     const height = sourceCanvas.height;
+//     const chunkHeight = height / 5;
+
+//     // Create a temporary offscreen canvas for the chunk size
+//     const offscreen = document.createElement("canvas");
+//     offscreen.width = width;
+//     offscreen.height = chunkHeight;
+//     const ctx = offscreen.getContext("2d");
+
+//     const images = [];
+
+//     for (let i = 0; i < 5; i++) {
+//       ctx.clearRect(0, 0, width, chunkHeight);
+
+//       // Slice vertically by shifting the source Y position (i * chunkHeight)
+//       ctx.drawImage(
+//         sourceCanvas,
+//         0,
+//         i * chunkHeight,
+//         width,
+//         chunkHeight, // Source crop (Y changes)
+//         0,
+//         0,
+//         width,
+//         chunkHeight, // Destination position
+//       );
+
+//       images.push(offscreen.toDataURL("image/png"));
+//     }
+
+//     return images; // Returns [Top image, Middle image, Bottom image]
+//   }
+
+//   const extractedImages = splitCanvasVertically(canvas);
+
+//   var dd = {
+//     rtl: true,
+//     pageOrientation: "landscape",
+//     pageMargins: [50, 30, 30, 30],
+//     content: [
+//       // {
+//       //   image: canvas.toDataURL("image/png"),
+//       //   width: 250,
+//       //   margin: [-20, -20, 0, 10],
+//       // },
+//       {
+//         // Columns layout places elements side-by-side
+//         columns: [
+//           {
+//             image: extractedImages[2],
+//             // width: 100,
+//             fit: [225, 900], // Constrains width to 1/3 of printable A4 area
+//           },
+//           {
+//             image: extractedImages[1],
+//             // width: 100,
+//             fit: [225, 900], // Constrains width to 1/3 of printable A4 area
+//           },
+
+//           {
+//             image: extractedImages[0],
+//             // width: 100,
+//             fit: [225, 900], // Constrains width to 1/3 of printable A4 area
+//           },
+//         ],
+//         columnGap: 2, // Minimal spacing between the images
+//       },
+//       // ── RTL Paragraph (auto-detected) ──
+//       {
+//         text: "مرحباً بكم في مكتبة pdfmake-rtl",
+//         fontSize: 20,
+//         bold: true,
+//         margin: [0, 0, 0, 10],
+//       },
+//       {
+//         text: "هذه المكتبة تدعم اللغة العربية والفارسية والأردية تلقائياً بدون أي إعداد يدوي.",
+//         margin: [0, 0, 0, 10],
+//       },
+//       // ── LTR Paragraph ──
+//       {
+//         text: "Welcome to pdfmake-rtl",
+//         fontSize: 20,
+//         bold: true,
+//         margin: [0, 10, 0, 10],
+//       },
+//       {
+//         text: "This library supports Arabic, Persian, and Urdu automatically. No manual RTL configuration needed!",
+//         margin: [0, 0, 0, 15],
+//       },
+//       // ── Simple RTL Table (auto-detected) ──
+//       {
+//         text: "جدول بسيط — Simple Table",
+//         fontSize: 16,
+//         bold: true,
+//         margin: [0, 10, 0, 8],
+//       },
+//       {
+//         table: {
+//           headerRows: 1,
+//           widths: ["*", "*", "*"],
+//           body: [
+//             [
+//               { text: "الراتب", bold: true },
+//               { text: "القسم", bold: true },
+//               { text: "الاسم", bold: true },
+//             ],
+//             ["5000", "تكنولوجيا", "أحمد محمد"],
+//             ["6000", "تسويق", "فاطمة علي"],
+//             ["4500", "مالية", "خالد حسن"],
+//           ],
+//         },
+//       },
+//       // ── Force RTL on table with table.rtl ──
+//       {
+//         text: "\nجدول مع rtl: true",
+//         fontSize: 16,
+//         bold: true,
+//         margin: [0, 10, 0, 8],
+//       },
+//       {
+//         table: {
+//           rtl: true,
+//           headerRows: 1,
+//           widths: [60, "*", "*", 40],
+//           body: [
+//             [
+//               { text: "Status", bold: true },
+//               { text: "Department", bold: true },
+//               { text: "Name", bold: true },
+//               { text: "#", bold: true },
+//             ],
+//             ["Active", "Engineering", "Ali Hassan", "1"],
+//             ["Active", "Marketing", "Sara Ahmed", "2"],
+//             ["Leave", "Finance", "Omar Khalil", "3"],
+//           ],
+//         },
+//       },
+
+//       // ── Mixed Language Table ──
+//       {
+//         text: "\nجدول مختلط — Mixed Table",
+//         fontSize: 16,
+//         bold: true,
+//         margin: [0, 10, 0, 8],
+//       },
+//       {
+//         table: {
+//           widths: ["*", "*"],
+//           body: [
+//             [
+//               { text: "القيمة / Value", bold: true },
+//               { text: "الحقل / Field", bold: true },
+//             ],
+//             ["أحمد (Ahmed)", "الاسم / Name"],
+//             ["القاهرة / Cairo", "المدينة / City"],
+//             ["ahmed@email.com", "البريد / Email"],
+//           ],
+//         },
+//       },
+//     ],
+//     // defaultStyle: {
+//     // 	font: 'Cairo' // Use Cairo as the default font for RTL support
+//     // }
+//   };
+
+//   pdfMake.createPdf(dd).open();
+// }
+
+// async function createSummaryReport(dates, studentsIDS = null) {
+//   const studentsList = studentsIDS || getStatisticsSelectedStudentsId();
+//   if (!studentsList) {
+//     window.showToast("warning", "يرجى اخيار طلاب من القائمة.");
+//     return;
+//   }
+
+//   const usedEvaluationLaddersValues = {};
+//   const studentsAppends = localStorage.getItem("studentsAppends")
+//     ? JSON.parse(localStorage.getItem("studentsAppends"))
+//     : {};
+
+//   const tableWithins = {
+//     resumePagesChecked: resumePagesCheck.checked,
+//     withinSignature: signatureCheck.checked,
+//   };
+
+//   try {
+//     // Get all student IDs from the table
+//     const dateCtes = dates
+//       .map(
+//         (date, index) =>
+//           `day_id${index} AS ( SELECT id FROM education_day WHERE date = '${date}' )`,
+//       )
+//       .join(", \n");
+
+//     // Generate sum expressions for المجموع
+//     const sumExpressions = dates
+//       .map(
+//         (date, index) =>
+//           `(SELECT COALESCE(SUM(de.moyenne), 0) FROM day_evaluations de
+//           WHERE de.student_id = s.id AND de.day_id IN (SELECT id FROM day_id${index}))
+//           +
+//           COALESCE(
+//               (SELECT SUM(COALESCE(json_extract(de.second_day, '$.moyenne'), 0))
+//               FROM day_evaluations de WHERE de.student_id = s.id
+//                 AND de.second_day IS NOT NULL
+//                 AND de.day_id IN (SELECT id FROM day_id${index})),
+//               0
+//           )
+//           +
+//           (SELECT COALESCE(SUM(dr.moyenne), 0) FROM day_requirements dr
+//           WHERE dr.student_id = s.id AND dr.day_id IN (SELECT id FROM day_id${index}))
+//         `,
+//       )
+//       .join(" +\n        ");
+
+//     const results = project_db.exec(`
+//       WITH ${dateCtes}
+//       ,jabsence_counts AS (
+//               SELECT
+//                 student_id,
+//                 SUM(
+//                   CASE WHEN attendance = 0 THEN 1 ELSE 0 END +
+//                   CASE WHEN JSON_EXTRACT(second_day, '$.attendance') = 0 THEN 1 ELSE 0 END
+//                 ) AS count
+//               FROM day_evaluations
+//               WHERE day_id IN (
+//                 SELECT id
+//                 FROM education_day
+//                 WHERE class_room_id = ${workingClassroomId}
+//                   AND date IN (${dates.map((d) => `'${d}'`).join(", ")})
+//               )
+//               GROUP BY student_id
+//             )
+//         ,obligatory_days_total_count AS (
+//               SELECT
+//                 SUM(
+//                   CASE WHEN isObligatory = 1 THEN 1 ELSE 0 END +
+//                   CASE WHEN second_day IS NOT NULL AND JSON_EXTRACT(second_day, '$.isObligatory') = true THEN 1 ELSE 0 END
+//                 ) AS total_count
+//               FROM education_day
+//               WHERE class_room_id = ${workingClassroomId}
+//                 AND date IN (${dates.map((d) => `'${d}'`).join(", ")})
+//             )
+//       SELECT
+//       s.id, s.fname, s.lname,
+//           -- المجموع (sum)
+//           COALESCE(ROUND(${sumExpressions}, 2), 0)  as "المجموع",
+//           COALESCE(ROUND(
+//             (COALESCE((SELECT * FROM obligatory_days_total_count), 0) - COALESCE(jac.count, 0))
+//         , 2), 0) as "الحضور"
+//       FROM students s
+//       LEFT JOIN day_evaluations de ON s.id = de.student_id
+//       LEFT JOIN day_requirements dr ON dr.student_id = s.id
+//       LEFT JOIN jabsence_counts jac ON s.id = jac.student_id
+//       WHERE s.id in (${studentsList})
+//       GROUP BY s.id, s.fname, s.lname
+//       ORDER BY fname, lname;
+//       `);
+
+//     if (!results.length || !results[0].values.length) {
+//       window.showToast("warning", "لا يوجد طلاب في هذا القسم.");
+//       return;
+//     }
+
+//     let students = results[0].values.map((row) => {
+//       const name = `${row[1]} ${row[2]}`;
+//       const fullAddedPoints = studentsAppends[row[0]]?.points || 0;
+//       const order = ((row[3] + fullAddedPoints) / row[4]).toFixed(2);
+//       return {
+//         id: row[0],
+//         name: name,
+//         order: order,
+//       };
+//     });
+
+//     students = [...students]
+//       .sort((a, b) => parseFloat(b.order) - parseFloat(a.order))
+//       .reduce((acc, item, index, arr) => {
+//         const rank =
+//           index === 0 ||
+//           parseFloat(item.order) !== parseFloat(arr[index - 1].order)
+//             ? index + 1
+//             : acc[acc.length - 1].order;
+//         acc.push({ ...item, order: rank.toString() });
+//         return acc;
+//       }, []);
+
+//     // Collect data for all students
+//     const allStudentData = [];
+//     for (const student of students) {
+//       const studentData = await getStudentData(student.id, dates);
+//       if (studentData.length > 0) {
+//         allStudentData.push({
+//           studentId: student.id,
+//           studentName: student.name,
+//           studentOrder: student.order,
+//           data: studentData,
+//           recordsCounts: new Set(
+//             studentData.map((i) =>
+//               new Intl.DateTimeFormat("ar-DZ-u-ca-islamic-umalqura", {
+//                 year: "numeric",
+//                 month: "long",
+//               }).format(new Date(i.day)),
+//             ),
+//           ).size,
+//         });
+//       }
+//     }
+
+//     if (allStudentData.length === 0) {
+//       window.showToast("warning", "لا توجد بيانات للطلاب في هذه الفترة.");
+//       return;
+//     }
+
+//     project_db
+//       .exec(
+//         `
+//       SELECT ed.date, el.detail FROM evaluation_ladder el
+//       LEFT JOIN education_day ed ON el.id = ed.evaluation_ladder_id
+//       WHERE class_room_id=${workingClassroomId} AND date in (${dates.map((date) => `'${date}'`).join(", ")}) ;
+//       `,
+//       )[0]
+//       .values.forEach((row) => {
+//         usedEvaluationLaddersValues[row[0]] = JSON.parse(row[1]);
+//       });
+
+//     // Create single PDF with all students
+//     createMultiStudentPDF(allStudentData, dates);
+//   } catch (error) {
+//     console.error("Error generating PDF:", error);
+//     window.showToast("warning", "حدث خطأ في إنشاء كشوف النقاط");
+//   }
+
+//   // Get data for a single student
+//   async function getStudentData(studentId, dates) {
+//     const dateList = dates.map((date) => `'${date}'`).join(", ");
+
+//     const query = `
+//         SELECT
+//             ed.date as day,
+//             ed.isObligatory as is_obligatory,
+//             ed.second_day as secondDay,
+//             s.fname || ' ' || s.lname as student_name,
+//             dr.detail,
+//             de.prayer,
+//             de.haircut,
+//             de.behavior,
+//             de.clothing,
+//             de.retard,
+//             de.attendance,
+//             de.added_points,
+//             de.second_day as secondDayEval,
+//             dr.moyenne as requirements_score,
+//             de.moyenne as evaluation_score
+//         FROM education_day ed
+//         LEFT JOIN day_requirements dr ON ed.id = dr.day_id AND dr.student_id = ${studentId}
+//         LEFT JOIN day_evaluations de ON ed.id = de.day_id AND de.student_id = ${studentId}
+//         LEFT JOIN students s ON s.id = ${studentId}
+//         WHERE ed.date IN (${dateList})
+//         AND ed.class_room_id = ${workingClassroomId}
+//         ORDER BY ed.date
+//     `;
+
+//     const results = project_db.exec(query);
+//     if (!results.length) return [];
+
+//     const result = results[0];
+//     const columns = result.columns;
+//     const values = result.values;
+
+//     return values.map((row) => {
+//       const obj = {};
+//       columns.forEach((col, index) => {
+//         obj[col] = row[index];
+//       });
+//       return obj;
+//     });
+//   }
+
+//   // Create multi-student PDF with one student per page
+//   async function createMultiStudentPDF(allStudentData, dates) {
+//     const docDefinition = {
+//       pageSize: "A4",
+//       pageMargins: [20, 30, 20, 30],
+//       pageOrientation: "portrait",
+//       content: createStudentContent(allStudentData, dates),
+//       styles: {
+//         header: {
+//           fontSize: 14,
+//           bold: true,
+//           // color: "#2c3e50",
+//         },
+//         subheader: {
+//           fontSize: 10,
+//           bold: true,
+//           // color: "#34495e",
+//           margin: [0, 2, 0, 2],
+//         },
+//         tableHeader: {
+//           fontSize: 9,
+//           bold: true,
+//           // color: "#2c3e50",
+//           fillColor: "#ecf0f1",
+//         },
+//         tableCell: {
+//           fontSize: 8,
+//           lineHeight: 1.1,
+//         },
+//         summary: {
+//           fontSize: 10,
+//           bold: true,
+//           margin: [0, 8, 0, 4],
+//           // color: "#2c3e50",
+//         },
+//       },
+//       defaultStyle: {
+//         alignment: "right",
+//       },
+//     };
+
+//     await import("./pdfmake.js");
+//     await import("./vfs_fonts.js");
+//     pdfMake.createPdf(docDefinition).open();
+//   }
+
+//   // Create student pages by first collecting all data lengths and pairing students with <10 records
+
+//   // Create student content (reusable for both single and stacked layouts)
+//   function createStudentContent(allStudentData, dates, isStacked = true) {
+//     const tableCellHeight = 10;
+//     const tableBody = createTableBody(allStudentData, tableCellHeight / 3);
+
+//     const content = [
+//       // Student header
+//       {
+//         text: reverseArabicWords(`التقرير  العام لنتائج الطلاب`),
+//         style: "header",
+//         alignment: "center",
+//         fontSize: 16,
+//         absolutePosition: {
+//           y: 15,
+//         },
+//       },
+//       {
+//         text: reverseArabicWords(
+//           workingClassroomSelect.selectedOptions[0].text
+//             .split("-")
+//             .slice(0, 2)
+//             .join(" - ") + "-",
+//         ),
+//         style: "subheader",
+//         alignment: "right",
+//         fontSize: isStacked ? 9 : 10,
+//         absolutePosition: {
+//           y: 35,
+//         },
+//       },
+//       {
+//         text: reverseArabicWords(
+//           `الفترة: ${formatHijriDate(statisticsDateInput._flatpickr.selectedDates[0], true,true)} - ${formatHijriDate(statisticsDateInput._flatpickr.selectedDates[1], true,true)}`,
+//         ),
+//         style: "subheader",
+//         alignment: "left",
+//         fontSize: 9,
+//         absolutePosition: {
+//           y: 35,
+//           x: 18,
+//         },
+//       },
+//       // Table
+//       {
+//         table: {
+//           heights: tableCellHeight,
+//           widths: [50, 250, 100, 100, 20],
+//           body: tableBody,
+//         },
+//         fontSize: 9,
+//         absolutePosition: {
+//           y: 70,
+//           x: 25,
+//         },
+//         layout: {
+//           paddingLeft: function (i, node) {
+//             return 3;
+//           },
+//           paddingRight: function (i, node) {
+//             return 3;
+//           },
+//           hLineWidth: function (i, node) {
+//             return 0.5;
+//           },
+//           vLineWidth: function (i, node) {
+//             return 0.5;
+//           },
+//           // hLineColor: function (i, node) {
+//           //   return "#aaaaaa";
+//           // },
+//           // vLineColor: function (i, node) {
+//           //   return "#aaaaaa";
+//           // },
+//           fillColor: function (rowIndex, node, columnIndex) {
+//             return rowIndex === 0 ? "#f8f9fa" : null;
+//           },
+//         },
+//         margin: [0, 0, 0, 8],
+//       },
+//     ];
+
+//     return content;
+//   }
+
+//   // Create compact table body for stacked layout
+//   function createTableBody(allStudentData, marginTop) {
+//     // Arabic headers - two rows for date
+//     const topHeaderRows = [
+//       {
+//         text: "الحصيلة  الإجمالية",
+//         style: "tableHeader",
+//         alignment: "center",
+//         marginTop: marginTop,
+//         marginBottom: -2,
+//       },
+//       {
+//         text: "حصيلة  الموسم",
+//         style: "tableHeader",
+//         alignment: "center",
+//         marginTop: marginTop,
+//         marginBottom: -2,
+//       },
+//       {
+//         text: "الحضور",
+//         style: "tableHeader",
+//         alignment: "center",
+//         marginTop: marginTop,
+//         marginBottom: -2,
+//       },
+//       {
+//         text: "الاسم  و اللقب",
+//         style: "tableHeader",
+//         alignment: "center",
+//         marginTop: marginTop,
+//         marginBottom: -2,
+//       },
+//       {
+//         text: "#",
+//         style: "tableHeader",
+//         alignment: "center",
+//         marginTop: marginTop,
+//         marginBottom: -2,
+//       },
+//     ];
+
+//     // Create table body
+//     const body = [];
+
+//     allStudentData.forEach((studentReport) => {
+//       const { recordsCounts, data, studentName, studentOrder, studentId } =
+//         studentReport;
+
+//       const totalDays = data
+//         .map((i) => (!i.secondDay ? 1 : 2))
+//         .reduce((accumulator, currentValue) => accumulator + currentValue, 0);
+
+//       const validDays = data.filter(
+//         (dayRecord) => dayRecord.attendance !== null,
+//       );
+
+//       const presentDays =
+//         validDays.filter((record) => record.attendance === 1).length +
+//         validDays.filter(
+//           (record) =>
+//             JSON.parse(record.secondDayEval || "{}")?.attendance === 1,
+//         ).length;
+
+//       const jusPresentDays =
+//         validDays.filter((record) => record.attendance === 0).length +
+//         validDays.filter(
+//           (record) =>
+//             JSON.parse(record.secondDayEval || "{}")?.attendance === 0,
+//         ).length;
+
+//       const totalRetard = validDays.reduce(
+//         (sum, record) => sum + (record.retard >= 0 ? record.retard : 0),
+//         0,
+//       );
+
+//       const totalQuantityDetail = studentsAppends[studentId]?.note?.replace(/[()]/g, match => match === "(" ? ") " : "(")||"";
+//       const totalSaveQuantity =totalQuantityDetail.split("#")[0] || (
+//         validDays.reduce(
+//           (sum, record) =>
+//             sum +
+//             (Array.isArray(JSON.parse(record.detail || "[]"))
+//               ? JSON.parse(record.detail || "[]").reduce(
+//                   (acc, val) =>
+//                     acc +
+//                     (val["النوع"] === "حفظ"
+//                       ? parseFloat(val["المقدار"] || 0)
+//                       : 0),
+//                   0,
+//                 )
+//               : 0),
+//           0,
+//         ) / 15
+//       ).toFixed(1)+" صفحة ";
+
+//       const totalReviseQuantity = totalQuantityDetail.split("#")[1]?.replace(" ","  ")||"/";
+
+//       const row = createEmptyArray(5);
+
+//       row[4] = {
+//         text: studentOrder,
+//         style: "tableCell",
+//         alignment: "center",
+//         fontSize: 10,
+//         margin: [-2, marginTop, -1, -3],
+//       };
+
+//       row[3] = {
+//         text: studentName,
+//         style: "tableCell",
+//         alignment: "center",
+//         fontSize: 10,
+//         margin: [-2, marginTop, -1, -3],
+//       };
+//       row[2] = {
+//         text: `${(presentDays+jusPresentDays)}/${totalDays}  بنسبة ${(((presentDays+jusPresentDays) / totalDays) * 100).toFixed(1)}% `,
+//         style: "tableCell",
+//         alignment: "center",
+//         fontSize: 10,
+//         margin: [-2, marginTop, -1, -3],
+//       };
+//       row[1] = {
+//         text: "حفظ : " +totalSaveQuantity,
+//         style: "tableCell",
+//         alignment: "center",
+//         fontSize: 10,
+//         margin: [-2, marginTop, -1, -3],
+//       };
+//       row[0] = {
+//         text: totalReviseQuantity ,
+//         style: "tableCell",
+//         alignment: "center",
+//         fontSize: 10,
+//         margin: [-2, marginTop, -1, -3],
+//       };
+
+//       body.push(row);
+//     });
+
+//     return [topHeaderRows, ...body];
+//   }
+
+//   // Helper function to create an empty array with specified length
+//   function createEmptyArray(length) {
+//     return new Array(length).fill({});
+//   }
+
+//   // Helper function to group records by month and year
+//   function groupRecordsByMonthYear(studentData) {
+//     const groups = {};
+
+//     studentData.forEach((record) => {
+//       const recordDate = new Date(record.day);
+//       const monthYear = `${
+//         new Intl.DateTimeFormat("ar-DZ-u-ca-islamic-umalqura", {
+//           year: "numeric",
+//         })
+//           .format(recordDate)
+//           .split(" ")[0]
+//       } ${reverseArabicWords(
+//         new Intl.DateTimeFormat("ar-DZ-u-ca-islamic-umalqura", {
+//           month: "long",
+//         }).format(recordDate),
+//       )}`;
+
+//       if (!groups[monthYear]) {
+//         groups[monthYear] = [];
+//       }
+//       groups[monthYear].push(record);
+//     });
+
+//     // Convert to array and sort by date
+//     return Object.keys(groups)
+//       .map((monthYear) => ({
+//         monthYear,
+//         records: groups[monthYear].sort(
+//           (a, b) => new Date(a.day) - new Date(b.day),
+//         ),
+//       }))
+//       .sort((a, b) => new Date(a.records[0].day) - new Date(b.records[0].day));
+//   }
+
+//   // Create compact summary section
+//   function createCompactSummarySection(
+//     studentData,
+//     studentId,
+//     studentOrder,
+//     isSecond,
+//     isStacked = false,
+//   ) {
+//     const totalDays = studentData
+//       .map((i) => (!i.secondDay ? 1 : 2))
+//       .reduce((accumulator, currentValue) => accumulator + currentValue, 0);
+
+//     const validDays = studentData.filter(
+//       (dayRecord) => dayRecord.attendance !== null,
+//     );
+
+//     if (totalDays === 0) return [];
+
+//     const fullAddedPoints = studentsAppends[studentId]?.points || 0;
+
+//     const presentDays =
+//       validDays.filter((record) => record.attendance === 1).length +
+//       validDays.filter(
+//         (record) => JSON.parse(record.secondDayEval || "{}")?.attendance === 1,
+//       ).length;
+
+//     const totalSaveQuantity = (
+//       validDays.reduce(
+//         (sum, record) =>
+//           sum +
+//           (Array.isArray(JSON.parse(record.detail || "[]"))
+//             ? JSON.parse(record.detail || "[]").reduce(
+//                 (acc, val) =>
+//                   acc +
+//                   (val["النوع"] === "حفظ"
+//                     ? parseFloat(val["المقدار"] || 0)
+//                     : 0),
+//                 0,
+//               )
+//             : 0),
+//         0,
+//       ) / 15
+//     ).toFixed(1);
+//     const totalReviseQuantity = (
+//       validDays.reduce(
+//         (sum, record) =>
+//           sum +
+//           (Array.isArray(JSON.parse(record.detail || "[]"))
+//             ? JSON.parse(record.detail || "[]").reduce(
+//                 (acc, val) =>
+//                   acc +
+//                   (val["النوع"] !== "حفظ"
+//                     ? parseFloat(val["المقدار"] || 0)
+//                     : 0),
+//                 0,
+//               )
+//             : 0),
+//         0,
+//       ) / 15
+//     ).toFixed(1);
+
+//     const totalQuantity =
+//       (totalSaveQuantity > 0 ? totalSaveQuantity + "  حفظ" : "") +
+//       (totalReviseQuantity > 0
+//         ? (totalSaveQuantity > 0 ? " و " : "") +
+//           totalReviseQuantity +
+//           "  مراجعة"
+//         : "");
+
+//     const total =
+//       validDays.reduce(
+//         (sum, record) =>
+//           sum +
+//           (Number(JSON.parse(record.secondDayEval || "{}")?.moyenne) || 0) +
+//           (record.requirements_score || 0) +
+//           (record.evaluation_score || 0),
+//         0,
+//       ) + (fullAddedPoints || 0);
+
+//     const totalMoyenne =
+//       total /
+//       (totalDays -
+//         studentData.filter(
+//           (record) => record.attendance === 0 || record.is_obligatory === 0,
+//         ).length -
+//         studentData.filter(
+//           (record) =>
+//             Number(JSON.parse(record.secondDayEval || "{}")?.attendance) ===
+//               0 ||
+//             Number(JSON.parse(record.secondDay || "{}")?.isObligatory) === 0,
+//         ).length);
+
+//     const attendanceRate = ((presentDays / totalDays) * 100).toFixed(1);
+//     const fullNote = studentsAppends[studentId]?.note || "";
+
+//     // Full summary for single student view
+//     return [
+//       {
+//         text: reverseArabicWords("الملخص"),
+//         style: "summary",
+//         margin: [0, 5, 0, 8],
+//         alignment: "center",
+//         absolutePosition: {
+//           y:
+//             841.89 / (isStacked && !isSecond ? 2 : 1) -
+//             (tableWithins.withinSignature || fullNote ? 75 : 55),
+//         },
+//       },
+//       {
+//         table: {
+//           widths: [
+//             70,
+//             95,
+//             totalSaveQuantity > 0 && totalReviseQuantity > 0 ? 180 : 140,
+//             90,
+//             90,
+//           ],
+//           body: [
+//             [
+//               {
+//                 text: `الترتيب: ${studentOrder}/${
+//                   studentsList.split(",").length
+//                 }`,
+//                 style: "tableCell",
+//                 bold: true,
+//                 alignment: "center",
+//                 border: [true, true, true, true],
+//                 fontSize: 12,
+//                 marginTop: 3,
+//                 marginLeft: -3,
+//                 marginRight: -3,
+//               },
+//               {
+//                 text: `المعدل العام: ${totalMoyenne.toFixed(2)}`,
+//                 style: "tableCell",
+//                 alignment: "center",
+//                 bold: true,
+//                 border: [true, false, false, false],
+//                 fontSize: 10,
+//                 marginTop: 3,
+//                 marginLeft: -3,
+//                 marginRight: -3,
+//               },
+//               {
+//                 text: `إجمالي الصفحات: ${totalQuantity || "0"}`,
+//                 style: "tableCell",
+//                 alignment: "center",
+//                 border: [true, false, false, false],
+//                 fontSize: 10,
+//                 marginTop: 3,
+//                 marginLeft: -3,
+//                 marginRight: -3,
+//               },
+//               {
+//                 text: `نسبة  الحضور: ${attendanceRate}%`,
+//                 style: "tableCell",
+//                 alignment: "center",
+//                 border: [true, false, false, false],
+//                 fontSize: 10,
+//                 marginTop: 3,
+//                 marginLeft: -3,
+//                 marginRight: -3,
+//               },
+//               {
+//                 text: `إجمالي  الحصص: ${totalDays}`,
+//                 style: "tableCell",
+//                 alignment: "left",
+//                 border: [true, false, false, false],
+//                 fontSize: 10,
+//                 marginTop: 3,
+//                 marginLeft: 0,
+//               },
+//             ],
+//           ],
+//         },
+//         absolutePosition: {
+//           y:
+//             841.89 / (isStacked && !isSecond ? 2 : 1) -
+//             (tableWithins.withinSignature || fullNote ? 60 : 40),
+//           x: 18,
+//         },
+//         margin: [0, 0, 0, 5],
+//       },
+//       ...[
+//         fullNote
+//           ? {
+//               text: reverseArabicWords(`الملاحظة:  ${fullNote}`),
+//               margin: [0, 5, 0, 8],
+//               alignment: "right",
+//               bold: true,
+//               absolutePosition: {
+//                 y: 841.89 / (isStacked && !isSecond ? 2 : 1) - 25,
+//               },
+//             }
+//           : {},
+//       ],
+//       ...[
+//         tableWithins.withinSignature
+//           ? {
+//               text: reverseArabicWords("إمضاء الولي            ×"),
+//               margin: [0, 5, 0, 8],
+//               alignment: "left",
+//               fontSize: 10,
+//               absolutePosition: {
+//                 y: 841.89 / (isStacked && !isSecond ? 2 : 1) - 25,
+//                 x: 50,
+//               },
+//             }
+//           : {},
+//       ],
+//     ];
+//   }
+
+//   // Function to reverse words in a string (for Arabic)
+//   function reverseArabicWords(str) {
+//     return str.split(" ").reverse().join(" ");
+//   }
+// }
 
 async function createBulletins(dates, studentsIDS = null) {
   const studentsList = studentsIDS || getStatisticsSelectedStudentsId();
@@ -4761,7 +5725,6 @@ async function createBulletins(dates, studentsIDS = null) {
           pageContent.push(
             ...createStudentContent(
               studentReport,
-              dates,
               studentIndex > 0,
               pageStudents.length > 1,
             ),
@@ -4862,12 +5825,7 @@ async function createBulletins(dates, studentsIDS = null) {
   }
 
   // Create student content (reusable for both single and stacked layouts)
-  function createStudentContent(
-    studentReport,
-    dates,
-    isSecond,
-    isStacked = false,
-  ) {
+  function createStudentContent(studentReport, isSecond, isStacked = false) {
     const { recordsCounts, data, studentName, studentOrder, studentId } =
       studentReport;
     const totalRecordCounts = recordsCounts + 3;
@@ -4906,7 +5864,7 @@ async function createBulletins(dates, studentsIDS = null) {
           workingClassroomSelect.selectedOptions[0].text
             .split("-")
             .slice(0, 2)
-            .join(" -") + "-",
+            .join(" - ") + "-",
         ),
         style: "subheader",
         alignment: "center",
@@ -4935,7 +5893,7 @@ async function createBulletins(dates, studentsIDS = null) {
       // Table
       {
         table: {
-          headerRows: 2,
+          // headerRows: 2,
           heights: tableCellHeight,
           widths: [32, 30, 30, 30, 20, 50, 35, 214, 35, 20],
           body: tableBody,
@@ -4966,10 +5924,10 @@ async function createBulletins(dates, studentsIDS = null) {
             return 0.3;
           },
           hLineColor: function (i, node) {
-            return "#aaaaaa";
+            return "#515151";
           },
           vLineColor: function (i, node) {
-            return "#aaaaaa";
+            return "#515151";
           },
           fillColor: function (rowIndex, node, columnIndex) {
             return rowIndex === 0 ? "#f8f9fa" : null;
@@ -6311,7 +7269,6 @@ async function createBulletins(dates, studentsIDS = null) {
       validDays.filter(
         (record) => JSON.parse(record.secondDayEval || "{}")?.attendance === 1,
       ).length;
-
     const totalSaveQuantity = (
       validDays.reduce(
         (sum, record) =>
@@ -6472,6 +7429,7 @@ async function createBulletins(dates, studentsIDS = null) {
           ? {
               text: reverseArabicWords(`الملاحظة:  ${fullNote}`),
               margin: [0, 5, 0, 8],
+              bold: true,
               alignment: "right",
               absolutePosition: {
                 y: 841.89 / (isStacked && !isSecond ? 2 : 1) - 25,
@@ -6508,7 +7466,8 @@ async function createBulletins(dates, studentsIDS = null) {
 
   function formatDetail(detail) {
     if (!detail) return "-";
-    const errorsCount = detail["الأخطاء"].includes(" ")
+    const errorsCount =
+      detail["الأخطاء"] && detail["الأخطاء"].includes(" ")
       ? parseInt(detail["الأخطاء"].split(" ")[0]) +
         parseInt(detail["الأخطاء"].split(" ")[4])
       : parseInt(detail["الأخطاء"]);
@@ -6529,6 +7488,945 @@ async function createBulletins(dates, studentsIDS = null) {
   }
 }
 
+async function createSummaryBulletins(dates, studentsIDS = null) {
+  const studentsList = studentsIDS || getStatisticsSelectedStudentsId();
+  if (!studentsList) {
+    window.showToast("warning", "يرجى اخيار طلاب من القائمة.");
+    return;
+  }
+
+  const usedEvaluationLaddersValues = {};
+  const studentsAppends = localStorage.getItem("studentsAppends")
+    ? JSON.parse(localStorage.getItem("studentsAppends"))
+    : {};
+
+  const tableWithins = {
+    resumePagesChecked: resumePagesCheck.checked,
+    withinSignature: signatureCheck.checked,
+  };
+
+  try {
+    // Get all student IDs from the table
+    const dateCtes = dates
+        .map(
+          (date, index) =>
+            `day_id${index} AS ( SELECT id FROM education_day WHERE date = '${date}' )`,
+        )
+      .join(", \n");
+
+    // Generate sum expressions for المجموع
+    const sumExpressions = dates
+        .map(
+          (date, index) =>
+          `(SELECT COALESCE(SUM(de.moyenne), 0) FROM day_evaluations de 
+          WHERE de.student_id = s.id AND de.day_id IN (SELECT id FROM day_id${index}))
+          + 
+          COALESCE(
+              (SELECT SUM(COALESCE(json_extract(de.second_day, '$.moyenne'), 0)) 
+              FROM day_evaluations de WHERE de.student_id = s.id 
+                AND de.second_day IS NOT NULL
+                AND de.day_id IN (SELECT id FROM day_id${index})), 
+              0
+          )
+          + 
+          (SELECT COALESCE(SUM(dr.moyenne), 0) FROM day_requirements dr 
+          WHERE dr.student_id = s.id AND dr.day_id IN (SELECT id FROM day_id${index}))
+        `,
+      )
+      .join(" +\n        ");
+
+    const results = project_db.exec(`
+      WITH ${dateCtes}
+      ,jabsence_counts AS (
+              SELECT 
+                student_id,
+                SUM(
+                  CASE WHEN attendance = 0 THEN 1 ELSE 0 END +
+                  CASE WHEN JSON_EXTRACT(second_day, '$.attendance') = 0 THEN 1 ELSE 0 END
+                ) AS count
+              FROM day_evaluations
+              WHERE day_id IN (
+                SELECT id 
+                FROM education_day 
+                WHERE class_room_id = ${workingClassroomId}
+                  AND date IN (${dates.map((d) => `'${d}'`).join(", ")})
+              )
+              GROUP BY student_id
+            )
+        ,obligatory_days_total_count AS (
+              SELECT 
+                SUM(
+                  CASE WHEN isObligatory = 1 THEN 1 ELSE 0 END +
+                  CASE WHEN second_day IS NOT NULL AND JSON_EXTRACT(second_day, '$.isObligatory') = true THEN 1 ELSE 0 END
+                ) AS total_count
+              FROM education_day
+              WHERE class_room_id = ${workingClassroomId}
+                AND date IN (${dates.map((d) => `'${d}'`).join(", ")})
+            )
+      SELECT 
+      s.id, s.fname, s.lname,
+          -- المجموع (sum)
+          COALESCE(ROUND(${sumExpressions}, 2), 0)  as "المجموع",
+          COALESCE(ROUND(
+            (COALESCE((SELECT * FROM obligatory_days_total_count), 0) - COALESCE(jac.count, 0))
+        , 2), 0) as "الحضور"
+      FROM students s 
+      LEFT JOIN day_evaluations de ON s.id = de.student_id 
+      LEFT JOIN day_requirements dr ON dr.student_id = s.id 
+      LEFT JOIN jabsence_counts jac ON s.id = jac.student_id
+      WHERE s.id in (${studentsList})
+      GROUP BY s.id, s.fname, s.lname
+      ORDER BY fname, lname;
+      `);
+
+    if (!results.length || !results[0].values.length) {
+      window.showToast("warning", "لا يوجد طلاب في هذا القسم.");
+      return;
+    }
+
+    let students = results[0].values.map((row) => {
+      const name = `${row[1]} ${row[2]}`;
+      const fullAddedPoints = studentsAppends[row[0]]?.points || 0;
+      const order = ((row[3] + fullAddedPoints) / row[4]).toFixed(2);
+      return {
+        id: row[0],
+        name: name,
+        order: order,
+      };
+    });
+
+    students = [...students]
+      .sort((a, b) => parseFloat(b.order) - parseFloat(a.order))
+      .reduce((acc, item, index, arr) => {
+        const rank =
+          index === 0 ||
+          parseFloat(item.order) !== parseFloat(arr[index - 1].order)
+            ? index + 1
+            : acc[acc.length - 1].order;
+        acc.push({ ...item, order: rank.toString() });
+        return acc;
+      }, []);
+
+    // Collect data for all students
+    const allStudentData = [];
+    for (const student of students) {
+      const studentData = await getStudentData(student.id, dates);
+      if (studentData.length > 0) {
+        allStudentData.push({
+          studentId: student.id,
+          studentName: student.name,
+          studentOrder: student.order,
+          data: studentData,
+          recordsCounts: new Set(
+            studentData.map((i) =>
+              new Intl.DateTimeFormat("ar-DZ-u-ca-islamic-umalqura", {
+                year: "numeric",
+                month: "long",
+              }).format(new Date(i.day)),
+            ),
+          ).size,
+        });
+      }
+    }
+
+    if (allStudentData.length === 0) {
+      window.showToast("warning", "لا توجد بيانات للطلاب في هذه الفترة.");
+      return;
+    }
+
+    project_db
+      .exec(
+        `
+      SELECT ed.date, el.detail FROM evaluation_ladder el
+      LEFT JOIN education_day ed ON el.id = ed.evaluation_ladder_id
+      WHERE class_room_id=${workingClassroomId} AND date in (${dates.map((date) => `'${date}'`).join(", ")}) ;
+      `,
+      )[0]
+      .values.forEach((row) => {
+        usedEvaluationLaddersValues[row[0]] = JSON.parse(row[1]);
+      });
+
+    // Create single PDF with all students
+    createMultiStudentPDF(allStudentData, dates);
+  } catch (error) {
+    console.error("Error generating PDF:", error);
+    window.showToast("warning", "حدث خطأ في إنشاء كشوف النقاط");
+  }
+
+  // Get data for a single student
+  async function getStudentData(studentId, dates) {
+    const dateList = dates.map((date) => `'${date}'`).join(", ");
+
+    const query = `
+        SELECT 
+            ed.date as day,
+            ed.isObligatory as is_obligatory,
+            ed.second_day as secondDay,
+            s.fname || ' ' || s.lname as student_name,
+            dr.detail,
+            de.prayer,
+            de.haircut,
+            de.behavior,
+            de.clothing,
+            de.retard,
+            de.attendance,
+            de.added_points,
+            de.second_day as secondDayEval,
+            dr.moyenne as requirements_score,
+            de.moyenne as evaluation_score
+        FROM education_day ed
+        LEFT JOIN day_requirements dr ON ed.id = dr.day_id AND dr.student_id = ${studentId}
+        LEFT JOIN day_evaluations de ON ed.id = de.day_id AND de.student_id = ${studentId}
+        LEFT JOIN students s ON s.id = ${studentId}
+        WHERE ed.date IN (${dateList})
+        AND ed.class_room_id = ${workingClassroomId}
+        ORDER BY ed.date
+    `;
+
+    const results = project_db.exec(query);
+    if (!results.length) return [];
+
+    const result = results[0];
+    const columns = result.columns;
+    const values = result.values;
+
+    return values.map((row) => {
+      const obj = {};
+      columns.forEach((col, index) => {
+        obj[col] = row[index];
+      });
+      return obj;
+    });
+  }
+
+  // Create multi-student PDF with one student per page
+  async function createMultiStudentPDF(allStudentData, dates) {
+    const A4_WIDTH = 595.28;
+    const A4_HEIGHT = 841.89;
+
+    const content = [];
+
+    // First, collect all student data lengths and create pairs
+    const studentPages = createStudentPagesWithPairs(allStudentData);
+
+    // Create content for each page
+    studentPages.forEach((pageStudents, pageIndex) => {
+      if (pageIndex > 0) {
+        content.push({ text: "", pageBreak: "before" });
+      }
+
+      // Create stacked students (one under another)
+      const pageContent = [];
+      pageStudents.forEach((studentReport, studentIndex) => {
+        if (studentIndex > 0) {
+          // Add separator between students (except for the first one)
+          content.push({
+            text: "ــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــ",
+            bold: true,
+            absolutePosition: {
+              y: 841.89 / 2 - 7,
+              x: 20,
+            },
+          });
+        }
+
+        // Add student content
+        if (studentReport) {
+          pageContent.push(
+            ...createStudentContent(
+              studentReport,
+              dates,
+              studentIndex > 0,
+              pageStudents.length > 1,
+            ),
+          );
+        }
+      });
+
+      content.push(...pageContent);
+    });
+
+    const docDefinition = {
+      pageSize: "A4",
+      pageMargins: [20, 0, 20, 0],
+      pageOrientation: "portrait",
+      content: content,
+      styles: {
+        header: {
+          fontSize: 14,
+          bold: true,
+          // color: "#2c3e50",
+        },
+        subheader: {
+          fontSize: 10,
+          bold: true,
+          // color: "#34495e",
+          margin: [0, 2, 0, 2],
+        },
+        tableHeader: {
+          fontSize: 9,
+          bold: true,
+          // color: "#2c3e50",
+          fillColor: "#ecf0f1",
+        },
+        tableCell: {
+          fontSize: 8,
+          lineHeight: 1.1,
+        },
+        summary: {
+          fontSize: 10,
+          bold: true,
+          margin: [0, 8, 0, 4],
+          // color: "#2c3e50",
+        },
+      },
+      defaultStyle: {
+        alignment: "right",
+      },
+    };
+
+    await import("./pdfmake.js");
+    await import("./vfs_fonts.js");
+    pdfMake.createPdf(docDefinition).open();
+  }
+
+  // Create student pages by first collecting all data lengths and pairing students with <10 records
+  function createStudentPagesWithPairs(allStudentData) {
+    // Create arrays for students with less than 10 records and those with 10 or more
+    const studentsWithFewRecords = [];
+    const studentsWithManyRecords = [];
+
+    // First pass: categorize all students by their data length
+    allStudentData.forEach((studentReport) => {
+      if (
+        tableWithins.resumePagesChecked &&
+        studentReport.recordsCounts <= 20
+      ) {
+        studentsWithFewRecords.push(studentReport);
+      } else if (studentReport.recordsCounts < 52) {
+        studentsWithManyRecords.push(studentReport);
+      } else {
+        window.showToast(
+          "warning",
+          `عدد الصفوف لـ${studentReport.studentName} تجاوز الحد بـ${studentReport.recordsCounts - 52} صف`,
+        );
+        throw new Error("عدد الصفوف تجاوز الحد الأقصى");
+      }
+    });
+
+    const pages = [];
+
+    // Pair students with few records (2 per page)
+    for (let i = 0; i < studentsWithFewRecords.length; i += 2) {
+      if (i + 1 < studentsWithFewRecords.length) {
+        // Pair two students on one page
+        pages.push([studentsWithFewRecords[i], studentsWithFewRecords[i + 1]]);
+      } else {
+        // Last student with few records (odd number)
+        pages.push([studentsWithFewRecords[i], null]);
+      }
+    }
+
+    // Add students with many records (1 per page)
+    studentsWithManyRecords.forEach((studentReport) => {
+      pages.push([studentReport]);
+    });
+
+    return pages;
+  }
+
+  // Create student content (reusable for both single and stacked layouts)
+  function createStudentContent(
+    studentReport,
+    dates,
+    isSecond,
+    isStacked = false,
+  ) {
+    const { recordsCounts, data, studentName, studentOrder, studentId } =
+      studentReport;
+    const totalRecordCounts = recordsCounts + 3;
+    const tableCellHeight = isStacked ? 10 : 33 - totalRecordCounts / 2;
+    const tableBody = createTableBody(
+      data,
+      studentId,
+      tableCellHeight / 3,
+      isStacked,
+    );
+
+    const content = [
+      // Student header
+      {
+        text: reverseArabicWords(
+          `التقرير  السنوي لمتابعة الطالب${isGirls ? "ة" : ""} في حفظ القرآن الكريم`,
+        ),
+        style: "header",
+        alignment: "center",
+        fontSize: isStacked ? 14 : 14,
+        absolutePosition: {
+          y: (isSecond ? 841.89 / 2 : 0) + 15,
+        },
+      },
+      {
+        text: reverseArabicWords(`الطالب${isGirls ? "ة" : ""}: ${studentName}`),
+        style: "subheader",
+        alignment: "right",
+        fontSize: isStacked ? 9 : 10,
+        absolutePosition: {
+          y: (isSecond ? 841.89 / 2 : 0) + 35,
+        },
+      },
+      {
+        text: reverseArabicWords(
+          workingClassroomSelect.selectedOptions[0].text
+            .split("-")
+            .slice(0, 2)
+            .join(" - ") + "-",
+        ),
+        style: "subheader",
+        alignment: "center",
+        fontSize: isStacked ? 9 : 10,
+        absolutePosition: {
+          y: (isSecond ? 841.89 / 2 : 0) + 35,
+        },
+      },
+      {
+        text: reverseArabicWords(
+          `حرر  يوم: ${new Intl.DateTimeFormat("ar-DZ-u-ca-islamic-umalqura", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+            weekday: "long",
+          }).format()}`,
+        ),
+        style: "subheader",
+        alignment: "left",
+        fontSize: isStacked ? 9 : 10,
+        absolutePosition: {
+          y: (isSecond ? 841.89 / 2 : 0) + 35,
+          x: 18,
+        },
+      },
+      // Table
+      {
+        table: {
+          headerRows: 2,
+          heights: tableCellHeight,
+          widths: [32, 400, 90],
+          body: tableBody,
+        },
+        fontSize: isStacked ? 9 : 10,
+        absolutePosition: {
+          y:
+            (isStacked
+              ? 841.89 / 4 + (isSecond ? 841.89 / 2 : 0) - 60
+              : 841.89 / 2 -
+                (totalRecordCounts <= 25
+                  ? -1.5 * totalRecordCounts
+                  : totalRecordCounts / 2)) -
+            (totalRecordCounts / (isStacked ? 2 : totalRecordCounts)) *
+              (isStacked ? 13 : 345),
+          x: 25,
+        },
+        layout: {
+          paddingLeft: function (i, node) {
+            return 3;
+          },
+          paddingRight: function (i, node) {
+            return 3;
+          },
+          hLineWidth: function (i, node) {
+            return 0.5;
+          },
+          vLineWidth: function (i, node) {
+            return 0.5;
+          },
+          hLineColor: function (i, node) {
+            return "#515151";
+          },
+          vLineColor: function (i, node) {
+            return "#515151";
+          },
+          fillColor: function (rowIndex, node, columnIndex) {
+            return rowIndex === 0 ? "#f8f9fa" : null;
+          },
+        },
+        margin: [0, 0, 0, 8],
+      },
+
+      // Summary section
+      ...createCompactSummarySection(
+        data,
+        studentId,
+        studentOrder,
+        isSecond,
+        isStacked,
+      ),
+    ];
+
+    return content;
+  }
+
+  // Create compact table body for stacked layout
+  function createTableBody(
+    studentData,
+    studentId,
+    marginTop,
+    isStacked = false,
+  ) {
+    // Arabic headers - two rows for date
+    const topHeaderRows = [
+      {
+        text: "المعدل",
+        style: "tableHeader",
+        alignment: "center",
+        marginTop: marginTop,
+        marginBottom: -2,
+      },
+      {
+        text: "التفاصيل",
+        style: "tableHeader",
+        alignment: "center",
+        marginTop: marginTop,
+        marginBottom: -2,
+      },
+      {
+        text: "الشهر",
+        style: "tableHeader",
+        alignment: "center",
+        marginTop: marginTop,
+        marginBottom: -2,
+      },
+    ];
+
+    // Group records by month and year
+    const groupedRecords = groupRecordsByMonthYear(studentData);
+
+    // Create table body
+    const body = [];
+
+    groupedRecords.forEach((monthGroup) => {
+      const { monthYear, _ } = monthGroup;
+      const monthStudentData = studentData.filter(
+        (record) =>
+          monthYear ===
+          `${
+            new Intl.DateTimeFormat("ar-DZ-u-ca-islamic-umalqura", {
+              year: "numeric",
+            })
+              .format(new Date(record.day))
+              .split(" ")[0]
+          } ${reverseArabicWords(
+            new Intl.DateTimeFormat("ar-DZ-u-ca-islamic-umalqura", {
+              month: "long",
+            }).format(new Date(record.day)),
+          )}`,
+      );
+
+      const row = createEmptyArray(3);
+
+      // Month (only for first record in month group)
+      row[2] = {
+        text: reverseArabicWords(monthYear),
+        style: "tableCell",
+        alignment: "center",
+        fontSize: 10,
+        margin: [-2, marginTop * 2, -1, -3],
+      };
+
+      const totalDays = monthStudentData
+        .map((i) => (!i.secondDay ? 1 : 2))
+        .reduce((accumulator, currentValue) => accumulator + currentValue, 0);
+
+      const validDays = monthStudentData.filter(
+        (dayRecord) => dayRecord.attendance !== null,
+      );
+
+      const presentDays =
+        validDays.filter((record) => record.attendance === 1).length +
+        validDays.filter(
+          (record) =>
+            JSON.parse(record.secondDayEval || "{}")?.attendance === 1,
+        ).length;
+
+      const jusPresentDays =
+        validDays.filter((record) => record.attendance === 0).length +
+        validDays.filter(
+          (record) =>
+            JSON.parse(record.secondDayEval || "{}")?.attendance === 0,
+        ).length;
+
+      if (presentDays === 0) {
+        row[0] = {
+          text: `غـــــــــــيـــــــــــــــــاب  كــــلــي ${jusPresentDays === 0 ? "" : reverseArabicWords("(" + " مبرر  " + jusPresentDays + ")")}                     `,
+          bold: true,
+          fontSize: 9,
+          style: "tableCell",
+          alignment: "center",
+          colSpan: 2,
+          margin: [-2, marginTop, -2, 0],
+        };
+
+        body.push(row);
+        return;
+      }
+
+      const totalRetard = validDays.reduce(
+        (sum, record) => sum + (record.retard >= 0 ? record.retard : 0),
+        0,
+      );
+
+      const totalSaveQuantity = (
+        validDays.reduce(
+          (sum, record) =>
+            sum +
+            (Array.isArray(JSON.parse(record.detail || "[]"))
+              ? JSON.parse(record.detail || "[]").reduce(
+                  (acc, val) =>
+                    acc +
+                    (val["النوع"] === "حفظ"
+                      ? parseFloat(val["المقدار"] || 0)
+                      : 0),
+                  0,
+                )
+              : 0),
+          0,
+        ) / 15
+      ).toFixed(1);
+      const totalReviseQuantity = (
+        validDays.reduce(
+          (sum, record) =>
+            sum +
+            (Array.isArray(JSON.parse(record.detail || "[]"))
+              ? JSON.parse(record.detail || "[]").reduce(
+                  (acc, val) =>
+                    acc +
+                    (val["النوع"] !== "حفظ"
+                      ? parseFloat(val["المقدار"] || 0)
+                      : 0),
+                  0,
+                )
+              : 0),
+          0,
+        ) / 15
+      ).toFixed(1);
+
+      const totalQuantity =
+        (totalSaveQuantity > 0 ? totalSaveQuantity + "  حفظ" : "") +
+        (totalReviseQuantity > 0
+          ? (totalSaveQuantity > 0 ? " و " : "") +
+            totalReviseQuantity +
+            "  مراجعة"
+          : "");
+
+      const total = validDays.reduce(
+        (sum, record) =>
+          sum +
+          (Number(JSON.parse(record.secondDayEval || "{}")?.moyenne) || 0) +
+          (record.requirements_score || 0) +
+          (record.evaluation_score || 0),
+        0,
+      );
+
+      const totalMoyenne =
+        total /
+        (totalDays -
+          monthStudentData.filter(
+            (record) => record.attendance === 0 || record.is_obligatory === 0,
+          ).length -
+          monthStudentData.filter(
+            (record) =>
+              Number(JSON.parse(record.secondDayEval || "{}")?.attendance) ===
+                0 ||
+              Number(JSON.parse(record.secondDay || "{}")?.isObligatory) === 0,
+          ).length);
+
+      const detailString = ` إجمالي الصفحات: ${totalQuantity || "0"}     |  مجموع النقاط: ${total.toFixed(2)} 
+      الحضور الإجمالي: ${presentDays}  من ${totalDays}  ${jusPresentDays === 0 ? "" : reverseArabicWords("(" + " مبرر " + jusPresentDays + ")")}    | ${totalRetard>0?"  تأخر بـ: "+totalRetard+" دقيقة":" بدون تأخر "}      |  نسبة الحضور: ${((presentDays / totalDays) * 100).toFixed(1)}% `;
+
+      // Details
+      row[1] = {
+        text: detailString,
+        style: "tableCell",
+        alignment: "right",
+        fontSize: 9,
+        margin: [0, 1, 2, -1],
+      };
+
+      // day moyenne points
+      row[0] = {
+        text: totalMoyenne.toFixed(2),
+        bold: true,
+        fontSize: 9,
+        style: "tableCell",
+        alignment: "center",
+        margin: [-2, marginTop * 2, -2, -2],
+      };
+
+      body.push(row);
+    });
+
+    return [topHeaderRows, ...body];
+  }
+
+  // Helper function to create an empty array with specified length
+  function createEmptyArray(length) {
+    return new Array(length).fill({});
+  }
+
+  // Helper function to group records by month and year
+  function groupRecordsByMonthYear(studentData) {
+    const groups = {};
+
+    studentData.forEach((record) => {
+      const recordDate = new Date(record.day);
+      const monthYear = `${
+        new Intl.DateTimeFormat("ar-DZ-u-ca-islamic-umalqura", {
+          year: "numeric",
+        })
+          .format(recordDate)
+          .split(" ")[0]
+      } ${reverseArabicWords(
+        new Intl.DateTimeFormat("ar-DZ-u-ca-islamic-umalqura", {
+          month: "long",
+        }).format(recordDate),
+      )}`;
+
+      if (!groups[monthYear]) {
+        groups[monthYear] = [];
+      }
+      groups[monthYear].push(record);
+    });
+
+    // Convert to array and sort by date
+    return Object.keys(groups)
+      .map((monthYear) => ({
+        monthYear,
+        records: groups[monthYear].sort(
+          (a, b) => new Date(a.day) - new Date(b.day),
+        ),
+      }))
+      .sort((a, b) => new Date(a.records[0].day) - new Date(b.records[0].day));
+  }
+
+  // Create compact summary section
+  function createCompactSummarySection(
+    studentData,
+    studentId,
+    studentOrder,
+    isSecond,
+    isStacked = false,
+  ) {
+    const totalDays = studentData
+      .map((i) => (!i.secondDay ? 1 : 2))
+      .reduce((accumulator, currentValue) => accumulator + currentValue, 0);
+
+    const validDays = studentData.filter(
+      (dayRecord) => dayRecord.attendance !== null,
+    );
+
+    if (totalDays === 0) return [];
+
+    const fullAddedPoints = studentsAppends[studentId]?.points || 0;
+
+    const presentDays =
+      validDays.filter((record) => record.attendance === 1).length +
+      validDays.filter(
+        (record) => JSON.parse(record.secondDayEval || "{}")?.attendance === 1,
+      ).length;
+
+    const totalSaveQuantity = (
+      validDays.reduce(
+        (sum, record) =>
+          sum +
+          (Array.isArray(JSON.parse(record.detail || "[]"))
+            ? JSON.parse(record.detail || "[]").reduce(
+                (acc, val) =>
+                  acc +
+                  (val["النوع"] === "حفظ"
+                    ? parseFloat(val["المقدار"] || 0)
+                    : 0),
+                0,
+              )
+            : 0),
+        0,
+      ) / 15
+    ).toFixed(1);
+    const totalReviseQuantity = (
+      validDays.reduce(
+        (sum, record) =>
+          sum +
+          (Array.isArray(JSON.parse(record.detail || "[]"))
+            ? JSON.parse(record.detail || "[]").reduce(
+                (acc, val) =>
+                  acc +
+                  (val["النوع"] !== "حفظ"
+                    ? parseFloat(val["المقدار"] || 0)
+                    : 0),
+                0,
+              )
+            : 0),
+        0,
+      ) / 15
+    ).toFixed(1);
+
+    const totalQuantity =
+      (totalSaveQuantity > 0 ? totalSaveQuantity + "  حفظ" : "") +
+      (totalReviseQuantity > 0
+        ? (totalSaveQuantity > 0 ? " و " : "") +
+          totalReviseQuantity +
+          "  مراجعة"
+        : "");
+
+    const total =
+      validDays.reduce(
+        (sum, record) =>
+          sum +
+          (Number(JSON.parse(record.secondDayEval || "{}")?.moyenne) || 0) +
+          (record.requirements_score || 0) +
+          (record.evaluation_score || 0),
+        0,
+      ) + (fullAddedPoints || 0);
+
+    const totalMoyenne =
+      total /
+      (totalDays -
+        studentData.filter(
+          (record) => record.attendance === 0 || record.is_obligatory === 0,
+        ).length -
+        studentData.filter(
+          (record) =>
+            Number(JSON.parse(record.secondDayEval || "{}")?.attendance) ===
+              0 ||
+            Number(JSON.parse(record.secondDay || "{}")?.isObligatory) === 0,
+        ).length);
+
+    const attendanceRate = ((presentDays / totalDays) * 100).toFixed(1);
+    const fullNote = studentsAppends[studentId]?.note || "";
+
+    // Full summary for single student view
+    return [
+      {
+        text: reverseArabicWords("الملخص"),
+        style: "summary",
+        margin: [0, 5, 0, 8],
+        alignment: "center",
+        absolutePosition: {
+          y:
+            841.89 / (isStacked && !isSecond ? 2 : 1) -
+            (tableWithins.withinSignature || fullNote ? 75 : 55),
+        },
+      },
+      {
+        table: {
+          widths: [
+            70,
+            95,
+            totalSaveQuantity > 0 && totalReviseQuantity > 0 ? 184 : 140,
+            88,
+            90,
+          ],
+          body: [
+            [
+              {
+                text: `الترتيب: ${studentOrder}/${
+                  studentsList.split(",").length
+                }`,
+                style: "tableCell",
+                bold: true,
+                alignment: "center",
+                border: [true, true, true, true],
+                fontSize: 12,
+                marginTop: 3,
+                marginLeft: -3,
+                marginRight: -3,
+              },
+              {
+                text: `المعدل العام: ${totalMoyenne.toFixed(2)}`,
+                style: "tableCell",
+                alignment: "center",
+                bold: true,
+                border: [true, false, false, false],
+                fontSize: 10,
+                marginTop: 3,
+                marginLeft: -3,
+                marginRight: -3,
+              },
+              {
+                text: `إجمالي الصفحات: ${totalQuantity || "0"}`,
+                style: "tableCell",
+                alignment: "center",
+                border: [true, false, false, false],
+                fontSize: 10,
+                marginTop: 3,
+                marginLeft: -3,
+                marginRight: -3,
+              },
+              {
+                text: `نسبة  الحضور: ${attendanceRate}%`,
+                style: "tableCell",
+                alignment: "center",
+                border: [true, false, false, false],
+                fontSize: 10,
+                marginTop: 3,
+                marginLeft: -3,
+                marginRight: -3,
+              },
+              {
+                text: `إجمالي  الحصص: ${totalDays}`,
+                style: "tableCell",
+                alignment: "left",
+                border: [true, false, false, false],
+                fontSize: 10,
+                marginTop: 3,
+                marginLeft: 0,
+              },
+            ],
+          ],
+        },
+        absolutePosition: {
+          y:
+            841.89 / (isStacked && !isSecond ? 2 : 1) -
+            (tableWithins.withinSignature || fullNote ? 60 : 40),
+          x: 18,
+        },
+        margin: [0, 0, 0, 5],
+      },
+      ...[
+        fullNote
+          ? {
+              text: reverseArabicWords(`الملاحظة:  ${fullNote}`),
+              margin: [0, 5, 0, 8],
+              alignment: "right",
+              bold: true,
+              absolutePosition: {
+                y: 841.89 / (isStacked && !isSecond ? 2 : 1) - 25,
+              },
+            }
+          : {},
+      ],
+      ...[
+        tableWithins.withinSignature
+          ? {
+              text: reverseArabicWords("إمضاء الولي            ×"),
+              margin: [0, 5, 0, 8],
+              alignment: "left",
+              fontSize: 10,
+              absolutePosition: {
+                y: 841.89 / (isStacked && !isSecond ? 2 : 1) - 25,
+                x: 50,
+              },
+            }
+          : {},
+      ],
+    ];
+  }
+
+  // Function to reverse words in a string (for Arabic)
+  function reverseArabicWords(str) {
+    return str.split(" ").reverse().join(" ");
+  }
+}
+
 async function createTalkinBulletins(dates, studentsIDS = null) {
   const studentsList = studentsIDS || getStatisticsSelectedStudentsId();
   if (!studentsList) {
@@ -6541,41 +8439,6 @@ async function createTalkinBulletins(dates, studentsIDS = null) {
     : {};
 
   try {
-    const attendanceRes = {};
-    project_db
-      .exec(
-        `
-      WITH ${dates
-        .map(
-          (date, index) =>
-            `day_id${index} AS ( SELECT id FROM education_day WHERE date = '${date}' )`,
-        )
-        .join(",\n")}
-      SELECT
-          s.id,
-          -- مجموع الحضور (Total Present Days Count)
-          (${dates
-            .map(
-              (_, index) =>
-                `CASE WHEN de${index}.attendance = 0 THEN 1 ELSE 0 END`,
-            )
-            .join(" +\n        ")}) as "المجموع"
-      FROM students s
-      ${dates
-        .map(
-          (date, index) =>
-            `LEFT JOIN day_evaluations de${index} ON s.id = de${index}.student_id AND de${index}.day_id IN (SELECT id FROM day_id${index})`,
-        )
-        .join("\n")}
-      WHERE s.id in (${studentsList})
-      GROUP BY s.id
-      ORDER BY s.id;`,
-      )[0]
-      .values.forEach((row) => {
-        const studentId = row[0];
-        const totalPresent = row[1];
-        attendanceRes[studentId] = dates.length - totalPresent;
-      });
 
     // Get all student IDs from the table
     const dateCtes = dates
@@ -6894,7 +8757,7 @@ async function createTalkinBulletins(dates, studentsIDS = null) {
           workingClassroomSelect.selectedOptions[0].text
             .split("-")
             .slice(0, 2)
-            .join(" -") + "-",
+            .join(" - ") + "-",
         ),
         style: "subheader",
         alignment: "center",
@@ -6905,12 +8768,7 @@ async function createTalkinBulletins(dates, studentsIDS = null) {
       },
       {
         text: reverseArabicWords(
-          `حرر  يوم: ${new Intl.DateTimeFormat("ar-DZ-u-ca-islamic-umalqura", {
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-            weekday: "long",
-          }).format()}`,
+          `الفترة: ${formatHijriDate(statisticsDateInput._flatpickr.selectedDates[0], true,true)} - ${formatHijriDate(statisticsDateInput._flatpickr.selectedDates[1], true,true)}`,
         ),
         style: "subheader",
         alignment: "left",
@@ -6954,10 +8812,10 @@ async function createTalkinBulletins(dates, studentsIDS = null) {
             return 0.3;
           },
           hLineColor: function (i, node) {
-            return "#aaaaaa";
+            return "#515151";
           },
           vLineColor: function (i, node) {
-            return "#aaaaaa";
+            return "#515151";
           },
           fillColor: function (rowIndex, node, columnIndex) {
             return rowIndex === 0 ? "#f8f9fa" : null;
@@ -7779,11 +9637,8 @@ async function showResultsStatistics() {
             },
           },
         ]),
-    ...(!isTalkinClassroom && eduDatesCount >= 52
-      ? []
-      : [
           {
-            text: "كشوف النقاط",
+      text: !isTalkinClassroom && eduDatesCount > 52 ? "كشوف النقاط الملخصة" : "كشوف النقاط",
             action: async function () {
               const bulletinAppendsModal = new bootstrap.Modal(
                 "#bulletinAppendsModal",
@@ -7838,14 +9693,12 @@ async function showResultsStatistics() {
             </div>
           </div>`;
               });
-              document.getElementById("setAllAppendsBtn").onclick =
-                function () {
+        document.getElementById("setAllAppendsBtn").onclick = function () {
                   const points =
                     parseInt(document.getElementById("points-all").value) || 0;
                   const note = document.getElementById("note-all").value || "";
                   statisticsSelectedStudentsList.forEach((student) => {
-                    document.getElementById(`points-${student.id}`).value =
-                      points;
+            document.getElementById(`points-${student.id}`).value = points;
                     document.getElementById(`note-${student.id}`).value = note;
                   });
                 };
@@ -7884,13 +9737,14 @@ async function showResultsStatistics() {
                   await showLoadingModal("جاري إنشاء كشوف النقاط");
                   initBullentinConfigs();
                   if (isTalkinClassroom) createTalkinBulletins(dates);
-                  else createBulletins(dates);
+            else if (eduDatesCount <= 52) createBulletins(dates);
+            else createSummaryBulletins(dates);
                   hideLoadingModal();
                 };
             },
           },
-        ]),
   ];
+
   const tableColumns = [
     "#",
     "اسم الطالب",
@@ -7913,14 +9767,16 @@ async function showResultsStatistics() {
   setStatisticsTable(query, tableColumns, buttons);
 }
 
-async function showAvanceChart() {
-  const studentID = getStatisticsSelectedStudentsId();
+async function buildAvanceChart(
+  studentID = getStatisticsSelectedStudentsId(),
+  datesInRange = null,
+) {
   if (!studentID) {
     window.showToast("warning", "يرجى اخيار طلاب من القائمة.");
     return;
   }
 
-  let [dates, isFullMonth] = getDatesInRange();
+  let [dates, isFullMonth] = datesInRange || getDatesInRange();
   dates = dates.sort((a, b) => new Date(a) - new Date(b));
 
   if (!dates.length) {
@@ -8050,16 +9906,35 @@ async function showAvanceChart() {
       const count = getGroupCount(groupBy);
       // reversed: last group on top
       for (let gi = count - 1; gi >= 0; gi--) {
+        if (displayEmptyAyat) {
         const hdr = document.createElement("div");
         hdr.className = "group-header";
         hdr.innerHTML = `<span class="group-header-label">${getGroupLabel(gi, groupBy)}</span><div class="group-header-line"></div>`;
         frag.appendChild(hdr);
+        }
         // collect verses for this group in reversed order
         const groupVerses = [];
         for (let i = 0; i < TOTAL; i++)
           if (getGroupIndex(i, groupBy) === gi) groupVerses.push(i);
+
+        if (displayEmptyAyat) {
         for (let k = 0; k <= groupVerses.length - 1; k++)
           frag.appendChild(makeSq(groupVerses[k]));
+        } else {
+          const cmap = new Set();
+          indices.forEach((i) => cmap.add(i));
+          for (const sq of groupVerses) {
+            if (cmap.has(sq)) {
+              const hdr = document.createElement("div");
+              hdr.className = "group-header";
+              hdr.innerHTML = `<span class="group-header-label">${getGroupLabel(gi, groupBy)}</span><div class="group-header-line"></div>`;
+              frag.appendChild(hdr);
+              for (let k = 0; k <= groupVerses.length - 1; k++)
+                frag.appendChild(makeSq(groupVerses[k]));
+              break;
+            }
+          }
+        }
       }
     }
 
@@ -8072,6 +9947,18 @@ async function showAvanceChart() {
     const sq = document.createElement("div");
     sq.className = "verse-sq";
     sq.dataset.idx = i;
+    return sq;
+  }
+  function makeG(k, i) {
+    const sq = document.createElement("g");
+    sq.dataset.idx = i;
+    const rec = document.createElement("rect");
+    rec.className = "verse-sq";
+    rec.setAttribute("width", 8);
+    rec.setAttribute("height", 8);
+    rec.setAttribute("x", 4);
+    rec.setAttribute("y", 4);
+    sq.appendChild(rec);
     return sq;
   }
 
@@ -8999,6 +10886,8 @@ document.addEventListener("DOMContentLoaded", function () {
     minimizeModalBtn.onclick = async function () {
       showMaximizeModalBtn();
 
+      minimizeBag["justifiedAbsenceInputDisabled"] =
+        document.getElementById("JustifiedAbsence").disabled;
       minimizeBag["attendance"] = getAttendanceInputValue();
       if (!isTalkinClassroom) {
       minimizeBag["retard"] = retardInput.value;

@@ -282,7 +282,7 @@ async function searchFileInDrive(accessToken = null) {
 }
 
 // Reusable OAuth function
-export async function initializeGoogleAuth(callback) {
+async function initializeGoogleAuth(callback) {
   return new Promise((resolve, reject) => {
     const client = google.accounts.oauth2.initTokenClient({
       client_id:
