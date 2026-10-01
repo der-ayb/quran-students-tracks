@@ -169,7 +169,7 @@ function codeJwt(payload) {
 //   const client = google.accounts.oauth2.initTokenClient({
 //     client_id:
 //       "233292477998-p0cdmaicj108fcp76fk5tpisb6qdmmgc.apps.googleusercontent.com",
-//     scope: "https://www.googleapis.com/auth/drive.file",
+//     scope: "https://www.googleapis.com/auth/drive.readonly",
 //     callback: async (tokenResponse) => {
 //       if (tokenResponse && tokenResponse.access_token) {
 //         await putAccessToken(db, tokenResponse.access_token);
