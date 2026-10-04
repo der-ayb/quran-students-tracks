@@ -15,7 +15,7 @@ import { registerSW } from "virtual:pwa-register";
 import swal from "sweetalert";
 import initSqlJs from "sql.js";
 
-import { jQuery, $ } from "jquery";
+import { $ } from "jquery";
 import DataTable from "datatables.net-bs5";
 import "datatables.net-buttons-bs5";
 // import "datatables.net-buttons/js/buttons.colVis.mjs";
@@ -2055,7 +2055,6 @@ async function showOffCanvas(title, body, side = "top") {
 window.markPresence = async function (
   studentId,
   isPrePriorityObj,
-  attendance,
   noRetard = false,
 ) {
   const retard_time = noRetard
@@ -2317,7 +2316,9 @@ async function showStudentDayModal(
     document.getElementById("JustifiedAbsence").disabled =
       (studentsDayInfos.secondDayIsWorkingDay
     ? studentsDayInfos.secondDayInfos.isObligatory
-    : studentsDayInfos.isObligatory) && !isTalkinClassroom ? false : true;
+        : studentsDayInfos.isObligatory) && !isTalkinClassroom
+        ? false
+        : true;
   } else {
     document.getElementById("evaluationCollapse").parentElement.style.display =
       !is_talkin_classroom ? "block" : "none";
@@ -2705,11 +2706,7 @@ async function loadDayStudentsList() {
             minimizeModalBtn.disabled = true;
           }
 
-          showStudentDayModal(
-            true,
-            is_talkin_classroom,
-            event.detail === true,
-          );
+          showStudentDayModal(true, is_talkin_classroom, event.detail === true);
 
           for (const option of requirTeacherInput.options) {
             option.disabled = option.value == student_id;
@@ -2914,8 +2911,8 @@ async function loadDayStudentsList() {
             : attendanceValue == 0
               ? "غياب مبرر"
               : isCurrentDay()
-                ? `<button oncontextmenu="const cscy=window.scrollY;markPresence(${student_id},${prePriorityObj ? true : false},${row[result.columns.indexOf("attendance")]},true);window.scrollTo({top: cscy,behavior: 'instant'});" 
-                           onclick="const cscy=window.scrollY;markPresence(${student_id},${prePriorityObj ? true : false},${row[result.columns.indexOf("attendance")]});window.scrollTo({top: cscy,behavior: 'instant'});" 
+                ? `<button oncontextmenu="const cscy=window.scrollY;markPresence(${student_id},${prePriorityObj ? true : false},true);window.scrollTo({top: cscy,behavior: 'instant'});" 
+                           onclick="const cscy=window.scrollY;markPresence(${student_id},${prePriorityObj ? true : false});window.scrollTo({top: cscy,behavior: 'instant'});" 
                            class="btn fa-solid fa-square-check px-1" style="transform: scale(1.3); cursor: pointer;"></button>` +
                   (parentPhone
                     ? `<input type="checkbox" id="sms_btn${student_id}" onclick="window.location.href='sms:${parentPhone}?body= السلام عليكم. ليكن في علمكم أن إبن${isGirls ? "ت" : ""}كم ${studentFName} غائب${
@@ -4325,7 +4322,11 @@ async function showTab(tabId = null) {
       loginStatus.innerText.includes("لايوجد اتصال بالانترنيت")
     ) {
       if (navigator.onLine) initAuth();
-      else loginStatus.innerHTML = "<p>لايوجد اتصال بالانترنيت</p>";
+      else {
+        window.addEventListener("online", async () => await initAuth(), {
+          once: true,
+        });
+      }
     }
   } else if (workingClassroomId) {
     if (tabId === "pills-students") {
@@ -8141,7 +8142,7 @@ async function createSummaryBulletins(dates, studentsIDS = null) {
           ).length);
 
       const detailString = ` إجمالي الصفحات: ${totalQuantity || "0"}     |  مجموع النقاط: ${total.toFixed(2)} 
-      الحضور الإجمالي: ${presentDays}  من ${totalDays}  ${jusPresentDays === 0 ? "" : reverseArabicWords("(" + " مبرر " + jusPresentDays + ")")}    | ${totalRetard>0?"  تأخر بـ: "+totalRetard+" دقيقة":" بدون تأخر "}      |  نسبة الحضور: ${((presentDays / totalDays) * 100).toFixed(1)}% `;
+      الحضور الإجمالي: ${presentDays}  من ${totalDays}  ${jusPresentDays === 0 ? "" : reverseArabicWords("(" + " مبرر " + jusPresentDays + ")")}    | ${totalRetard > 0 ? "  تأخر بـ: " + totalRetard + " دقيقة" : " بدون تأخر "}      |  نسبة الحضور: ${((presentDays / totalDays) * 100).toFixed(1)}% `;
 
       // Details
       row[1] = {
@@ -8439,7 +8440,6 @@ async function createTalkinBulletins(dates, studentsIDS = null) {
     : {};
 
   try {
-
     // Get all student IDs from the table
     const dateCtes = dates
       .map(
@@ -8768,7 +8768,7 @@ async function createTalkinBulletins(dates, studentsIDS = null) {
       },
       {
         text: reverseArabicWords(
-          `الفترة: ${formatHijriDate(statisticsDateInput._flatpickr.selectedDates[0], true,true)} - ${formatHijriDate(statisticsDateInput._flatpickr.selectedDates[1], true,true)}`,
+          `الفترة: ${formatHijriDate(statisticsDateInput._flatpickr.selectedDates[0], true, true)} - ${formatHijriDate(statisticsDateInput._flatpickr.selectedDates[1], true, true)}`,
         ),
         style: "subheader",
         alignment: "left",
@@ -9638,7 +9638,10 @@ async function showResultsStatistics() {
           },
         ]),
           {
-      text: !isTalkinClassroom && eduDatesCount > 52 ? "كشوف النقاط الملخصة" : "كشوف النقاط",
+      text:
+        !isTalkinClassroom && eduDatesCount > 52
+          ? "كشوف النقاط الملخصة"
+          : "كشوف النقاط",
             action: async function () {
               const bulletinAppendsModal = new bootstrap.Modal(
                 "#bulletinAppendsModal",
@@ -9985,7 +9988,6 @@ async function buildAvanceChart(
   function hideTooltip() {
     tooltip.style.display = "none";
   }
-
   // Pointer events — work on both mouse and touch
   gridEl.addEventListener("click", (e) => {
     const sq = e.target.closest(".verse-sq");
