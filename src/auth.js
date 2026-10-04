@@ -1,5 +1,12 @@
 import { DateTime } from "luxon";
-import { project_db,workingClassroomId,loadingModalShowNumber,asyncDB,loadDBFromFile } from "./script";
+import {
+  project_db,
+  workingClassroomId,
+  loadingModalShowNumber,
+  asyncDB,
+  loadDBFromFile,
+} from "./script";
+import swal from "sweetalert";
 
 let currentUser;
 let userIsAuth = false;
@@ -7,8 +14,8 @@ let db;
 
 const googleSigninBtn = document.getElementById("googleSigninBtn");
 if (googleSigninBtn) {
-    googleSigninBtn.addEventListener("click", googleSignin);
-  }
+  googleSigninBtn.addEventListener("click", googleSignin);
+}
 async function googleSignin() {
   if (!navigator.onLine) {
     window.showToast("warning", "لا يوجد اتصال بالإنترنت.");
@@ -28,6 +35,7 @@ async function googleSignin() {
         } else if (downloadResult == false) {
           ("pass");
         } else {
+          loginStatusElement();
           await loadDBFromFile(downloadResult, true);
         }
       } catch (e) {
@@ -179,7 +187,9 @@ function codeJwt(payload) {
 //   client.requestAccessToken();
 // }
 
-function loginStatusElement(updateTime) {
+function loginStatusElement() {
+  const loginStatus = document.getElementById("loginStatus");
+  const updateTime = fromNow(localStorage.getItem("lastUpdateTime"));
   if (!currentUser) {
     const googleSigninBtn2 = googleSigninBtn.cloneNode(true);
     googleSigninBtn2.id = "googleSigninBtn2";
@@ -217,6 +227,7 @@ function loginStatusElement(updateTime) {
   document.getElementById("logoutBtn").addEventListener("click", logout);
   document.getElementById("asyncDBBtn").addEventListener("click", asyncDB);
 }
+
 export async function initAuth() {
   await openAuthDB().then(async (res) => {
     db = res;
@@ -224,14 +235,8 @@ export async function initAuth() {
     if (idToken) {
       currentUser = decodeJwt(idToken);
       userIsAuth = true;
-      if (navigator.onLine) {
-        searchFileInDrive();
-      } else {
-        loginStatusElement(fromNow(localStorage.getItem("lastUpdateTime")));
-      }
-    } else {
-      loginStatusElement(fromNow(localStorage.getItem("lastUpdateTime")));
     }
+    loginStatusElement();
   });
 }
 
@@ -245,7 +250,167 @@ async function logout() {
   await deleteAccessToken(db);
   currentUser = null;
   userIsAuth = false;
-  loginStatusElement(fromNow(localStorage.getItem("lastUpdateTime")));
+  loginStatusElement();
+}
+
+function selectFile(files = [], allowCreate = true) {
+  return new Promise((resolve) => {
+    // --- بناء محتوى النافذة كـ DOM Node (sweetalert لا يقبل نص HTML) ---
+    const wrap = document.createElement("div");
+    wrap.className = "sal-wrap";
+    wrap.setAttribute("dir", "rtl");
+
+    // عنوان القسم
+    const listLabel = document.createElement("label");
+    listLabel.className = "sal-label";
+    listLabel.textContent = "الملفات الموجودة سابقاً في حسابك";
+    wrap.appendChild(listLabel);
+
+    // قائمة الملفات أو رسالة فارغة
+    if (files.length) {
+      const ul = document.createElement("ul");
+      ul.className = "sal-file-list";
+
+      files.forEach((file, i) => {
+        const li = document.createElement("li");
+        li.className = "sal-file-item";
+        li.dataset.index = String(i);
+        li.setAttribute("role", "button");
+        li.tabIndex = 0;
+
+        const nameEl = document.createElement("span");
+        nameEl.className = "sal-file-name";
+        nameEl.textContent = `${file.name||"بدون اسم"} (${file.shared ? "مشارك" : "خاص"})`;
+
+        const timeEl = document.createElement("span");
+        timeEl.className = "sal-file-time";
+        timeEl.textContent = fromNow(file.modifiedTime);
+        timeEl.title = file.modifiedTime
+          ? new Date(file.modifiedTime).toLocaleString("ar")
+          : "";
+
+        li.appendChild(nameEl);
+        li.appendChild(timeEl);
+
+        li.addEventListener("click", () => {
+          finish(file);
+        });
+        li.addEventListener("keydown", (e) => {
+          if (e.key !== "Enter" && e.key !== " ") return;
+          e.preventDefault();
+          finish(file);
+        });
+
+        ul.appendChild(li);
+      });
+
+      wrap.appendChild(ul);
+    } else {
+      const empty = document.createElement("div");
+      empty.className = "sal-empty";
+      empty.textContent = allowCreate
+        ? "لا توجد ملفات بعد — أنشئ ملفاً من الأسفل."
+        : "لا توجد ملفات.";
+      wrap.appendChild(empty);
+    }
+
+    // قسم الإنشاء
+    if (allowCreate) {
+      const create = document.createElement("div");
+      create.className = "sal-create";
+
+      const label = document.createElement("label");
+      label.className = "sal-label";
+      label.htmlFor = "salNewFile";
+      label.textContent = "إنشاء ملف جديد";
+
+      const row = document.createElement("div");
+      row.className = "sal-input-row";
+
+      const input = document.createElement("input");
+      input.type = "text";
+      input.id = "salNewFile";
+      input.className = "sal-input";
+      input.placeholder = "اسم المدرس";
+
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.id = "salCreateBtn";
+      btn.className = "sal-btn";
+      btn.textContent = "إنشاء";
+
+      const err = document.createElement("div");
+      err.className = "sal-error";
+      err.id = "salCreateErr";
+
+      const createNew = () => {
+        const name = input.value.trim();
+        if (!name) {
+          err.textContent = "الرجاء إدخال اسم الملف.";
+          input.focus();
+          return;
+        }
+        if (files.some((f) => f.name === name)) {
+          err.textContent = "يوجد ملف بهذا الاسم بالفعل.";
+          input.focus();
+          return;
+        }
+        err.textContent = "";
+        finish({ name });
+      };
+
+      btn.addEventListener("click", createNew);
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          createNew();
+        }
+      });
+
+      row.appendChild(input);
+      row.appendChild(btn);
+      create.appendChild(label);
+      create.appendChild(row);
+      create.appendChild(err);
+      wrap.appendChild(create);
+    }
+
+    // --- إغلاق / إلغاء ---
+    let settled = false;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      resolve(value);
+      swal.close(); // يغلق النافذة كما لو ضُغط زر الإلغاء
+    };
+
+    // --- استدعاء sweetalert ---
+    swal({
+      title: "اختيار ملف",
+      content: wrap, // Node وليس HTML string
+      className: "sal-modal",
+      buttons: {
+        cancel: { text: "إلغاء", visible: true, closeModal: true },
+        confirm: { visible: false },
+      },
+      closeOnClickOutside: false,
+      closeOnEsc: true,
+    }).then((value) => {
+      // إذا أُغلقت بدون اختيار → null
+      if (!settled) {
+        settled = true;
+        resolve(null);
+      }
+    });
+
+    // إتاحة التركيز على حقل الإدخال بعد الفتح
+    if (allowCreate) {
+      setTimeout(() => {
+        const input = document.querySelector(".sweet-alert #salNewFile");
+        if (input) input.focus();
+      }, 0);
+    }
+  });
 }
 
 async function searchFileInDrive(accessToken = null) {
@@ -254,10 +419,10 @@ async function searchFileInDrive(accessToken = null) {
   if (!accessToken) accessToken = await getAccessToken(db);
   // Search for the file named 'quran_students.sqlite3'
   const query = encodeURIComponent(
-    "name='quran_students.sqlite3' and trashed=false",
+    "name contains '.quran_students.sqlite3' and trashed=false",
   );
   const listResponse = await fetch(
-    `https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,modifiedTime)`,
+    `https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name,modifiedTime,shared)&orderBy=modifiedTime desc`,
     {
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -268,17 +433,15 @@ async function searchFileInDrive(accessToken = null) {
 
   if (!listResponse.ok) {
     await logout();
+    return [];
   }
 
   const listResult = await listResponse.json();
   if (!listResult.files || listResult.files.length === 0) {
-    loginStatusElement(null);
     return [];
   }
-  const file = listResult.files[0];
-  const date = fromNow(new Date(file.modifiedTime));
-  loginStatusElement(date);
-  return [file, date];
+
+  return listResult.files;
 }
 
 // Reusable OAuth function
@@ -287,7 +450,7 @@ async function initializeGoogleAuth(callback) {
     const client = google.accounts.oauth2.initTokenClient({
       client_id:
         "233292477998-p0cdmaicj108fcp76fk5tpisb6qdmmgc.apps.googleusercontent.com",
-      scope: "https://www.googleapis.com/auth/drive.readonly",
+      scope: "https://www.googleapis.com/auth/drive",
       callback: async (tokenResponse) => {
         if (tokenResponse && tokenResponse.access_token) {
           try {
@@ -349,18 +512,28 @@ export async function uploadDBtoDrive(data) {
   }
   let fileId = null;
   // Check if a file named 'quran_students.sqlite3' already exists.
-  const [file, updateTime] = await searchFileInDrive(accessToken);
-  if (file) {
+  const pre_files = (await searchFileInDrive(accessToken)).map((file) => ({
+    ...file,
+    name: file.name.slice(0, -23),
+  }));
+
+  hideLoadingModal();
+  const file = await selectFile(pre_files);
+  if (!file) return false; // User canceled the selection
+  if (file.id) {
     if (
-      !confirm(`سيتم استبدال قاعدة البيانات التي في حسابك ⬆️, هل أنت موافق؟`)
+      !confirm(
+        `سيتم استبدال قاعدة البيانات ${file.name} التي في حسابك ⬆️, هل أنت موافق؟`,
+      )
     ) {
       return false;
     }
     fileId = file.id;
   }
 
+  await showLoadingModal("جاري رفع قاعدة البيانات إلى Google Drive");
   const metadata = {
-    name: "quran_students.sqlite3",
+    name: file.name + ".quran_students.sqlite3",
     mimeType: "application/octet-stream",
   };
 
@@ -404,8 +577,8 @@ export async function uploadDBtoDrive(data) {
   }
 
   const result = await response.json();
-  loginStatusElement(fromNow(new Date()));
   localStorage.setItem("lastUpdateTime", new Date());
+  loginStatusElement();
   if (fileId) {
     console.log("📤 DB updated on Google Drive:", result.id);
   } else {
@@ -424,19 +597,29 @@ async function downloadDBfromDrive() {
     throw new Error("خطأ في المصادقة، يرجى إعادة تسجيل الدخول.");
   }
 
-  const [file, updateTime] = await searchFileInDrive(accessToken);
-  if (!file) {
+  const pre_files = (await searchFileInDrive(accessToken)).map((file) => ({
+    ...file,
+    name: file.name.slice(0, -23),
+  }));
+  if (!pre_files.length) {
     return null;
   }
+
+  hideLoadingModal();
+  const file = await selectFile(pre_files, false);
+  if (!file) return false; // User canceled the selection
+
   const fileId = file.id;
 
   if (
     !confirm(
-      `تم العثور على قاعدة بيانات في حسابك ${updateTime}، هل تريد تنزيلها⬇️؟`,
+      `تم العثور على قاعدة بيانات في حسابك ${fromNow(file.modifiedTime)}، هل تريد تنزيلها⬇️؟`,
     )
   ) {
     return false;
   }
+
+  await showLoadingModal("جاري تنزيل قاعدة البيانات من Google Drive");
 
   // Download the file content
   const downloadResponse = await fetch(
@@ -457,4 +640,3 @@ async function downloadDBfromDrive() {
   console.log("📥 DB downloaded from Google Drive for", currentUser.sub);
   return downloadResponse;
 }
-

@@ -779,7 +779,7 @@ window.hideLoadingModal = async function () {
 };
 
 // --- Event Handlers Async ---
-async function createNewDB() {
+export async function createNewDB() {
   if (
     project_db &&
     !(await swal({
