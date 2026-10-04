@@ -15,7 +15,7 @@ import { registerSW } from "virtual:pwa-register";
 import swal from "sweetalert";
 import initSqlJs from "sql.js";
 
-import { jQuery, $ } from "jquery";
+import { $ } from "jquery";
 import DataTable from "datatables.net-bs5";
 import "datatables.net-buttons-bs5";
 // import "datatables.net-buttons/js/buttons.colVis.mjs";
@@ -2055,7 +2055,6 @@ async function showOffCanvas(title, body, side = "top") {
 window.markPresence = async function (
   studentId,
   isPrePriorityObj,
-  attendance,
   noRetard = false,
 ) {
   const retard_time = noRetard
@@ -2317,7 +2316,9 @@ async function showStudentDayModal(
     document.getElementById("JustifiedAbsence").disabled =
       (studentsDayInfos.secondDayIsWorkingDay
     ? studentsDayInfos.secondDayInfos.isObligatory
-    : studentsDayInfos.isObligatory) && !isTalkinClassroom ? false : true;
+        : studentsDayInfos.isObligatory) && !isTalkinClassroom
+        ? false
+        : true;
   } else {
     document.getElementById("evaluationCollapse").parentElement.style.display =
       !is_talkin_classroom ? "block" : "none";
