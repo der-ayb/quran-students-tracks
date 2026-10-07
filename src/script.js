@@ -740,6 +740,21 @@ async function initOrReloadDataTable(
   if (getTable) return table;
 }
 
+let pdfMakeInitialization;
+async function initializePdfMake() {
+  if (!pdfMakeInitialization) {
+    pdfMakeInitialization = (async () => {
+      await import("./pdfmake.js");
+      await import("./vfs_fonts.js");
+      DataTable.Buttons.pdfMake(pdfMake);
+    })().catch((error) => {
+      pdfMakeInitialization = null;
+      throw error;
+    });
+  }
+  return pdfMakeInitialization;
+}
+
 // show loading modal
 function setLoadingModalText(text) {
   if (text) {
@@ -2311,11 +2326,11 @@ async function showStudentDayModal(
     isUniqueStudent ? "block" : "none";
 
   if (!isMaximizeModal) {
-  document.getElementById("evaluationCollapse").parentElement.style.display =
-    !isTalkinClassroom ? "block" : "none";
+    document.getElementById("evaluationCollapse").parentElement.style.display =
+      !isTalkinClassroom ? "block" : "none";
     document.getElementById("JustifiedAbsence").disabled =
       (studentsDayInfos.secondDayIsWorkingDay
-    ? studentsDayInfos.secondDayInfos.isObligatory
+        ? studentsDayInfos.secondDayInfos.isObligatory
         : studentsDayInfos.isObligatory) && !isTalkinClassroom
         ? false
         : true;
@@ -2729,15 +2744,15 @@ async function loadDayStudentsList() {
             event.detail === true ? minimizeBag.attendance : attendanceValue,
           );
 
-            if (event.detail === true) {
-              retardInput.value = minimizeBag.retard || "0";
-              clothingInput.value = minimizeBag.clothing || "0";
-              haircutInput.value = minimizeBag.haircut || "0";
-              behaviorInput.value = minimizeBag.behavior || "0";
-              prayerInput.value = minimizeBag.prayer || "0";
-              addedPointsInput.value = minimizeBag.addedPoints || "0";
-              retardInput.dispatchEvent(new Event("change"));
-            } else {
+          if (event.detail === true) {
+            retardInput.value = minimizeBag.retard || "0";
+            clothingInput.value = minimizeBag.clothing || "0";
+            haircutInput.value = minimizeBag.haircut || "0";
+            behaviorInput.value = minimizeBag.behavior || "0";
+            prayerInput.value = minimizeBag.prayer || "0";
+            addedPointsInput.value = minimizeBag.addedPoints || "0";
+            retardInput.dispatchEvent(new Event("change"));
+          } else {
             if (!isTalkinClassroom) {
               retardInput.value =
                 retardValue !== null
@@ -3525,14 +3540,14 @@ async function loadDayStudentsList() {
 }
 
 function formatHijriDate(date, isRange = false, year = false) {
-    date.setHours(new Date().getHours());
-    const formatter = new Intl.DateTimeFormat("ar-DZ-u-ca-islamic-umalqura", {
-      day: "numeric",
-      month: "long",
+  date.setHours(new Date().getHours());
+  const formatter = new Intl.DateTimeFormat("ar-DZ-u-ca-islamic-umalqura", {
+    day: "numeric",
+    month: "long",
     year: year ? "numeric" : undefined,
-    });
-    return `${formatter.format(date)} ${isRange ? "" : `(${DateTime.fromJSDate(date).hasSame(DateTime.now(), "day") ? "اليوم" : fromNow(date).replace("منذ", "قبل")})`}`;
-  }
+  });
+  return `${formatter.format(date)} ${isRange ? "" : `(${DateTime.fromJSDate(date).hasSame(DateTime.now(), "day") ? "اليوم" : fromNow(date).replace("منذ", "قبل")})`}`;
+}
 
 async function InitDatePickers() {
   dayDateInput._flatpickr = flatpickr(dayDateInput, {
@@ -5775,8 +5790,7 @@ async function createBulletins(dates, studentsIDS = null) {
       },
     };
 
-    await import("./pdfmake.js");
-    await import("./vfs_fonts.js");
+    await initializePdfMake();
     pdfMake.createPdf(docDefinition).open();
   }
 
@@ -7469,9 +7483,9 @@ async function createBulletins(dates, studentsIDS = null) {
     if (!detail) return "-";
     const errorsCount =
       detail["الأخطاء"] && detail["الأخطاء"].includes(" ")
-      ? parseInt(detail["الأخطاء"].split(" ")[0]) +
-        parseInt(detail["الأخطاء"].split(" ")[4])
-      : parseInt(detail["الأخطاء"]);
+        ? parseInt(detail["الأخطاء"].split(" ")[0]) +
+          parseInt(detail["الأخطاء"].split(" ")[4])
+        : parseInt(detail["الأخطاء"]);
     return (
       detail["النوع"] +
       " " +
@@ -7509,16 +7523,16 @@ async function createSummaryBulletins(dates, studentsIDS = null) {
   try {
     // Get all student IDs from the table
     const dateCtes = dates
-        .map(
-          (date, index) =>
-            `day_id${index} AS ( SELECT id FROM education_day WHERE date = '${date}' )`,
-        )
+      .map(
+        (date, index) =>
+          `day_id${index} AS ( SELECT id FROM education_day WHERE date = '${date}' )`,
+      )
       .join(", \n");
 
     // Generate sum expressions for المجموع
     const sumExpressions = dates
-        .map(
-          (date, index) =>
+      .map(
+        (date, index) =>
           `(SELECT COALESCE(SUM(de.moyenne), 0) FROM day_evaluations de 
           WHERE de.student_id = s.id AND de.day_id IN (SELECT id FROM day_id${index}))
           + 
@@ -7786,8 +7800,7 @@ async function createSummaryBulletins(dates, studentsIDS = null) {
       },
     };
 
-    await import("./pdfmake.js");
-    await import("./vfs_fonts.js");
+    await initializePdfMake();
     pdfMake.createPdf(docDefinition).open();
   }
 
@@ -8662,8 +8675,7 @@ async function createTalkinBulletins(dates, studentsIDS = null) {
       },
     };
 
-    await import("./pdfmake.js");
-    await import("./vfs_fonts.js");
+    await initializePdfMake();
     pdfMake.createPdf(docDefinition).open();
   }
 
@@ -9291,6 +9303,9 @@ async function showAttendanceStatistics() {
   const eduDatesCount = parseInt(
     statisticsDateInput._flatpickr.altInput.value.split("(")[1].split(")")[0],
   );
+
+  if (eduDatesCount <= 15) await initializePdfMake();
+
   const buttons =
     eduDatesCount > 15
       ? []
@@ -9300,25 +9315,35 @@ async function showAttendanceStatistics() {
             download: "open",
             text: "PDF",
             className: "btn btn-primary",
+            exportOptions: {
+                modifier: {
+                    order: 'index' 
+                }},
             customize: async function (doc) {
-              const daysCount = dates.length;
               doc.pageSize = "A4";
-              doc.pageOrientation = "landscape";
+              // doc.pageOrientation = "landscape";
               doc.content[0].text = "جدول حضور الطلاب";
               doc.content[0].alignment = "center";
               doc.content[0].fontSize = 16;
               doc.content[0].margin = [0, 0, 0, 20];
 
               doc.styles.tableHeader.alignment = "left";
-              doc.content[1].table.widths =
-                daysCount >= 13
-                  ? Array(doc.content[1].table.body[0].length + 1)
-                      .join("auto,")
-                      .split(",")
-                      .slice(0, -1)
-                  : Array(doc.content[1].table.body[0].length + 1)
-                      .join("*")
-                      .split("");
+              doc.content[1].table.body.forEach((t) => {
+                t.splice(-3, 3);
+              });
+              const last = doc.content[1].table.body.at(-1);
+              doc.content[1].table.body.push(last);
+              doc.content[1].table.body.at(-1).forEach((t, i) => {
+                t.text =
+                  i == doc.content[1].table.body.at(-1).length - 2
+                    ? `\n\n\nالإمضاء\n\n\n\n\n`
+                    : "";
+                t.bold = true;
+              });
+              doc.content[1].absolutePosition = { x: 20, y: 100 };
+              doc.content[1].table.widths = Array(
+                doc.content[1].table.body[0].length + 1,
+              ).fill(100 - eduDatesCount * 6);
 
               doc.content[1].table.widths[
                 doc.content[1].table.body[0].length - 1
@@ -9369,20 +9394,16 @@ async function showAttendanceStatistics() {
               // set layout
               doc.content[1].layout = {
                 hLineWidth: function (i, node) {
-                  return i === 0 || i === node.table.body.length ? 2 : 1;
+                  return 1;
                 },
                 vLineWidth: function (i, node) {
-                  return i === 0 || i === node.table.widths.length ? 2 : 1;
+                  return 1;
                 },
                 hLineColor: function (i, node) {
-                  return i === 0 || i === node.table.body.length
-                    ? "black"
-                    : "gray";
+                  return "black";
                 },
                 vLineColor: function (i, node) {
-                  return i === 0 || i === node.table.widths.length
-                    ? "black"
-                    : "gray";
+                  return "black";
                 },
               };
             },
@@ -9539,6 +9560,9 @@ async function showResultsStatistics() {
   const eduDatesCount = parseInt(
     statisticsDateInput._flatpickr.altInput.value.split("(")[1].split(")")[0],
   );
+
+  if (eduDatesCount <= 13) await initializePdfMake();
+
   const buttons = [
     ...(eduDatesCount > 13
       ? []
@@ -9637,23 +9661,23 @@ async function showResultsStatistics() {
             },
           },
         ]),
-          {
+    {
       text:
         !isTalkinClassroom && eduDatesCount > 52
           ? "كشوف النقاط الملخصة"
           : "كشوف النقاط",
-            action: async function () {
-              const bulletinAppendsModal = new bootstrap.Modal(
-                "#bulletinAppendsModal",
-              );
-              const bulletinAppendsModalBody = document.querySelector(
-                "#bulletinAppendsModal .modal-body",
-              );
-              const preStudentAppends = localStorage.getItem("studentsAppends")
-                ? JSON.parse(localStorage.getItem("studentsAppends"))
-                : {};
+      action: async function () {
+        const bulletinAppendsModal = new bootstrap.Modal(
+          "#bulletinAppendsModal",
+        );
+        const bulletinAppendsModalBody = document.querySelector(
+          "#bulletinAppendsModal .modal-body",
+        );
+        const preStudentAppends = localStorage.getItem("studentsAppends")
+          ? JSON.parse(localStorage.getItem("studentsAppends"))
+          : {};
 
-              bulletinAppendsModalBody.innerHTML = `
+        bulletinAppendsModalBody.innerHTML = `
           <div class="card">
             <div class="card-body">
             <div class="d-flex justify-content-between align-items-center mb-4">
@@ -9672,15 +9696,15 @@ async function showResultsStatistics() {
             </div>
           </div>
           <hr class="my-2"></hr>`;
-              const statisticsSelectedStudentsList = Array.from(
-                document.querySelectorAll(".statisStudentItem:checked"),
-              ).map((item) => ({
-                name: item.nextElementSibling.textContent,
-                id: item.value,
-              }));
+        const statisticsSelectedStudentsList = Array.from(
+          document.querySelectorAll(".statisStudentItem:checked"),
+        ).map((item) => ({
+          name: item.nextElementSibling.textContent,
+          id: item.value,
+        }));
 
-              statisticsSelectedStudentsList.forEach((student) => {
-                bulletinAppendsModalBody.innerHTML += `
+        statisticsSelectedStudentsList.forEach((student) => {
+          bulletinAppendsModalBody.innerHTML += `
           <div class="card">
             <div class="card-body">
               <h5 class="card-title" id="name-${student.id}">${student.name}</h5>
@@ -9695,57 +9719,57 @@ async function showResultsStatistics() {
               </div>
             </div>
           </div>`;
-              });
+        });
         document.getElementById("setAllAppendsBtn").onclick = function () {
-                  const points =
-                    parseInt(document.getElementById("points-all").value) || 0;
-                  const note = document.getElementById("note-all").value || "";
-                  statisticsSelectedStudentsList.forEach((student) => {
+          const points =
+            parseInt(document.getElementById("points-all").value) || 0;
+          const note = document.getElementById("note-all").value || "";
+          statisticsSelectedStudentsList.forEach((student) => {
             document.getElementById(`points-${student.id}`).value = points;
-                    document.getElementById(`note-${student.id}`).value = note;
-                  });
-                };
+            document.getElementById(`note-${student.id}`).value = note;
+          });
+        };
 
-              bulletinAppendsModal.show();
-              document.getElementById("saveBullentinAppends").onclick =
-                async function () {
-                  bulletinAppendsModal.hide();
-                  const obj = {};
-                  statisticsSelectedStudentsList.forEach((student) => {
-                    const points =
-                      parseInt(
-                        document.getElementById(`points-${student.id}`).value,
-                      ) || 0;
-                    const note =
-                      document.getElementById(`note-${student.id}`).value || "";
-                    if (points || note) obj[student.id] = { points, note };
-                    else {
-                      delete obj[student.id];
-                      delete preStudentAppends[student.id];
-                    }
-                  });
-                  const existingAppends = preStudentAppends || {};
-                  Object.assign(existingAppends, obj);
-                  localStorage.setItem(
-                    "studentsAppends",
-                    JSON.stringify(existingAppends),
-                  );
-                };
+        bulletinAppendsModal.show();
+        document.getElementById("saveBullentinAppends").onclick =
+          async function () {
+            bulletinAppendsModal.hide();
+            const obj = {};
+            statisticsSelectedStudentsList.forEach((student) => {
+              const points =
+                parseInt(
+                  document.getElementById(`points-${student.id}`).value,
+                ) || 0;
+              const note =
+                document.getElementById(`note-${student.id}`).value || "";
+              if (points || note) obj[student.id] = { points, note };
+              else {
+                delete obj[student.id];
+                delete preStudentAppends[student.id];
+              }
+            });
+            const existingAppends = preStudentAppends || {};
+            Object.assign(existingAppends, obj);
+            localStorage.setItem(
+              "studentsAppends",
+              JSON.stringify(existingAppends),
+            );
+          };
 
-              document.getElementById("createBulletinBtn").onclick =
-                async function () {
-                  document
-                    .getElementById("saveBullentinAppends")
-                    .dispatchEvent(new Event("click"));
-                  await showLoadingModal("جاري إنشاء كشوف النقاط");
-                  initBullentinConfigs();
-                  if (isTalkinClassroom) createTalkinBulletins(dates);
+        document.getElementById("createBulletinBtn").onclick =
+          async function () {
+            document
+              .getElementById("saveBullentinAppends")
+              .dispatchEvent(new Event("click"));
+            await showLoadingModal("جاري إنشاء كشوف النقاط");
+            initBullentinConfigs();
+            if (isTalkinClassroom) createTalkinBulletins(dates);
             else if (eduDatesCount <= 52) createBulletins(dates);
             else createSummaryBulletins(dates);
-                  hideLoadingModal();
-                };
-            },
-          },
+            hideLoadingModal();
+          };
+      },
+    },
   ];
 
   const tableColumns = [
@@ -9910,10 +9934,10 @@ async function buildAvanceChart(
       // reversed: last group on top
       for (let gi = count - 1; gi >= 0; gi--) {
         if (displayEmptyAyat) {
-        const hdr = document.createElement("div");
-        hdr.className = "group-header";
-        hdr.innerHTML = `<span class="group-header-label">${getGroupLabel(gi, groupBy)}</span><div class="group-header-line"></div>`;
-        frag.appendChild(hdr);
+          const hdr = document.createElement("div");
+          hdr.className = "group-header";
+          hdr.innerHTML = `<span class="group-header-label">${getGroupLabel(gi, groupBy)}</span><div class="group-header-line"></div>`;
+          frag.appendChild(hdr);
         }
         // collect verses for this group in reversed order
         const groupVerses = [];
@@ -9921,8 +9945,8 @@ async function buildAvanceChart(
           if (getGroupIndex(i, groupBy) === gi) groupVerses.push(i);
 
         if (displayEmptyAyat) {
-        for (let k = 0; k <= groupVerses.length - 1; k++)
-          frag.appendChild(makeSq(groupVerses[k]));
+          for (let k = 0; k <= groupVerses.length - 1; k++)
+            frag.appendChild(makeSq(groupVerses[k]));
         } else {
           const cmap = new Set();
           indices.forEach((i) => cmap.add(i));
@@ -10892,12 +10916,12 @@ document.addEventListener("DOMContentLoaded", function () {
         document.getElementById("JustifiedAbsence").disabled;
       minimizeBag["attendance"] = getAttendanceInputValue();
       if (!isTalkinClassroom) {
-      minimizeBag["retard"] = retardInput.value;
-      minimizeBag["behavior"] = behaviorInput.value;
-      minimizeBag["haircut"] = haircutInput.value;
-      minimizeBag["clothing"] = clothingInput.value;
-      minimizeBag["prayer"] = prayerInput.value;
-      minimizeBag["addedPoints"] = addedPointsInput.value;
+        minimizeBag["retard"] = retardInput.value;
+        minimizeBag["behavior"] = behaviorInput.value;
+        minimizeBag["haircut"] = haircutInput.value;
+        minimizeBag["clothing"] = clothingInput.value;
+        minimizeBag["prayer"] = prayerInput.value;
+        minimizeBag["addedPoints"] = addedPointsInput.value;
       }
       minimizeBag["preRequirementsList"] = buildRequirList();
       minimizeBag["requirType"] = requirTypeInput.value;

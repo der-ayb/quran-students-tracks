@@ -35,7 +35,6 @@ async function googleSignin() {
         } else if (downloadResult == false) {
           ("pass");
         } else {
-          loginStatusElement();
           await loadDBFromFile(downloadResult, true);
         }
       } catch (e) {
@@ -187,7 +186,7 @@ function codeJwt(payload) {
 //   client.requestAccessToken();
 // }
 
-function loginStatusElement() {
+function updateLoginStatus() {
   const loginStatus = document.getElementById("loginStatus");
   const updateTime = fromNow(localStorage.getItem("lastUpdateTime"));
   if (!currentUser) {
@@ -236,7 +235,7 @@ export async function initAuth() {
       currentUser = decodeJwt(idToken);
       userIsAuth = true;
     }
-    loginStatusElement();
+    updateLoginStatus();
   });
 }
 
@@ -250,7 +249,7 @@ async function logout() {
   await deleteAccessToken(db);
   currentUser = null;
   userIsAuth = false;
-  loginStatusElement();
+  updateLoginStatus();
 }
 
 function selectFile(files = [], allowCreate = true) {
@@ -280,7 +279,7 @@ function selectFile(files = [], allowCreate = true) {
 
         const nameEl = document.createElement("span");
         nameEl.className = "sal-file-name";
-        nameEl.textContent = `${file.name||"بدون اسم"} (${file.shared ? "مشارك" : "خاص"})`;
+        nameEl.textContent = `${file.name||"بدون اسم"}`;
 
         const timeEl = document.createElement("span");
         timeEl.className = "sal-file-time";
@@ -422,7 +421,7 @@ async function searchFileInDrive(accessToken = null) {
     "name contains '.quran_students.sqlite3' and trashed=false",
   );
   const listResponse = await fetch(
-    `https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name,modifiedTime,shared)&orderBy=modifiedTime desc`,
+    `https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name,modifiedTime)&orderBy=modifiedTime desc`,
     {
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -450,7 +449,7 @@ async function initializeGoogleAuth(callback) {
     const client = google.accounts.oauth2.initTokenClient({
       client_id:
         "233292477998-p0cdmaicj108fcp76fk5tpisb6qdmmgc.apps.googleusercontent.com",
-      scope: "https://www.googleapis.com/auth/drive",
+      scope: "https://www.googleapis.com/auth/drive.file",
       callback: async (tokenResponse) => {
         if (tokenResponse && tokenResponse.access_token) {
           try {
@@ -470,6 +469,7 @@ async function initializeGoogleAuth(callback) {
               await putToken(db, codeJwt(currentUser));
             });
             userIsAuth = true;
+            updateLoginStatus();
 
             // Execute the provided callback with the token
             if (callback) {
@@ -517,7 +517,7 @@ export async function uploadDBtoDrive(data) {
     name: file.name.slice(0, -23),
   }));
 
-  hideLoadingModal();
+  await hideLoadingModal();
   const file = await selectFile(pre_files);
   if (!file) return false; // User canceled the selection
   if (file.id) {
@@ -578,7 +578,7 @@ export async function uploadDBtoDrive(data) {
 
   const result = await response.json();
   localStorage.setItem("lastUpdateTime", new Date());
-  loginStatusElement();
+  updateLoginStatus();
   if (fileId) {
     console.log("📤 DB updated on Google Drive:", result.id);
   } else {
@@ -605,7 +605,7 @@ async function downloadDBfromDrive() {
     return null;
   }
 
-  hideLoadingModal();
+  await hideLoadingModal();
   const file = await selectFile(pre_files, false);
   if (!file) return false; // User canceled the selection
 
