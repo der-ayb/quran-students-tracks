@@ -9318,7 +9318,7 @@ async function showAttendanceStatistics() {
             exportOptions: {
                 modifier: {
                     order: 'index' 
-                }},
+                }}, 
             customize: async function (doc) {
               doc.pageSize = "A4";
               // doc.pageOrientation = "landscape";
