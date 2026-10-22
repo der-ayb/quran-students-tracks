@@ -181,6 +181,8 @@
             <th>العمر</th>
             <th>هاتف الولي</th>
             <th>إجراءات</th>
+            <th>هاتف التلميذ</th>
+            <th>هاتف الولي</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -707,17 +709,87 @@
               <input type="text" id="fname" aria-label="First name" class="form-control" required>
               <input type="text" id="lname" aria-label="Last name" class="form-control" required>
             </div>
-            <label for="birthyear">سنة الميلاد:</label>
-            <input type="text" id="birthyear" class="form-control" required readonly />
+            <label for="birthdate">تاريخ الميلاد:</label>
+            <input type="text" id="birthdate" class="form-control" required />
+            <label for="studentPhone">هاتف التلميذ:</label>
+            <input type="tel" id="studentPhone" class="form-control" autocomplete="tel" />
             <label for="parentPhone">هاتف الولي:</label>
-            <input type="text" id="parentPhone" class="form-control"
-              title="رقم هاتف جزائري يبدأ بـ 05 أو 06 أو 07 ويتكون من 10 أرقام" />
+            <input type="tel" id="parentPhone" class="form-control" autocomplete="tel" />
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إغلاق</button>
           <button type="submit" class="btn btn-primary">إضافة</button>
         </div>
         </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="studentsExportModal" tabindex="-1" aria-labelledby="studentsExportModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="studentsExportModalLabel">تصدير قائمة التلاميذ</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <fieldset class="mb-3">
+            <legend class="fs-6">الأعمدة</legend>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" data-export-column="2" id="exportStudentNumber" checked>
+              <label class="form-check-label" for="exportStudentNumber">الرقم</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" data-export-column="3" id="exportStudentName" checked>
+              <label class="form-check-label" for="exportStudentName">الاسم</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" data-export-column="10" id="exportStudentBirthDate" checked>
+              <label class="form-check-label" for="exportStudentBirthDate">تاريخ الميلاد</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" data-export-column="8" id="exportStudentPhone" checked>
+              <label class="form-check-label" for="exportStudentPhone">هاتف التلميذ</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" data-export-column="9" id="exportParentPhone" checked>
+              <label class="form-check-label" for="exportParentPhone">هاتف الولي</label>
+            </div>
+          </fieldset>
+          <fieldset class="mb-3">
+            <legend class="fs-6">تقويم تاريخ الميلاد</legend>
+            <div class="form-check form-check-inline">
+              <input class="form-check-input" type="radio" name="studentBirthDateCalendar"
+                id="studentBirthDateGregorian" value="gregorian" checked>
+              <label class="form-check-label" for="studentBirthDateGregorian">ميلادي</label>
+            </div>
+            <div class="form-check form-check-inline">
+              <input class="form-check-input" type="radio" name="studentBirthDateCalendar"
+                id="studentBirthDateHijri" value="hijri">
+              <label class="form-check-label" for="studentBirthDateHijri">هجري</label>
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend class="fs-6">نوع الملف</legend>
+            <div class="btn-group" role="group" aria-label="نوع الملف">
+              <input type="radio" class="btn-check" name="studentsExportType" id="studentsExportExcel"
+                value="excel" autocomplete="off" checked>
+              <label class="btn btn-outline-success" for="studentsExportExcel"><i class="fa-solid fa-file-excel"></i>
+                Excel</label>
+              <input type="radio" class="btn-check" name="studentsExportType" id="studentsExportPdf" value="pdf"
+                autocomplete="off">
+              <label class="btn btn-outline-danger" for="studentsExportPdf"><i class="fa-solid fa-file-pdf"></i>
+                PDF</label>
+            </div>
+          </fieldset>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+          <button type="button" class="btn btn-primary" id="studentsExportConfirmBtn">
+            <i class="fa-solid fa-file-export"></i> تصدير
+          </button>
+        </div>
       </div>
     </div>
   </div>

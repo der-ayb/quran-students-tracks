@@ -1,9 +1,14 @@
 import "./style.css";
 import "./fonts.css";
-import "./yearpicker.css";
-import "./yearpicker.js";
 import { fromNow, initAuth, uploadDBtoDrive } from "./auth.js";
-
+import intlTelInput from "intl-tel-input";
+import "intl-tel-input/styles";
+import {
+  calculateAgeYears,
+  normalizeBirthDateValue,
+} from "./studentBirthDate.js";
+import yearSelectPlugin from 'flatpickr-year-select-plugin';
+import 'flatpickr-year-select-plugin/dist/yearSelectPlugin.min.css';
 import download from "downloadjs";
 import flatpickr from "flatpickr";
 import "flatpickr/dist/l10n/ar-dz";
@@ -16,6 +21,7 @@ import swal from "sweetalert";
 import initSqlJs from "sql.js";
 
 import { $ } from "jquery";
+import JSZip from "jszip";
 import DataTable from "datatables.net-bs5";
 import "datatables.net-buttons-bs5";
 // import "datatables.net-buttons/js/buttons.colVis.mjs";
@@ -24,6 +30,8 @@ import "datatables.net-buttons/js/buttons.print.mjs";
 import "datatables.net-fixedcolumns-bs5";
 import "datatables.net-fixedheader-bs5";
 import "datatables.net-select-bs5";
+
+DataTable.Buttons.jszip(JSZip);
 
 // --- Initialize the application (async) ---
 window._toastQueue = window._toastQueue || [];
@@ -128,8 +136,12 @@ const levelInput = document.getElementById("level");
 const studentIdInput = document.getElementById("studentId");
 const firstNameInput = document.getElementById("fname");
 const lastNameInput = document.getElementById("lname");
-const birthyearInput = document.getElementById("birthyear");
+const birthdateInput =
+  document.getElementById("birthdate") || document.getElementById("birthyear");
+const studentPhoneInput = document.getElementById("studentPhone");
 const parentPhoneInput = document.getElementById("parentPhone");
+let studentPhoneIntl;
+let parentPhoneIntl;
 
 const newStudentInfosForm = document.getElementById("newStudentInfosForm");
 const newClassroomInfosForm = document.getElementById("newClassroomInfosForm");
@@ -169,6 +181,10 @@ const studentDayModal = new bootstrap.Modal(studentDayModalElement);
 
 const maximizeModalBtn = document.getElementById("maximizeModalBtn");
 const studentInfosModal = new bootstrap.Modal("#newStudentInfosModal");
+const studentsExportModalElement = document.getElementById("studentsExportModal");
+const studentsExportModal = studentsExportModalElement
+  ? new bootstrap.Modal(studentsExportModalElement)
+  : null;
 const classroomInfosModal = new bootstrap.Modal("#newClassroomInfosModal");
 
 const requirCollapse = new bootstrap.Collapse(
@@ -355,12 +371,44 @@ document.addEventListener("DOMContentLoaded", async function () {
     fontSelector.dispatchEvent(new Event("change"));
   }
 
-  // set birthyear input limits
-  const today = new Date();
-  $("#birthyear").yearpicker({
-    endYear: today.getFullYear() - 3,
-    startYear: today.getFullYear() - 97,
-  });
+  // set birthdate input limits
+  if (birthdateInput) {
+    const today = new Date();
+    birthdateInput._flatpickr = flatpickr(birthdateInput, {
+      dateFormat: "Y-m-d",
+      maxDate: new Date(
+        today.getFullYear() - 3,
+        today.getMonth(),
+        today.getDate(),
+      ),
+      minDate: new Date(
+        today.getFullYear() - 97,
+        today.getMonth(),
+        today.getDate(),
+      ),
+      disableMobile: true,
+      locale: {
+        ...flatpickr.l10ns.ar,
+        firstDayOfWeek: 6,
+      },
+      plugins: [
+        hijriCalendarPlugin(DateTime, {
+          showHijriDates: true,
+          showHijriToggle: false,
+        }),
+        yearSelectPlugin()
+      ],
+    });
+  }
+
+  const createPhoneInput = (input) =>
+    intlTelInput(input, {
+      initialCountry: "dz",
+      countryOrder: ["dz"],
+      loadUtils: () => import("intl-tel-input/utils"),
+    });
+  if (studentPhoneInput) studentPhoneIntl = createPhoneInput(studentPhoneInput);
+  if (parentPhoneInput) parentPhoneIntl = createPhoneInput(parentPhoneInput);
 
   // init Plus Minus buttons
   initPlusMinusButtons(saveStateErrorsInput);
@@ -458,10 +506,19 @@ async function loadFromIndexedDB(callback) {
 }
 
 // --- File Reading Async ---
+function ensureStudentPhoneColumn(db) {
+  const columns = db.exec("PRAGMA table_info(students);")[0]?.values ?? [];
+  if (columns.some((column) => column[1] === "student_phone")) return false;
+
+  db.run("ALTER TABLE students ADD COLUMN student_phone TEXT;");
+  return true;
+}
+
 export async function loadDBFromFile(file, downloaded = false) {
   const arrayBuffer = await file.arrayBuffer();
   try {
     project_db = new SQL.Database(new Uint8Array(arrayBuffer));
+    ensureStudentPhoneColumn(project_db);
     await saveToIndexedDB(project_db.export());
     if (downloaded) localStorage.removeItem("newSaveExists");
     window.showToast("success", "تم تحميل قاعدة البيانات.");
@@ -485,6 +542,7 @@ async function fetchAndPutIntoIndexedDBFile(
     const blob = await response.blob();
     const uInt8Array = new Uint8Array(await blob.arrayBuffer());
     const db = new SQL.Database(uInt8Array);
+    if (db_key === PROJECT_DB_KEY) ensureStudentPhoneColumn(db);
     await saveToIndexedDB(db.export(), db_key);
     onSuccessCallback(db);
     return true;
@@ -540,6 +598,9 @@ async function init() {
   await loadFromIndexedDB(async (savedProjectData, savedQuranData) => {
     if (savedProjectData) {
       project_db = new SQL.Database(new Uint8Array(savedProjectData));
+      if (ensureStudentPhoneColumn(project_db)) {
+        await saveToIndexedDB(project_db.export());
+      }
       if (savedQuranData) {
         quran_db = new SQL.Database(new Uint8Array(savedQuranData));
       } else {
@@ -1293,10 +1354,25 @@ async function loadStudentsList() {
             result[0].values[0][result[0].columns.indexOf("fname")];
           lastNameInput.value =
             result[0].values[0][result[0].columns.indexOf("lname")];
-          birthyearInput.value =
-            result[0].values[0][result[0].columns.indexOf("birthyear")];
-          parentPhoneInput.value =
-            result[0].values[0][result[0].columns.indexOf("parent_phone")];
+          const birthDateIndex = result[0].columns.indexOf("birthdate");
+          const birthYearIndex = result[0].columns.indexOf("birthyear");
+          const rawBirthDate =
+            birthDateIndex >= 0
+              ? result[0].values[0][birthDateIndex]
+              : birthYearIndex >= 0
+                ? result[0].values[0][birthYearIndex]
+                : "";
+          birthdateInput.value = normalizeBirthDateValue(rawBirthDate);
+          const studentPhoneIndex = result[0].columns.indexOf("student_phone");
+          studentPhoneIntl?.setNumber(
+            studentPhoneIndex >= 0
+              ? result[0].values[0][studentPhoneIndex] || ""
+              : "",
+          );
+          parentPhoneIntl?.setNumber(
+            result[0].values[0][result[0].columns.indexOf("parent_phone")] ||
+              "",
+          );
         };
         action_button_group.appendChild(editBtn);
         // Delete
@@ -1333,25 +1409,38 @@ async function loadStudentsList() {
         action_button_group.appendChild(deleteBtn);
 
         // phone buttons
+        const studentPhoneValue =
+          row[result.columns.indexOf("student_phone")] || "";
+        const parentPhoneValue =
+          row[result.columns.indexOf("parent_phone")] || "";
         let phone_button_group = "غير متوفر";
-        if (row[result.columns.indexOf("parent_phone")]) {
+        if (parentPhoneValue) {
           phone_button_group = document.createElement("div");
           phone_button_group.className = "btn-group btn-group-sm";
           phone_button_group.setAttribute("role", "group");
           phone_button_group.setAttribute("aria-label", "Basic example");
           // call
           const callBtn = document.createElement("a");
-          callBtn.href = "tel:" + row[result.columns.indexOf("parent_phone")];
+          callBtn.href = "tel:" + parentPhoneValue;
           callBtn.className = "btn btn-success btn-sm";
           callBtn.innerHTML = '<i class="fa-solid fa-phone-flip"></i>';
           phone_button_group.appendChild(callBtn);
           // sms
           const smsBtn = document.createElement("a");
-          smsBtn.href = "sms:" + row[result.columns.indexOf("parent_phone")];
+          smsBtn.href = "sms:" + parentPhoneValue;
           smsBtn.className = "btn btn-info btn-sm";
           smsBtn.innerHTML = '<i class="fa-solid fa-comment-sms"></i>';
           phone_button_group.appendChild(smsBtn);
         }
+
+        const birthDateColumnIndex = result.columns.indexOf("birthdate");
+        const birthYearColumnIndex = result.columns.indexOf("birthyear");
+        const rawBirthDate =
+          birthDateColumnIndex >= 0
+            ? row[birthDateColumnIndex]
+            : birthYearColumnIndex >= 0
+              ? row[birthYearColumnIndex]
+              : null;
 
         data.push({
           select: "",
@@ -1362,18 +1451,12 @@ async function loadStudentsList() {
             " " +
             row[result.columns.indexOf("lname")],
           history: `<i onclick="showRequirementsHistory(${row[0]})" class="fa-solid fa-clock-rotate-left"></i>`,
-          age: Math.abs(
-            Math.floor(
-              DateTime.now().diff(
-                DateTime.fromJSDate(
-                  new Date(row[result.columns.indexOf("birthyear")]),
-                ),
-                "years",
-              ).years,
-            ),
-          ),
+          age: calculateAgeYears(rawBirthDate),
+          birthdateExport: normalizeBirthDateValue(rawBirthDate),
           parentPhone: phone_button_group,
           actions: action_button_group,
+          studentPhoneExport: studentPhoneValue,
+          parentPhoneExport: parentPhoneValue,
         });
       });
     }
@@ -1390,6 +1473,9 @@ async function loadStudentsList() {
         { data: "age", className: "text-center px-0" },
         { data: "parentPhone", className: "py-1" },
         { data: "actions", className: "py-1" },
+        { data: "studentPhoneExport", visible: false },
+        { data: "parentPhoneExport", visible: false },
+        { data: "birthdateExport", visible: false },
       ],
       {
         select: {
@@ -1404,7 +1490,7 @@ async function loadStudentsList() {
             targets: 0,
             render: DataTable.render.select(),
           },
-          { visible: false, targets: [1, 7] },
+          { visible: false, targets: [1, 7, 8, 9, 10] },
           {
             targets: [0, 4, 6, 7],
             orderable: false,
@@ -1465,6 +1551,18 @@ async function loadStudentsList() {
                 },
               },
               {
+                text: '<i class="fa-solid fa-file-export"></i>',
+                className: "btn btn-outline-success",
+                attr: { title: "تصدير قائمة التلاميذ", "aria-label": "تصدير قائمة التلاميذ" },
+                action: function () {
+                  if (!studentsExportModal) {
+                    window.showToast("error", "نافذة التصدير غير موجودة.");
+                    return;
+                  }
+                  studentsExportModal.show();
+                },
+              },
+              {
                 text: "إضافة ✚",
                 className: "btn btn-primary",
                 attr: {
@@ -1483,8 +1581,71 @@ async function loadStudentsList() {
   }
 }
 
+function formatStudentBirthDate(value, calendar) {
+  const birthDate = DateTime.fromISO(value, { zone: "utc" });
+  if (!birthDate.isValid) return value || "";
+  if (calendar === "hijri") {
+    return birthDate
+      .setLocale("ar-DZ")
+      .reconfigure({ outputCalendar: "islamic-umalqura" })
+      .toFormat("dd LLLL yyyy");
+  }
+  return birthDate.toFormat("yyyy-LL-dd");
+}
+
+document
+  .getElementById("studentsExportConfirmBtn")
+  ?.addEventListener("click", async function () {
+  const selectedColumns = Array.from(
+    document.querySelectorAll(
+      "#studentsExportModal [data-export-column]:checked",
+    ),
+    (input) => Number(input.dataset.exportColumn),
+  ).reverse();
+  if (!selectedColumns.length) {
+    window.showToast("warning", "يرجى اختيار عمود واحد على الأقل.");
+    return;
+  }
+
+  const fileType = document.querySelector(
+    'input[name="studentsExportType"]:checked',
+  ).value;
+  const birthDateCalendar = document.querySelector(
+    'input[name="studentBirthDateCalendar"]:checked',
+  ).value;
+  if (fileType === "pdf") await initializePdfMake();
+
+  const table = $("#studentsListTable").DataTable();
+  const exportButton = table.button().add(0, {
+    extend: fileType === "excel" ? "excelHtml5" : "pdfHtml5",
+    title: "قائمة التلاميذ",
+    filename: "students_list",
+    exportOptions: {
+      columns: selectedColumns,
+      modifier: { search: "applied", order: "applied" },
+      format: {
+        body: (data, row, column) =>
+          column === 10 ? formatStudentBirthDate(data, birthDateCalendar) : data,
+      },
+    },
+    ...(fileType === "pdf"
+      ? {
+          customize: (documentDefinition) => {
+            documentDefinition.pageSize = "A4";
+            documentDefinition.pageOrientation = "portrait";
+            documentDefinition.defaultStyle.alignment = "right";
+          },
+        }
+      : {}),
+  });
+
+  studentsExportModal.hide();
+  exportButton.trigger();
+  exportButton.remove();
+  });
+
 // day students list tab
-newStudentInfosForm.addEventListener("submit", (e) => {
+newStudentInfosForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   if (!project_db) {
     window.showToast("info", "لا يوجد قاعدة بيانات مفتوحة.");
@@ -1492,25 +1653,31 @@ newStudentInfosForm.addEventListener("submit", (e) => {
   }
   const fname = firstNameInput.value;
   const lname = lastNameInput.value;
-  const birthyear = birthyearInput.value;
-  const parentPhone = parentPhoneInput.value || null;
+  const birthdate = normalizeBirthDateValue(birthdateInput.value);
+  await Promise.all([studentPhoneIntl?.promise, parentPhoneIntl?.promise]);
+  const studentPhone = studentPhoneInput.value.trim()
+    ? studentPhoneIntl.getNumber()
+    : null;
+  const parentPhone = parentPhoneInput.value.trim()
+    ? parentPhoneIntl.getNumber()
+    : null;
 
-  if (!fname || !birthyear || !lname) {
+  if (!fname || !birthdate || !lname) {
     window.showToast("error", "الرجاء ملء جميع الحقول.");
     return;
   }
-  if (parentPhone && !/^(05|06|07)\d{8}$/.test(parentPhone)) {
-    window.showToast(
-      "error",
-      "رقم الهاتف غير صالح. يجب أن يبدأ بـ 05 أو 06 أو 07 ويتكون من 10 أرقام.",
-    );
+  if (
+    (studentPhone && !studentPhoneIntl.isValidNumber()) ||
+    (parentPhone && !parentPhoneIntl.isValidNumber())
+  ) {
+    window.showToast("error", "يرجى إدخال رقم هاتف صالح.");
     return;
   }
   try {
     if (studentIdInput.value) {
       project_db.run(
-        "UPDATE students SET fname = ?,lname = ?, birthyear = ?, parent_phone = ? WHERE id = ?;",
-        [fname, lname, birthyear, parentPhone, studentIdInput.value],
+        "UPDATE students SET fname = ?,lname = ?, birthyear = ?, student_phone = ?, parent_phone = ? WHERE id = ?;",
+        [fname, lname, birthdate, studentPhone, parentPhone, studentIdInput.value],
       );
       window.showToast(
         "success",
@@ -1518,8 +1685,8 @@ newStudentInfosForm.addEventListener("submit", (e) => {
       );
     } else {
       project_db.run(
-        "INSERT INTO students (fname,lname, birthyear, parent_phone, class_room_id) VALUES (?, ?,?, ?,?);",
-        [fname, lname, birthyear, parentPhone, workingClassroomId],
+        "INSERT INTO students (fname,lname, birthyear, student_phone, parent_phone, class_room_id) VALUES (?, ?,?, ?, ?,?);",
+        [fname, lname, birthdate, studentPhone, parentPhone, workingClassroomId],
       );
       newStudentInfosForm.reset();
       studentIdInput.value = "";
@@ -1542,6 +1709,8 @@ document
   .addEventListener("show.bs.modal", function () {
     newStudentInfosForm.reset();
     studentIdInput.value = "";
+    studentPhoneIntl?.setNumber("");
+    parentPhoneIntl?.setNumber("");
   });
 
 document

@@ -3,6 +3,10 @@ body {
   font-optical-sizing: auto;
 }
 
+.iti {
+  width: 100%;
+}
+
 html,
 body {
   overscroll-behavior: none;
