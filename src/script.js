@@ -2311,11 +2311,11 @@ async function showStudentDayModal(
     isUniqueStudent ? "block" : "none";
 
   if (!isMaximizeModal) {
-  document.getElementById("evaluationCollapse").parentElement.style.display =
-    !isTalkinClassroom ? "block" : "none";
+    document.getElementById("evaluationCollapse").parentElement.style.display =
+      !isTalkinClassroom ? "block" : "none";
     document.getElementById("JustifiedAbsence").disabled =
       (studentsDayInfos.secondDayIsWorkingDay
-    ? studentsDayInfos.secondDayInfos.isObligatory
+        ? studentsDayInfos.secondDayInfos.isObligatory
         : studentsDayInfos.isObligatory) && !isTalkinClassroom
         ? false
         : true;
@@ -2382,6 +2382,7 @@ window.showRequirementsHistory = function (student_id, page = 1) {
               requirsDates[index],
             )} (${DateTime.fromJSDate(requirsDates[index]).hasSame(DateTime.now(), "day") ? "اليوم" : fromNow(requirsDates[index]).replace("منذ", "قبل")})
             </strong> ` +
+          `<i onclick="window.showAdvanceChart(${student_id},'${requirsDates[index]}')" class="col-1 fa-solid fa-chart-simple"></i>` +
           (index === 0 && JSON.parse(i).at(-1)["الكتاب"] === "القرآن الكريم"
             ? `<a href="${getNextRequirement(
                 JSON.parse(i).at(-1),
@@ -2405,6 +2406,13 @@ window.showRequirementsHistory = function (student_id, page = 1) {
       `,
     "start",
   );
+};
+
+window.showAdvanceChart = function (student_id, date) {
+  new bootstrap.Offcanvas(
+    document.getElementById("avanceChartOffcanvas"),
+  ).show();
+  buildAvanceChart(student_id, getDatesInRange(new Date(date), new Date()));
 };
 
 window.changeObligatory = async function (switchElement, secondDay = false) {
@@ -2729,15 +2737,15 @@ async function loadDayStudentsList() {
             event.detail === true ? minimizeBag.attendance : attendanceValue,
           );
 
-            if (event.detail === true) {
-              retardInput.value = minimizeBag.retard || "0";
-              clothingInput.value = minimizeBag.clothing || "0";
-              haircutInput.value = minimizeBag.haircut || "0";
-              behaviorInput.value = minimizeBag.behavior || "0";
-              prayerInput.value = minimizeBag.prayer || "0";
-              addedPointsInput.value = minimizeBag.addedPoints || "0";
-              retardInput.dispatchEvent(new Event("change"));
-            } else {
+          if (event.detail === true) {
+            retardInput.value = minimizeBag.retard || "0";
+            clothingInput.value = minimizeBag.clothing || "0";
+            haircutInput.value = minimizeBag.haircut || "0";
+            behaviorInput.value = minimizeBag.behavior || "0";
+            prayerInput.value = minimizeBag.prayer || "0";
+            addedPointsInput.value = minimizeBag.addedPoints || "0";
+            retardInput.dispatchEvent(new Event("change"));
+          } else {
             if (!isTalkinClassroom) {
               retardInput.value =
                 retardValue !== null
@@ -3525,14 +3533,14 @@ async function loadDayStudentsList() {
 }
 
 function formatHijriDate(date, isRange = false, year = false) {
-    date.setHours(new Date().getHours());
-    const formatter = new Intl.DateTimeFormat("ar-DZ-u-ca-islamic-umalqura", {
-      day: "numeric",
-      month: "long",
+  date.setHours(new Date().getHours());
+  const formatter = new Intl.DateTimeFormat("ar-DZ-u-ca-islamic-umalqura", {
+    day: "numeric",
+    month: "long",
     year: year ? "numeric" : undefined,
-    });
-    return `${formatter.format(date)} ${isRange ? "" : `(${DateTime.fromJSDate(date).hasSame(DateTime.now(), "day") ? "اليوم" : fromNow(date).replace("منذ", "قبل")})`}`;
-  }
+  });
+  return `${formatter.format(date)} ${isRange ? "" : `(${DateTime.fromJSDate(date).hasSame(DateTime.now(), "day") ? "اليوم" : fromNow(date).replace("منذ", "قبل")})`}`;
+}
 
 async function InitDatePickers() {
   dayDateInput._flatpickr = flatpickr(dayDateInput, {
@@ -4391,7 +4399,7 @@ statisticType.onchange = async function () {
   document
     .querySelectorAll("#statisticsTabContent .tab-pane")
     .forEach((el) => el.classList.remove("show", "active"));
-  document.getElementById("verse-grid").innerHTML = "";
+  // document.getElementById("verse-grid").innerHTML = "";
   switch (this.value) {
     case "attendance":
       if (!statisAllCheckbox) fillStatistiscStudentsList();
@@ -4409,15 +4417,6 @@ statisticType.onchange = async function () {
         .getElementById("statisticsTable-tab-pane")
         .classList.add("show", "active");
       showResultsStatistics();
-      hideLoadingModal();
-      break;
-    case "avance_chart":
-      if (statisAllCheckbox) fillStatistiscStudentsList(true);
-      await showLoadingModal("جاري تحميل الإحصائيات");
-      document
-        .getElementById("avance_chart-tab-pane")
-        .classList.add("show", "active");
-      buildAvanceChart();
       hideLoadingModal();
       break;
     default:
@@ -7469,9 +7468,9 @@ async function createBulletins(dates, studentsIDS = null) {
     if (!detail) return "-";
     const errorsCount =
       detail["الأخطاء"] && detail["الأخطاء"].includes(" ")
-      ? parseInt(detail["الأخطاء"].split(" ")[0]) +
-        parseInt(detail["الأخطاء"].split(" ")[4])
-      : parseInt(detail["الأخطاء"]);
+        ? parseInt(detail["الأخطاء"].split(" ")[0]) +
+          parseInt(detail["الأخطاء"].split(" ")[4])
+        : parseInt(detail["الأخطاء"]);
     return (
       detail["النوع"] +
       " " +
@@ -7509,16 +7508,16 @@ async function createSummaryBulletins(dates, studentsIDS = null) {
   try {
     // Get all student IDs from the table
     const dateCtes = dates
-        .map(
-          (date, index) =>
-            `day_id${index} AS ( SELECT id FROM education_day WHERE date = '${date}' )`,
-        )
+      .map(
+        (date, index) =>
+          `day_id${index} AS ( SELECT id FROM education_day WHERE date = '${date}' )`,
+      )
       .join(", \n");
 
     // Generate sum expressions for المجموع
     const sumExpressions = dates
-        .map(
-          (date, index) =>
+      .map(
+        (date, index) =>
           `(SELECT COALESCE(SUM(de.moyenne), 0) FROM day_evaluations de 
           WHERE de.student_id = s.id AND de.day_id IN (SELECT id FROM day_id${index}))
           + 
@@ -9637,23 +9636,23 @@ async function showResultsStatistics() {
             },
           },
         ]),
-          {
+    {
       text:
         !isTalkinClassroom && eduDatesCount > 52
           ? "كشوف النقاط الملخصة"
           : "كشوف النقاط",
-            action: async function () {
-              const bulletinAppendsModal = new bootstrap.Modal(
-                "#bulletinAppendsModal",
-              );
-              const bulletinAppendsModalBody = document.querySelector(
-                "#bulletinAppendsModal .modal-body",
-              );
-              const preStudentAppends = localStorage.getItem("studentsAppends")
-                ? JSON.parse(localStorage.getItem("studentsAppends"))
-                : {};
+      action: async function () {
+        const bulletinAppendsModal = new bootstrap.Modal(
+          "#bulletinAppendsModal",
+        );
+        const bulletinAppendsModalBody = document.querySelector(
+          "#bulletinAppendsModal .modal-body",
+        );
+        const preStudentAppends = localStorage.getItem("studentsAppends")
+          ? JSON.parse(localStorage.getItem("studentsAppends"))
+          : {};
 
-              bulletinAppendsModalBody.innerHTML = `
+        bulletinAppendsModalBody.innerHTML = `
           <div class="card">
             <div class="card-body">
             <div class="d-flex justify-content-between align-items-center mb-4">
@@ -9672,15 +9671,15 @@ async function showResultsStatistics() {
             </div>
           </div>
           <hr class="my-2"></hr>`;
-              const statisticsSelectedStudentsList = Array.from(
-                document.querySelectorAll(".statisStudentItem:checked"),
-              ).map((item) => ({
-                name: item.nextElementSibling.textContent,
-                id: item.value,
-              }));
+        const statisticsSelectedStudentsList = Array.from(
+          document.querySelectorAll(".statisStudentItem:checked"),
+        ).map((item) => ({
+          name: item.nextElementSibling.textContent,
+          id: item.value,
+        }));
 
-              statisticsSelectedStudentsList.forEach((student) => {
-                bulletinAppendsModalBody.innerHTML += `
+        statisticsSelectedStudentsList.forEach((student) => {
+          bulletinAppendsModalBody.innerHTML += `
           <div class="card">
             <div class="card-body">
               <h5 class="card-title" id="name-${student.id}">${student.name}</h5>
@@ -9695,57 +9694,57 @@ async function showResultsStatistics() {
               </div>
             </div>
           </div>`;
-              });
+        });
         document.getElementById("setAllAppendsBtn").onclick = function () {
-                  const points =
-                    parseInt(document.getElementById("points-all").value) || 0;
-                  const note = document.getElementById("note-all").value || "";
-                  statisticsSelectedStudentsList.forEach((student) => {
+          const points =
+            parseInt(document.getElementById("points-all").value) || 0;
+          const note = document.getElementById("note-all").value || "";
+          statisticsSelectedStudentsList.forEach((student) => {
             document.getElementById(`points-${student.id}`).value = points;
-                    document.getElementById(`note-${student.id}`).value = note;
-                  });
-                };
+            document.getElementById(`note-${student.id}`).value = note;
+          });
+        };
 
-              bulletinAppendsModal.show();
-              document.getElementById("saveBullentinAppends").onclick =
-                async function () {
-                  bulletinAppendsModal.hide();
-                  const obj = {};
-                  statisticsSelectedStudentsList.forEach((student) => {
-                    const points =
-                      parseInt(
-                        document.getElementById(`points-${student.id}`).value,
-                      ) || 0;
-                    const note =
-                      document.getElementById(`note-${student.id}`).value || "";
-                    if (points || note) obj[student.id] = { points, note };
-                    else {
-                      delete obj[student.id];
-                      delete preStudentAppends[student.id];
-                    }
-                  });
-                  const existingAppends = preStudentAppends || {};
-                  Object.assign(existingAppends, obj);
-                  localStorage.setItem(
-                    "studentsAppends",
-                    JSON.stringify(existingAppends),
-                  );
-                };
+        bulletinAppendsModal.show();
+        document.getElementById("saveBullentinAppends").onclick =
+          async function () {
+            bulletinAppendsModal.hide();
+            const obj = {};
+            statisticsSelectedStudentsList.forEach((student) => {
+              const points =
+                parseInt(
+                  document.getElementById(`points-${student.id}`).value,
+                ) || 0;
+              const note =
+                document.getElementById(`note-${student.id}`).value || "";
+              if (points || note) obj[student.id] = { points, note };
+              else {
+                delete obj[student.id];
+                delete preStudentAppends[student.id];
+              }
+            });
+            const existingAppends = preStudentAppends || {};
+            Object.assign(existingAppends, obj);
+            localStorage.setItem(
+              "studentsAppends",
+              JSON.stringify(existingAppends),
+            );
+          };
 
-              document.getElementById("createBulletinBtn").onclick =
-                async function () {
-                  document
-                    .getElementById("saveBullentinAppends")
-                    .dispatchEvent(new Event("click"));
-                  await showLoadingModal("جاري إنشاء كشوف النقاط");
-                  initBullentinConfigs();
-                  if (isTalkinClassroom) createTalkinBulletins(dates);
+        document.getElementById("createBulletinBtn").onclick =
+          async function () {
+            document
+              .getElementById("saveBullentinAppends")
+              .dispatchEvent(new Event("click"));
+            await showLoadingModal("جاري إنشاء كشوف النقاط");
+            initBullentinConfigs();
+            if (isTalkinClassroom) createTalkinBulletins(dates);
             else if (eduDatesCount <= 52) createBulletins(dates);
             else createSummaryBulletins(dates);
-                  hideLoadingModal();
-                };
-            },
-          },
+            hideLoadingModal();
+          };
+      },
+    },
   ];
 
   const tableColumns = [
@@ -9892,8 +9891,17 @@ async function buildAvanceChart(
   // ── GRID ─────────────────────────────────────────────────────────────────────
   const gridEl = document.getElementById("verse-grid");
   const tooltip = document.getElementById("tooltip");
+  const avanceChartDisplayEmptyAyatCheck = document.getElementById(
+    "avanceChartDisplayEmptyAyatCheck",
+  );
 
-  function buildGrid() {
+  avanceChartDisplayEmptyAyatCheck.onclick = (e) => {
+    buildGrid(e.target.checked);
+  };
+
+  function buildGrid(
+    displayEmptyAyat = avanceChartDisplayEmptyAyatCheck.checked,
+  ) {
     gridEl.innerHTML = "";
     const frag = document.createDocumentFragment();
 
@@ -9910,10 +9918,10 @@ async function buildAvanceChart(
       // reversed: last group on top
       for (let gi = count - 1; gi >= 0; gi--) {
         if (displayEmptyAyat) {
-        const hdr = document.createElement("div");
-        hdr.className = "group-header";
-        hdr.innerHTML = `<span class="group-header-label">${getGroupLabel(gi, groupBy)}</span><div class="group-header-line"></div>`;
-        frag.appendChild(hdr);
+          const hdr = document.createElement("div");
+          hdr.className = "group-header";
+          hdr.innerHTML = `<span class="group-header-label">${getGroupLabel(gi, groupBy)}</span><div class="group-header-line"></div>`;
+          frag.appendChild(hdr);
         }
         // collect verses for this group in reversed order
         const groupVerses = [];
@@ -9921,8 +9929,8 @@ async function buildAvanceChart(
           if (getGroupIndex(i, groupBy) === gi) groupVerses.push(i);
 
         if (displayEmptyAyat) {
-        for (let k = 0; k <= groupVerses.length - 1; k++)
-          frag.appendChild(makeSq(groupVerses[k]));
+          for (let k = 0; k <= groupVerses.length - 1; k++)
+            frag.appendChild(makeSq(groupVerses[k]));
         } else {
           const cmap = new Set();
           indices.forEach((i) => cmap.add(i));
@@ -10892,12 +10900,12 @@ document.addEventListener("DOMContentLoaded", function () {
         document.getElementById("JustifiedAbsence").disabled;
       minimizeBag["attendance"] = getAttendanceInputValue();
       if (!isTalkinClassroom) {
-      minimizeBag["retard"] = retardInput.value;
-      minimizeBag["behavior"] = behaviorInput.value;
-      minimizeBag["haircut"] = haircutInput.value;
-      minimizeBag["clothing"] = clothingInput.value;
-      minimizeBag["prayer"] = prayerInput.value;
-      minimizeBag["addedPoints"] = addedPointsInput.value;
+        minimizeBag["retard"] = retardInput.value;
+        minimizeBag["behavior"] = behaviorInput.value;
+        minimizeBag["haircut"] = haircutInput.value;
+        minimizeBag["clothing"] = clothingInput.value;
+        minimizeBag["prayer"] = prayerInput.value;
+        minimizeBag["addedPoints"] = addedPointsInput.value;
       }
       minimizeBag["preRequirementsList"] = buildRequirList();
       minimizeBag["requirType"] = requirTypeInput.value;

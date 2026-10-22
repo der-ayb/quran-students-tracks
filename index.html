@@ -234,7 +234,6 @@
           <option value="0">--- نوع الإحصاء ---</option>
           <option value="attendance">الحضور</option>
           <option value="results" data-bs-toggle="tab" data-bs-target="#profile-tab-pane">النتائج</option>
-          <option value="avance_chart">التقدم</option>
         </select>
       </div>
 
@@ -252,52 +251,7 @@
         <div class="tab-pane fade" id="avance_chart-tab-pane" role="tabpanel" aria-labelledby="avance_chart-tab"
           tabindex="0">
 
-          <div id="tooltip">
-            <span class="t-surah"></span>
-            <span class="t-verse text-truncate"></span>
-          </div>
 
-          <!-- ── TOP PANEL ── -->
-          <div class="top-panel">
-            <div class="d-flex align-items-start flex-wrap gap-0">
-
-              <!-- Group-by section -->
-              <div class="ps-0">
-                <div class="panel-label">النوع</div>
-                <div class="btn-group tb-group" role="group">
-                  <button class="btn btn-sm active" data-tby="all">الكل</button>
-                  <button class="btn btn-sm" data-tby="save">حفظ</button>
-                  <button class="btn btn-sm" data-tby="revise">مراجعة</button>
-                </div>
-              </div>
-
-              <div class="v-divider"></div>
-
-              <!-- Group-by section -->
-              <div class="ps-0">
-                <div class="panel-label">تجميع حسب</div>
-                <div class="btn-group gb-group" role="group">
-                  <button class="btn btn-sm" data-by="none">بدون</button>
-                  <button class="btn btn-sm active" data-by="surah">السور</button>
-                  <button class="btn btn-sm" data-by="hizb">الأحزاب</button>
-                  <button class="btn btn-sm" data-by="page">الصفحات</button>
-                </div>
-              </div>
-
-            </div>
-          </div>
-
-          <!-- ── STATUS BAR ── -->
-          <div class="status-bar d-flex justify-content-between">
-            <span id="status-right">لم يتم تحديد آيات</span>
-            <button id="randomSelectBtn" style="font-size: 10px;" class="btn btn-sm btn-outline-primary">أختيار
-              عشوائي</button>
-          </div>
-
-          <!-- ── MAIN ── -->
-          <div class="canvas-wrap border border-top-0">
-            <div id="verse-grid"></div>
-          </div>
 
         </div>
       </div>
@@ -641,7 +595,7 @@
     </button>
   </div>
   <!-- offcanvas -->
-  <div class="offcanvas offcanvas-start" tabindex="-1" id="offcanvasTop" aria-labelledby="offcanvasTopLabel"
+  <div class="offcanvas offcanvas-start w-100" tabindex="-1" id="offcanvasTop" aria-labelledby="offcanvasTopLabel"
     style="z-index: 1102;">
     <div class="offcanvas-header">
       <h5 class="offcanvas-title" id="offcanvasTopLabel">Offcanvas top</h5>
@@ -649,6 +603,66 @@
     </div>
     <div id="offcanvas-body" style="overflow-y: auto;">
       ...
+    </div>
+  </div>
+  <!-- avance chart offcanvas -->
+  <div class="offcanvas offcanvas-start w-100 px-1" tabindex="-1" id="avanceChartOffcanvas"
+    aria-labelledby="avanceChartOffcanvasLabel" style="z-index: 1103;">
+    <div class="offcanvas-header">
+      <h5 class="offcanvas-title">التقدم</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div style="overflow-y: auto;">
+      <div id="tooltip">
+        <span class="t-surah"></span>
+        <span class="t-verse text-truncate"></span>
+      </div>
+
+      <!-- ── TOP PANEL ── -->
+      <div class="top-panel">
+        <div class="d-flex align-items-start flex-wrap gap-0">
+
+          <!-- Group-by section -->
+          <div class="ps-0">
+            <div class="panel-label">النوع</div>
+            <div class="btn-group tb-group" role="group">
+              <button class="btn btn-sm active" data-tby="all">الكل</button>
+              <button class="btn btn-sm" data-tby="save">حفظ</button>
+              <button class="btn btn-sm" data-tby="revise">مراجعة</button>
+            </div>
+          </div>
+
+          <div class="v-divider"></div>
+
+          <!-- Group-by section -->
+          <div class="ps-0">
+            <div class="panel-label">تجميع حسب</div>
+            <div class="btn-group gb-group" role="group">
+              <button class="btn btn-sm" data-by="none">بدون</button>
+              <button class="btn btn-sm active" data-by="surah">السور</button>
+              <button class="btn btn-sm" data-by="hizb">الأحزاب</button>
+              <button class="btn btn-sm" data-by="page">الصفحات</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── STATUS BAR ── -->
+      <div class="status-bar d-flex justify-content-between">
+        <span id="status-right">لم يتم تحديد آيات</span>
+        <div>
+          <input type="checkbox" class="btn-check" id="avanceChartDisplayEmptyAyatCheck" autocomplete="off">
+          <label class="btn px-1 py-0" for="avanceChartDisplayEmptyAyatCheck"><i
+              class="fa-solid fa-table-cells"></i></label>
+          <button id="randomSelectBtn" style="font-size: 10px;" class="btn btn-sm btn-outline-primary">أختيار
+            عشوائي</button>
+        </div>
+      </div>
+
+      <!-- ── MAIN ── -->
+      <div class="canvas-wrap border border-top-0">
+        <div id="verse-grid"></div>
+      </div>
     </div>
   </div>
 
