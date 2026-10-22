@@ -547,6 +547,7 @@ th.header-rotated>div>span {
   display: flex;
   flex-wrap: wrap;
   gap: 1.5px;
+  padding-top: 5px;
   width: fit-content;
   max-width: 100%;
   line-height: 0;
@@ -554,7 +555,7 @@ th.header-rotated>div>span {
   touch-action: pan-y;
 }
 
-@media (max-width: 768px) {
+/* @media (max-width: 768px) {
   #verse-grid {
     gap: 2px;
   }
@@ -563,14 +564,14 @@ th.header-rotated>div>span {
     width: 10px;
     height: 10px;
   }
-}
+} */
 
 /* ── VERSE SQUARES ── */
 .verse-sq {
   width: 8px;
   height: 8px;
   background: var(--sq);
-  border-radius: 1px;
+  /* border-radius: 1px; */
   /* transition: background 0.2s, transform 0.12s; */
   cursor: pointer;
   flex-shrink: 0;

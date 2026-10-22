@@ -2566,6 +2566,7 @@ window.showRequirementsHistory = function (student_id, page = 1) {
               requirsDates[index],
             )} (${DateTime.fromJSDate(requirsDates[index]).hasSame(DateTime.now(), "day") ? "اليوم" : fromNow(requirsDates[index]).replace("منذ", "قبل")})
             </strong> ` +
+          `<i onclick="window.showAdvanceChart(${student_id},'${requirsDates[index]}')" class="col-1 fa-solid fa-chart-simple"></i>` +
           (index === 0 && JSON.parse(i).at(-1)["الكتاب"] === "القرآن الكريم"
             ? `<a href="${getNextRequirement(
                 JSON.parse(i).at(-1),
@@ -2589,6 +2590,13 @@ window.showRequirementsHistory = function (student_id, page = 1) {
       `,
     "start",
   );
+};
+
+window.showAdvanceChart = function (student_id, date) {
+  new bootstrap.Offcanvas(
+    document.getElementById("avanceChartOffcanvas"),
+  ).show();
+  buildAvanceChart(student_id, getDatesInRange(new Date(date), new Date()));
 };
 
 window.changeObligatory = async function (switchElement, secondDay = false) {
@@ -4575,7 +4583,7 @@ statisticType.onchange = async function () {
   document
     .querySelectorAll("#statisticsTabContent .tab-pane")
     .forEach((el) => el.classList.remove("show", "active"));
-  document.getElementById("verse-grid").innerHTML = "";
+  // document.getElementById("verse-grid").innerHTML = "";
   switch (this.value) {
     case "attendance":
       if (!statisAllCheckbox) fillStatistiscStudentsList();
@@ -4593,15 +4601,6 @@ statisticType.onchange = async function () {
         .getElementById("statisticsTable-tab-pane")
         .classList.add("show", "active");
       showResultsStatistics();
-      hideLoadingModal();
-      break;
-    case "avance_chart":
-      if (statisAllCheckbox) fillStatistiscStudentsList(true);
-      await showLoadingModal("جاري تحميل الإحصائيات");
-      document
-        .getElementById("avance_chart-tab-pane")
-        .classList.add("show", "active");
-      buildAvanceChart();
       hideLoadingModal();
       break;
     default:
@@ -10085,8 +10084,17 @@ async function buildAvanceChart(
   // ── GRID ─────────────────────────────────────────────────────────────────────
   const gridEl = document.getElementById("verse-grid");
   const tooltip = document.getElementById("tooltip");
+  const avanceChartDisplayEmptyAyatCheck = document.getElementById(
+    "avanceChartDisplayEmptyAyatCheck",
+  );
 
-  function buildGrid() {
+  avanceChartDisplayEmptyAyatCheck.onclick = (e) => {
+    buildGrid(e.target.checked);
+  };
+
+  function buildGrid(
+    displayEmptyAyat = avanceChartDisplayEmptyAyatCheck.checked,
+  ) {
     gridEl.innerHTML = "";
     const frag = document.createDocumentFragment();
 
