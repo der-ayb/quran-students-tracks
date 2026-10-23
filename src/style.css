@@ -7,6 +7,10 @@ body {
   width: 100%;
 }
 
+.iti--detached-country-selector{
+    z-index: 10000!important;
+}
+
 html,
 body {
   overscroll-behavior: none;

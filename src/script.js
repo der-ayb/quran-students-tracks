@@ -1552,7 +1552,6 @@ async function loadStudentsList() {
               },
               {
                 text: '<i class="fa-solid fa-file-export"></i>',
-                className: "btn btn-outline-success",
                 attr: { title: "تصدير قائمة التلاميذ", "aria-label": "تصدير قائمة التلاميذ" },
                 action: function () {
                   if (!studentsExportModal) {
