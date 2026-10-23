@@ -1284,6 +1284,28 @@ async function loadClassRoomsList() {
     window.showToast("warning", "Error: " + e.message);
   }
 }
+function create_phone_button_group(phoneValue){
+  let button_group = "غير متوفر";
+  if (phoneValue) {
+    button_group = document.createElement("div");
+    button_group.className = "btn-group btn-group-sm";
+    button_group.setAttribute("role", "group");
+    button_group.setAttribute("aria-label", "Basic example");
+    // call
+    const callBtn = document.createElement("a");
+    callBtn.href = "tel:" + phoneValue;
+    callBtn.className = "btn btn-success btn-sm";
+    callBtn.innerHTML = '<i class="fa-solid fa-phone-flip"></i>';
+    button_group.appendChild(callBtn);
+    // sms
+    const smsBtn = document.createElement("a");
+    smsBtn.href = "sms:" + phoneValue;
+    smsBtn.className = "btn btn-info btn-sm";
+    smsBtn.innerHTML = '<i class="fa-solid fa-comment-sms"></i>';
+    button_group.appendChild(smsBtn);
+  }
+  return button_group
+}
 // students tab
 async function loadStudentsList() {
   if (!project_db) {
@@ -1413,25 +1435,6 @@ async function loadStudentsList() {
           row[result.columns.indexOf("student_phone")] || "";
         const parentPhoneValue =
           row[result.columns.indexOf("parent_phone")] || "";
-        let phone_button_group = "غير متوفر";
-        if (parentPhoneValue) {
-          phone_button_group = document.createElement("div");
-          phone_button_group.className = "btn-group btn-group-sm";
-          phone_button_group.setAttribute("role", "group");
-          phone_button_group.setAttribute("aria-label", "Basic example");
-          // call
-          const callBtn = document.createElement("a");
-          callBtn.href = "tel:" + parentPhoneValue;
-          callBtn.className = "btn btn-success btn-sm";
-          callBtn.innerHTML = '<i class="fa-solid fa-phone-flip"></i>';
-          phone_button_group.appendChild(callBtn);
-          // sms
-          const smsBtn = document.createElement("a");
-          smsBtn.href = "sms:" + parentPhoneValue;
-          smsBtn.className = "btn btn-info btn-sm";
-          smsBtn.innerHTML = '<i class="fa-solid fa-comment-sms"></i>';
-          phone_button_group.appendChild(smsBtn);
-        }
 
         const birthDateColumnIndex = result.columns.indexOf("birthdate");
         const birthYearColumnIndex = result.columns.indexOf("birthyear");
@@ -1453,7 +1456,8 @@ async function loadStudentsList() {
           history: `<i onclick="showRequirementsHistory(${row[0]})" class="fa-solid fa-clock-rotate-left"></i>`,
           age: calculateAgeYears(rawBirthDate),
           birthdateExport: normalizeBirthDateValue(rawBirthDate),
-          parentPhone: phone_button_group,
+          parentPhone: create_phone_button_group(parentPhoneValue),
+          studentPhone: create_phone_button_group(studentPhoneValue),
           actions: action_button_group,
           studentPhoneExport: studentPhoneValue,
           parentPhoneExport: parentPhoneValue,
@@ -1472,6 +1476,7 @@ async function loadStudentsList() {
         { data: "history", className: "text-right px-0" },
         { data: "age", className: "text-center px-0" },
         { data: "parentPhone", className: "py-1" },
+        { data: "studentPhone", className: "py-1" },
         { data: "actions", className: "py-1" },
         { data: "studentPhoneExport", visible: false },
         { data: "parentPhoneExport", visible: false },
@@ -1490,9 +1495,9 @@ async function loadStudentsList() {
             targets: 0,
             render: DataTable.render.select(),
           },
-          { visible: false, targets: [1, 7, 8, 9, 10] },
+          { visible: false, targets: [1, 7,8] },
           {
-            targets: [0, 4, 6, 7],
+            targets: [0, 4, 6,7,8],
             orderable: false,
           },
           {
@@ -1516,7 +1521,7 @@ async function loadStudentsList() {
               {
                 text: '<i class="fa-solid fa-table-cells">',
                 action: async function (e, dt) {
-                  const columns = dt.columns([7]);
+                  const columns = dt.columns([7,8]);
                   const isVisible = dt.column(columns[0][0]).visible();
 
                   columns.visible(!isVisible);
@@ -1618,13 +1623,13 @@ document
   const exportButton = table.button().add(0, {
     extend: fileType === "excel" ? "excelHtml5" : "pdfHtml5",
     title: "قائمة التلاميذ",
-    filename: "students_list",
+    filename: "قائمة التلاميذ",
     exportOptions: {
       columns: selectedColumns,
       modifier: { search: "applied", order: "applied" },
       format: {
         body: (data, row, column) =>
-          column === 10 ? formatStudentBirthDate(data, birthDateCalendar) : data,
+          column === 11 ? formatStudentBirthDate(data, birthDateCalendar) : data,
       },
     },
     ...(fileType === "pdf"
