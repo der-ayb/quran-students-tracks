@@ -432,7 +432,7 @@ async function searchFileInDrive(accessToken = null) {
 
   if (!listResponse.ok) {
     await logout();
-    console.log('1111')
+    swal.close()
     return [];
   }
 
@@ -579,7 +579,6 @@ export async function uploadDBtoDrive(data) {
 
   const result = await response.json();
   localStorage.setItem("lastUpdateTime", new Date());
-  console.log('222',currentUser)
   updateLoginStatus();
   if (fileId) {
     console.log("📤 DB updated on Google Drive:", result.id);

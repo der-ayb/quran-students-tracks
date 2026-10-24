@@ -8,7 +8,7 @@ import {
   normalizeBirthDateValue,
 } from "./studentBirthDate.js";
 import yearSelectPlugin from 'flatpickr-year-select-plugin';
-import 'flatpickr-year-select-plugin/dist/yearSelectPlugin.min.css';
+// import 'flatpickr-year-select-plugin/dist/yearSelectPlugin.min.css';
 import download from "downloadjs";
 import flatpickr from "flatpickr";
 import "flatpickr/dist/l10n/ar-dz";
@@ -1600,10 +1600,11 @@ function formatStudentBirthDate(value, calendar) {
 document
   .getElementById("studentsExportConfirmBtn")
   ?.addEventListener("click", async function () {
-  const selectedColumns = Array.from(
-    document.querySelectorAll(
+  const checkedExportsColumnsInputs=document.querySelectorAll(
       "#studentsExportModal [data-export-column]:checked",
-    ),
+    )
+  const selectedColumns = Array.from(
+    checkedExportsColumnsInputs,
     (input) => Number(input.dataset.exportColumn),
   ).reverse();
   if (!selectedColumns.length) {
@@ -1628,16 +1629,51 @@ document
       columns: selectedColumns,
       modifier: { search: "applied", order: "applied" },
       format: {
+        header: (data, column) => {
+            if (data) {
+                return data.replace(/<[^>]*>/g, ' ').trim(); // Clean HTML if any
+            }
+
+            const targetInput = checkedExportsColumnsInputs[selectedColumns.length - column - 1];
+
+            if (targetInput && targetInput.labels && targetInput.labels[0]) {
+                let cleanText = targetInput.labels[0].textContent || '';
+                return cleanText.replace(/[\r\n\t]/g, ' ').replace(/\s+/g, ' ').trim();
+            }
+
+            return '';
+        },
         body: (data, row, column) =>
           column === 11 ? formatStudentBirthDate(data, birthDateCalendar) : data,
       },
     },
     ...(fileType === "pdf"
       ? {
-          customize: (documentDefinition) => {
-            documentDefinition.pageSize = "A4";
-            documentDefinition.pageOrientation = "portrait";
-            documentDefinition.defaultStyle.alignment = "right";
+          customize: (doc) => {
+            doc.pageSize = "A4";
+            doc.pageOrientation = "portrait";
+            doc.pageMargins = [20, 40, 20, 40];
+            doc.defaultStyle.alignment = "right";
+            const exportTable = doc.content[1];
+            const tableWidths = {"#":13,"الاسم":100,"تاريخ الميلاد":70,"هاتف الولي":70,"هاتف التلميذ":70}
+            exportTable.table.widths = exportTable.table.body[0].map(i=>tableWidths[i.text]);
+            exportTable.absolutePosition = { x: 500-exportTable.table.widths.reduce((accumulator, currentValue) => accumulator + currentValue, 0), y: 100 };
+
+            // set layout
+            exportTable.layout = {
+              hLineWidth: function () {
+                return 1;
+              },
+              vLineWidth: function () {
+                return 1;
+              },
+              hLineColor: function () {
+                return "black";
+              },
+              vLineColor: function () {
+                return "black";
+              },
+            };
           },
         }
       : {}),
