@@ -1,5 +1,12 @@
 import "./style.css";
 import "./fonts.css";
+import * as bootstrap from "bootstrap";
+import "@fortawesome/fontawesome-free/css/all.min.css";
+import ceruleanThemeUrl from "bootswatch/dist/cerulean/bootstrap.rtl.min.css?url";
+import yetiThemeUrl from "bootswatch/dist/yeti/bootstrap.rtl.min.css?url";
+import flatlyThemeUrl from "bootswatch/dist/flatly/bootstrap.rtl.min.css?url";
+import slateThemeUrl from "bootswatch/dist/slate/bootstrap.rtl.min.css?url";
+import solarThemeUrl from "bootswatch/dist/solar/bootstrap.rtl.min.css?url";
 import { fromNow, initAuth, uploadDBtoDrive } from "./auth.js";
 import intlTelInput from "intl-tel-input";
 import "intl-tel-input/styles";
@@ -30,6 +37,16 @@ import "datatables.net-buttons/js/buttons.print.mjs";
 import "datatables.net-fixedcolumns-bs5";
 import "datatables.net-fixedheader-bs5";
 import "datatables.net-select-bs5";
+
+window.bootstrap = bootstrap;
+
+const themeUrls = {
+  cerulean: ceruleanThemeUrl,
+  yeti: yetiThemeUrl,
+  flatly: flatlyThemeUrl,
+  slate: slateThemeUrl,
+  solar: solarThemeUrl,
+};
 
 DataTable.Buttons.jszip(JSZip);
 
@@ -167,6 +184,11 @@ const studentsDayInfos = {
 };
 const themeSelector = document.getElementById("themeSelector");
 const themeTag = document.getElementById("themeStylesheet");
+const savedTheme = localStorage.getItem("selectedTheme");
+if (savedTheme && themeUrls[savedTheme]) {
+  themeSelector.value = savedTheme;
+}
+themeTag.href = themeUrls[themeSelector.value] ?? themeUrls.solar;
 const fontSelector = document.getElementById("fontSelect");
 const outTimeInput = document.getElementById("outTimeInput");
 const resumePagesCheck = document.getElementById("resumePagesCheck");
@@ -303,8 +325,8 @@ window.addEventListener("popstate", () => {
 
 themeSelector.onchange = async function () {
   const theme = this.value;
-  themeTag.href = `https://cdnjs.cloudflare.com/ajax/libs/bootswatch/5.3.8/${theme}/bootstrap.rtl.min.css`;
   localStorage.setItem("selectedTheme", theme);
+  themeTag.href = themeUrls[theme] ?? themeUrls.solar;
 
   // Optimize theme-specific style injection/removal
   const styleId = "darkThemeStyle";
@@ -353,9 +375,7 @@ fontSelector.onchange = async function () {
 // Initialize
 document.addEventListener("DOMContentLoaded", async function () {
   // theme selector
-  const savedTheme = localStorage.getItem("selectedTheme");
   if (savedTheme) {
-    themeSelector.value = savedTheme;
     themeSelector.dispatchEvent(new Event("change"));
   }
 

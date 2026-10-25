@@ -47,37 +47,6 @@ export default defineConfig({
       ],
       workbox: {
         cleanupOutdatedCaches: true,
-        additionalManifestEntries: [
-          {
-            url: "https://cdnjs.cloudflare.com/ajax/libs/bootswatch/5.3.8/cerulean/bootstrap.rtl.min.css",
-            revision: null,
-          },
-          {
-            url: "https://cdnjs.cloudflare.com/ajax/libs/bootswatch/5.3.8/yeti/bootstrap.rtl.min.css",
-            revision: null,
-          },
-          {
-            url: "https://cdnjs.cloudflare.com/ajax/libs/bootswatch/5.3.8/flatly/bootstrap.rtl.min.css",
-            revision: null,
-          },
-          {
-            url: "https://cdnjs.cloudflare.com/ajax/libs/bootswatch/5.3.8/slate/bootstrap.rtl.min.css",
-            revision: null,
-          },
-          {
-            url: "https://cdnjs.cloudflare.com/ajax/libs/bootswatch/5.3.8/solar/bootstrap.rtl.min.css",
-            revision: null,
-          },
-          // other CDNs
-          {
-            url: "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css",
-            revision: null,
-          },
-          {
-            url: "https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.8/js/bootstrap.bundle.min.js",
-            revision: null,
-          },
-        ],
         runtimeCaching: [
           {
             urlPattern: ({ url }) =>
