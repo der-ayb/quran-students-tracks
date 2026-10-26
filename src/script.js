@@ -539,11 +539,39 @@ function ensureStudentPhoneColumn(db) {
   return true;
 }
 
+function ensureStudentPausedColumn(db) {
+  const columns = db.exec("PRAGMA table_info(students);")[0]?.values ?? [];
+  if (columns.some((column) => column[1] === "is_paused")) return false;
+
+  db.run("ALTER TABLE students ADD COLUMN is_paused BOOLEAN NOT NULL DEFAULT 0;");
+  return true;
+}
+
+function migratePausedStudents(db) {
+  const storedPausedStudents = localStorage.getItem("pausedStudents");
+  if (!storedPausedStudents) return false;
+
+  let pausedStudents;
+  try {
+    pausedStudents = JSON.parse(storedPausedStudents);
+  } catch {
+    return false;
+  }
+  if (!Array.isArray(pausedStudents)) return false;
+
+  pausedStudents.forEach((studentId) => {
+    db.run("UPDATE students SET is_paused = 1 WHERE id = ?;", [studentId]);
+  });
+  localStorage.removeItem("pausedStudents");
+  return true;
+}
+
 export async function loadDBFromFile(file, downloaded = false) {
   const arrayBuffer = await file.arrayBuffer();
   try {
     project_db = new SQL.Database(new Uint8Array(arrayBuffer));
     ensureStudentPhoneColumn(project_db);
+    ensureStudentPausedColumn(project_db);
     await saveToIndexedDB(project_db.export());
     if (downloaded) localStorage.removeItem("newSaveExists");
     window.showToast("success", "تم تحميل قاعدة البيانات.");
@@ -567,7 +595,10 @@ async function fetchAndPutIntoIndexedDBFile(
     const blob = await response.blob();
     const uInt8Array = new Uint8Array(await blob.arrayBuffer());
     const db = new SQL.Database(uInt8Array);
-    if (db_key === PROJECT_DB_KEY) ensureStudentPhoneColumn(db);
+    if (db_key === PROJECT_DB_KEY) {
+      ensureStudentPhoneColumn(db);
+      ensureStudentPausedColumn(db);
+    }
     await saveToIndexedDB(db.export(), db_key);
     onSuccessCallback(db);
     return true;
@@ -623,7 +654,14 @@ async function init() {
   await loadFromIndexedDB(async (savedProjectData, savedQuranData) => {
     if (savedProjectData) {
       project_db = new SQL.Database(new Uint8Array(savedProjectData));
-      if (ensureStudentPhoneColumn(project_db)) {
+      const studentPhoneColumnAdded = ensureStudentPhoneColumn(project_db);
+      const studentPausedColumnAdded = ensureStudentPausedColumn(project_db);
+      const pausedStudentsMigrated = migratePausedStudents(project_db);
+      if (
+        studentPhoneColumnAdded ||
+        studentPausedColumnAdded ||
+        pausedStudentsMigrated
+      ) {
         await saveToIndexedDB(project_db.export());
       }
       if (savedQuranData) {
@@ -1343,14 +1381,11 @@ async function loadStudentsList() {
       [workingClassroomId],
     );
     const data = [];
-    const pausedStudents = localStorage.getItem("pausedStudents")
-      ? JSON.parse(localStorage.getItem("pausedStudents"))
-      : [];
 
     if (results.length) {
       const result = results[0];
       result.values.forEach((row) => {
-        const isPaused = pausedStudents.includes(row[0]);
+        const isPaused = row[result.columns.indexOf("is_paused")] === 1;
         // action buttons
         const action_button_group = document.createElement("div");
         action_button_group.className = "btn-group btn-group-sm";
@@ -1374,15 +1409,12 @@ async function loadStudentsList() {
           ) {
             return;
           }
-          localStorage.setItem(
-            "pausedStudents",
-            JSON.stringify(
-              isPaused
-                ? pausedStudents.filter((id) => id !== row[0])
-                : [...pausedStudents, row[0]],
-            ),
-          );
-          loadStudentsList();
+          project_db.run("UPDATE students SET is_paused = ? WHERE id = ?;", [
+            isPaused ? 0 : 1,
+            row[0],
+          ]);
+          await saveToIndexedDB(project_db.export());
+          await loadStudentsList();
         };
         action_button_group.appendChild(pauseBtn);
         // Edit
@@ -2879,7 +2911,7 @@ async function loadDayStudentsList() {
       FROM students s
       LEFT JOIN day_requirements dr ON s.id = dr.student_id AND dr.day_id = '${workingDayID}'
       LEFT JOIN day_evaluations de ON s.id = de.student_id AND de.day_id = '${workingDayID}'
-      WHERE s.class_room_id = ${workingClassroomId} AND s.id NOT IN (${localStorage.getItem("pausedStudents")?.slice(1, -1) || ""})
+      WHERE s.class_room_id = ${workingClassroomId} AND COALESCE(s.is_paused, 0) = 0
       GROUP BY s.id, studentFName , studentLName
       ORDER BY s.id
       LIMIT 100`);
@@ -4729,7 +4761,7 @@ async function fillStatistiscStudentsList(uniqueStudent = false) {
   }
   try {
     const results = project_db.exec(
-      `SELECT id,fname,lname FROM students WHERE class_room_id = ? AND id NOT IN (${localStorage.getItem("pausedStudents")?.slice(1, -1) || ""});`,
+      "SELECT id,fname,lname FROM students WHERE class_room_id = ? AND COALESCE(is_paused, 0) = 0;",
       [workingClassroomId],
     );
     const data = [];
