@@ -14,7 +14,7 @@ import {
   calculateAgeYears,
   normalizeBirthDateValue,
 } from "./studentBirthDate.js";
-import yearSelectPlugin from 'flatpickr-year-select-plugin';
+import yearSelectPlugin from "flatpickr-year-select-plugin";
 // import 'flatpickr-year-select-plugin/dist/yearSelectPlugin.min.css';
 import download from "downloadjs";
 import flatpickr from "flatpickr";
@@ -203,7 +203,9 @@ const studentDayModal = new bootstrap.Modal(studentDayModalElement);
 
 const maximizeModalBtn = document.getElementById("maximizeModalBtn");
 const studentInfosModal = new bootstrap.Modal("#newStudentInfosModal");
-const studentsExportModalElement = document.getElementById("studentsExportModal");
+const studentsExportModalElement = document.getElementById(
+  "studentsExportModal",
+);
 const studentsExportModal = studentsExportModalElement
   ? new bootstrap.Modal(studentsExportModalElement)
   : null;
@@ -416,7 +418,10 @@ document.addEventListener("DOMContentLoaded", async function () {
           showHijriDates: true,
           showHijriToggle: false,
         }),
-        yearSelectPlugin()
+        yearSelectPlugin({
+          start: 30,
+          end: 20,
+        }),
       ],
     });
   }
@@ -1304,7 +1309,7 @@ async function loadClassRoomsList() {
     window.showToast("warning", "Error: " + e.message);
   }
 }
-function create_phone_button_group(phoneValue){
+function create_phone_button_group(phoneValue) {
   let button_group = "غير متوفر";
   if (phoneValue) {
     button_group = document.createElement("div");
@@ -1324,7 +1329,7 @@ function create_phone_button_group(phoneValue){
     smsBtn.innerHTML = '<i class="fa-solid fa-comment-sms"></i>';
     button_group.appendChild(smsBtn);
   }
-  return button_group
+  return button_group;
 }
 // students tab
 async function loadStudentsList() {
@@ -1515,9 +1520,9 @@ async function loadStudentsList() {
             targets: 0,
             render: DataTable.render.select(),
           },
-          { visible: false, targets: [1, 7,8] },
+          { visible: false, targets: [1, 7, 8] },
           {
-            targets: [0, 4, 6,7,8],
+            targets: [0, 4, 6, 7, 8],
             orderable: false,
           },
           {
@@ -1541,7 +1546,7 @@ async function loadStudentsList() {
               {
                 text: '<i class="fa-solid fa-table-cells">',
                 action: async function (e, dt) {
-                  const columns = dt.columns([7,8]);
+                  const columns = dt.columns([7, 8]);
                   const isVisible = dt.column(columns[0][0]).visible();
 
                   columns.visible(!isVisible);
@@ -1577,7 +1582,10 @@ async function loadStudentsList() {
               },
               {
                 text: '<i class="fa-solid fa-file-export"></i>',
-                attr: { title: "تصدير قائمة التلاميذ", "aria-label": "تصدير قائمة التلاميذ" },
+                attr: {
+                  title: "تصدير قائمة التلاميذ",
+                  "aria-label": "تصدير قائمة التلاميذ",
+                },
                 action: function () {
                   if (!studentsExportModal) {
                     window.showToast("error", "نافذة التصدير غير موجودة.");
@@ -1620,88 +1628,109 @@ function formatStudentBirthDate(value, calendar) {
 document
   .getElementById("studentsExportConfirmBtn")
   ?.addEventListener("click", async function () {
-  const checkedExportsColumnsInputs=document.querySelectorAll(
+    const checkedExportsColumnsInputs = document.querySelectorAll(
       "#studentsExportModal [data-export-column]:checked",
-    )
-  const selectedColumns = Array.from(
-    checkedExportsColumnsInputs,
-    (input) => Number(input.dataset.exportColumn),
-  ).reverse();
-  if (!selectedColumns.length) {
-    window.showToast("warning", "يرجى اختيار عمود واحد على الأقل.");
-    return;
-  }
+    );
+    const selectedColumns = Array.from(checkedExportsColumnsInputs, (input) =>
+      Number(input.dataset.exportColumn),
+    ).reverse();
+    if (!selectedColumns.length) {
+      window.showToast("warning", "يرجى اختيار عمود واحد على الأقل.");
+      return;
+    }
 
-  const fileType = document.querySelector(
-    'input[name="studentsExportType"]:checked',
-  ).value;
-  const birthDateCalendar = document.querySelector(
-    'input[name="studentBirthDateCalendar"]:checked',
-  ).value;
-  if (fileType === "pdf") await initializePdfMake();
+    const fileType = document.querySelector(
+      'input[name="studentsExportType"]:checked',
+    ).value;
+    const birthDateCalendar = document.querySelector(
+      'input[name="studentBirthDateCalendar"]:checked',
+    ).value;
+    if (fileType === "pdf") await initializePdfMake();
 
-  const table = $("#studentsListTable").DataTable();
-  const exportButton = table.button().add(0, {
-    extend: fileType === "excel" ? "excelHtml5" : "pdfHtml5",
-    title: "قائمة التلاميذ",
-    filename: "قائمة التلاميذ",
-    exportOptions: {
-      columns: selectedColumns,
-      modifier: { search: "applied", order: "applied" },
-      format: {
-        header: (data, column) => {
+    const table = $("#studentsListTable").DataTable();
+    const exportButton = table.button().add(0, {
+      extend: fileType === "excel" ? "excelHtml5" : "pdfHtml5",
+      title: "قائمة التلاميذ",
+      filename: "قائمة التلاميذ",
+      exportOptions: {
+        columns: selectedColumns,
+        modifier: { search: "applied", order: "applied" },
+        format: {
+          header: (data, column) => {
             if (data) {
-                return data.replace(/<[^>]*>/g, ' ').trim(); // Clean HTML if any
+              return data.replace(/<[^>]*>/g, " ").trim(); // Clean HTML if any
             }
 
-            const targetInput = checkedExportsColumnsInputs[selectedColumns.length - column - 1];
+            const targetInput =
+              checkedExportsColumnsInputs[selectedColumns.length - column - 1];
 
             if (targetInput && targetInput.labels && targetInput.labels[0]) {
-                let cleanText = targetInput.labels[0].textContent || '';
-                return cleanText.replace(/[\r\n\t]/g, ' ').replace(/\s+/g, ' ').trim();
+              let cleanText = targetInput.labels[0].textContent || "";
+              return cleanText
+                .replace(/[\r\n\t]/g, " ")
+                .replace(/\s+/g, " ")
+                .trim();
             }
 
-            return '';
-        },
-        body: (data, row, column) =>
-          column === 11 ? formatStudentBirthDate(data, birthDateCalendar) : data,
-      },
-    },
-    ...(fileType === "pdf"
-      ? {
-          customize: (doc) => {
-            doc.pageSize = "A4";
-            doc.pageOrientation = "portrait";
-            doc.pageMargins = [20, 40, 20, 40];
-            doc.defaultStyle.alignment = "right";
-            const exportTable = doc.content[1];
-            const tableWidths = {"#":13,"الاسم":100,"تاريخ الميلاد":70,"هاتف الولي":70,"هاتف التلميذ":70}
-            exportTable.table.widths = exportTable.table.body[0].map(i=>tableWidths[i.text]);
-            exportTable.absolutePosition = { x: 500-exportTable.table.widths.reduce((accumulator, currentValue) => accumulator + currentValue, 0), y: 100 };
-
-            // set layout
-            exportTable.layout = {
-              hLineWidth: function () {
-                return 1;
-              },
-              vLineWidth: function () {
-                return 1;
-              },
-              hLineColor: function () {
-                return "black";
-              },
-              vLineColor: function () {
-                return "black";
-              },
-            };
+            return "";
           },
-        }
-      : {}),
-  });
+          body: (data, row, column) =>
+            column === 11
+              ? formatStudentBirthDate(data, birthDateCalendar)
+              : data,
+        },
+      },
+      ...(fileType === "pdf"
+        ? {
+            customize: (doc) => {
+              doc.pageSize = "A4";
+              doc.pageOrientation = "portrait";
+              doc.pageMargins = [20, 40, 20, 40];
+              doc.defaultStyle.alignment = "right";
+              const exportTable = doc.content[1];
+              const tableWidths = {
+                "#": 13,
+                الاسم: 100,
+                "تاريخ الميلاد": 70,
+                "هاتف الولي": 70,
+                "هاتف التلميذ": 70,
+              };
+              exportTable.table.widths = exportTable.table.body[0].map(
+                (i) => tableWidths[i.text],
+              );
+              exportTable.absolutePosition = {
+                x:
+                  500 -
+                  exportTable.table.widths.reduce(
+                    (accumulator, currentValue) => accumulator + currentValue,
+                    0,
+                  ),
+                y: 100,
+              };
 
-  studentsExportModal.hide();
-  exportButton.trigger();
-  exportButton.remove();
+              // set layout
+              exportTable.layout = {
+                hLineWidth: function () {
+                  return 1;
+                },
+                vLineWidth: function () {
+                  return 1;
+                },
+                hLineColor: function () {
+                  return "black";
+                },
+                vLineColor: function () {
+                  return "black";
+                },
+              };
+            },
+          }
+        : {}),
+    });
+
+    studentsExportModal.hide();
+    exportButton.trigger();
+    exportButton.remove();
   });
 
 // day students list tab
@@ -1737,7 +1766,14 @@ newStudentInfosForm.addEventListener("submit", async (e) => {
     if (studentIdInput.value) {
       project_db.run(
         "UPDATE students SET fname = ?,lname = ?, birthyear = ?, student_phone = ?, parent_phone = ? WHERE id = ?;",
-        [fname, lname, birthdate, studentPhone, parentPhone, studentIdInput.value],
+        [
+          fname,
+          lname,
+          birthdate,
+          studentPhone,
+          parentPhone,
+          studentIdInput.value,
+        ],
       );
       window.showToast(
         "success",
@@ -1746,7 +1782,14 @@ newStudentInfosForm.addEventListener("submit", async (e) => {
     } else {
       project_db.run(
         "INSERT INTO students (fname,lname, birthyear, student_phone, parent_phone, class_room_id) VALUES (?, ?,?, ?, ?,?);",
-        [fname, lname, birthdate, studentPhone, parentPhone, workingClassroomId],
+        [
+          fname,
+          lname,
+          birthdate,
+          studentPhone,
+          parentPhone,
+          workingClassroomId,
+        ],
       );
       newStudentInfosForm.reset();
       studentIdInput.value = "";
@@ -9544,9 +9587,10 @@ async function showAttendanceStatistics() {
             text: "PDF",
             className: "btn btn-primary",
             exportOptions: {
-                modifier: {
-                    order: 'index' 
-                }}, 
+              modifier: {
+                order: "index",
+              },
+            },
             customize: async function (doc) {
               doc.pageSize = "A4";
               // doc.pageOrientation = "landscape";

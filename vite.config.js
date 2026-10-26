@@ -19,7 +19,7 @@ export default defineConfig({
             {
               name: "vfs_fonts",
               test: /vfs/,
-            }
+            },
           ],
         },
       },
@@ -47,6 +47,7 @@ export default defineConfig({
       ],
       workbox: {
         cleanupOutdatedCaches: true,
+        globPatterns: ["**/*.{js,css,html,png,svg,woff2,ico,json}"],
         runtimeCaching: [
           {
             urlPattern: ({ url }) =>

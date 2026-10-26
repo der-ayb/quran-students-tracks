@@ -279,7 +279,7 @@ function selectFile(files = [], allowCreate = true) {
 
         const nameEl = document.createElement("span");
         nameEl.className = "sal-file-name";
-        nameEl.textContent = `${file.name||"بدون اسم"}`;
+        nameEl.textContent = `${file.name || "بدون اسم"}`;
 
         const timeEl = document.createElement("span");
         timeEl.className = "sal-file-time";
@@ -432,7 +432,7 @@ async function searchFileInDrive(accessToken = null) {
 
   if (!listResponse.ok) {
     await logout();
-    swal.close()
+    swal.close();
     return [];
   }
 
