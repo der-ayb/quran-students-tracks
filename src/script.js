@@ -1369,6 +1369,30 @@ function create_phone_button_group(phoneValue) {
   }
   return button_group;
 }
+
+function sendSmsToSelectedStudents(dt, phoneColumn) {
+  const selectedRows = dt.rows({ selected: true }).data().toArray();
+  if (selectedRows.length === 0) {
+    window.showToast("info", "الرجاء اختيار طلاب أولاً.");
+    return;
+  }
+
+  const phones = selectedRows
+    .map((row) => row[phoneColumn])
+    .filter((phoneGroup) => typeof phoneGroup !== "string")
+    .map((phoneGroup) =>
+      phoneGroup.querySelector('a[href^="tel:"]')?.getAttribute("href").slice(4),
+    )
+    .filter(Boolean);
+
+  if (phones.length === 0) {
+    window.showToast("info", "لا توجد أرقام هاتف ضمن التحديد.");
+    return;
+  }
+
+  window.location.href = `sms:${phones.join(",")}`;
+}
+
 // students tab
 async function loadStudentsList() {
   if (!project_db) {
@@ -1591,26 +1615,24 @@ async function loadStudentsList() {
                 },
               },
               {
+                extend: "collection",
                 text: '<i class="fa-solid fa-comment-sms">',
-                action: async function (e, dt) {
-                  const selectedRows = dt
-                    .rows({ selected: true })
-                    .data()
-                    .toArray();
-                  if (selectedRows.length === 0) {
-                    window.showToast("info", "الرجاء اختيار طلاب أولاً.");
-                    return;
-                  }
-                  const phones = selectedRows
-                    .map((row) => row.parentPhone)
-                    .filter((row) => typeof row !== "string")
-                    .map((row) =>
-                      row.querySelector("a").href.replace("tel:", ""),
-                    )
-                    .toString();
-
-                  window.location.href = `sms:${phones}`;
+                attr: {
+                  title: "إرسال رسالة نصية",
+                  "aria-label": "إرسال رسالة نصية",
                 },
+                buttons: [
+                  {
+                    text: "الأولياء",
+                    action: (e, dt) =>
+                      sendSmsToSelectedStudents(dt, "parentPhone"),
+                  },
+                  {
+                    text: "الطلبة",
+                    action: (e, dt) =>
+                      sendSmsToSelectedStudents(dt, "studentPhone"),
+                  },
+                ],
               },
               {
                 text: '<i class="fa-solid fa-file-export"></i>',
