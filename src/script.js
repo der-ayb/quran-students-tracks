@@ -1752,6 +1752,7 @@ document
               exportTable.table.widths = exportTable.table.body[0].map(
                 (i) => tableWidths[i.text],
               );
+
               exportTable.absolutePosition = {
                 x:
                   500 -
@@ -9666,7 +9667,7 @@ async function showAttendanceStatistics() {
                     : "";
                 t.bold = true;
               });
-              doc.content[1].absolutePosition = { x: 20, y: 100 };
+              // doc.content[1].absolutePosition = { x: 20, y: 100 };
               doc.content[1].table.widths = Array(
                 doc.content[1].table.body[0].length + 1,
               ).fill(100 - eduDatesCount * 6);
@@ -9717,6 +9718,15 @@ async function showAttendanceStatistics() {
                   cell.marginLeft = cell.marginRight = -3;
                 });
               });
+              doc.content[1].absolutePosition = {
+                x:
+                  595.28 -
+                  doc.content[1].table.widths.reduce(
+                    (accumulator, currentValue) => accumulator + currentValue,
+                    0,
+                  ),
+                y: 100,
+              };
               // set layout
               doc.content[1].layout = {
                 hLineWidth: function (i, node) {
