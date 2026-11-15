@@ -4479,14 +4479,18 @@ addQuranSelectionBtn.onclick = () => addRequirToTable();
 
 // Evaluation Ladder
 async function initEvaluationLaddersValues(db) {
-  Object.assign(
-    evaluationLaddersValues,
-    JSON.parse(
-      db.exec(
-        "SELECT detail FROM evaluation_ladder ORDER BY rowid DESC LIMIT 1;",
-      )[0].values[0],
-    ),
-  );
+  try {
+    Object.assign(
+      evaluationLaddersValues,
+      JSON.parse(
+        db.exec(
+          "SELECT detail FROM evaluation_ladder ORDER BY rowid DESC LIMIT 1;",
+        )[0].values[0],
+      ),
+    );
+  } catch (error) {
+    console.error("Error initializing evaluation ladders:", error);
+  }
 }
 
 function populateEvalSelects() {
