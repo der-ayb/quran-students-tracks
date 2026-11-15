@@ -539,6 +539,18 @@ function ensureStudentPhoneColumn(db) {
   return true;
 }
 
+function ensureStudentBirthDateColumn(db) {
+  const columns = db.exec("PRAGMA table_info(students);")[0]?.values ?? [];
+  if (columns.some((column) => column[1] === "birthdate")) return false;
+
+  if (columns.some((column) => column[1] === "birthyear")) {
+    db.run("ALTER TABLE students RENAME COLUMN birthyear TO birthdate;");
+  } else {
+    db.run("ALTER TABLE students ADD COLUMN birthdate TEXT;");
+  }
+  return true;
+}
+
 function ensureStudentPausedColumn(db) {
   const columns = db.exec("PRAGMA table_info(students);")[0]?.values ?? [];
   if (columns.some((column) => column[1] === "is_paused")) return false;
@@ -570,6 +582,7 @@ export async function loadDBFromFile(file, downloaded = false) {
   const arrayBuffer = await file.arrayBuffer();
   try {
     project_db = new SQL.Database(new Uint8Array(arrayBuffer));
+    ensureStudentBirthDateColumn(project_db);
     ensureStudentPhoneColumn(project_db);
     ensureStudentPausedColumn(project_db);
     await saveToIndexedDB(project_db.export());
@@ -596,6 +609,7 @@ async function fetchAndPutIntoIndexedDBFile(
     const uInt8Array = new Uint8Array(await blob.arrayBuffer());
     const db = new SQL.Database(uInt8Array);
     if (db_key === PROJECT_DB_KEY) {
+      ensureStudentBirthDateColumn(db);
       ensureStudentPhoneColumn(db);
       ensureStudentPausedColumn(db);
     }
@@ -654,10 +668,12 @@ async function init() {
   await loadFromIndexedDB(async (savedProjectData, savedQuranData) => {
     if (savedProjectData) {
       project_db = new SQL.Database(new Uint8Array(savedProjectData));
+      const studentBirthDateColumnAdded = ensureStudentBirthDateColumn(project_db);
       const studentPhoneColumnAdded = ensureStudentPhoneColumn(project_db);
       const studentPausedColumnAdded = ensureStudentPausedColumn(project_db);
       const pausedStudentsMigrated = migratePausedStudents(project_db);
       if (
+        studentBirthDateColumnAdded ||
         studentPhoneColumnAdded ||
         studentPausedColumnAdded ||
         pausedStudentsMigrated
@@ -1818,17 +1834,27 @@ newStudentInfosForm.addEventListener("submit", async (e) => {
     return;
   }
   try {
+    const studentColumns =
+      project_db.exec("PRAGMA table_info(students);")[0]?.values ?? [];
+    const hasLegacyBirthyear = studentColumns.some(
+      (column) => column[1] === "birthyear",
+    );
     if (studentIdInput.value) {
       project_db.run(
-        "UPDATE students SET fname = ?,lname = ?, birthyear = ?, student_phone = ?, parent_phone = ? WHERE id = ?;",
-        [
-          fname,
-          lname,
-          birthdate,
-          studentPhone,
-          parentPhone,
-          studentIdInput.value,
-        ],
+        hasLegacyBirthyear
+          ? "UPDATE students SET fname = ?, lname = ?, birthdate = ?, birthyear = ?, student_phone = ?, parent_phone = ? WHERE id = ?;"
+          : "UPDATE students SET fname = ?, lname = ?, birthdate = ?, student_phone = ?, parent_phone = ? WHERE id = ?;",
+        hasLegacyBirthyear
+          ? [
+              fname,
+              lname,
+              birthdate,
+              birthdate,
+              studentPhone,
+              parentPhone,
+              studentIdInput.value,
+            ]
+          : [fname, lname, birthdate, studentPhone, parentPhone, studentIdInput.value],
       );
       window.showToast(
         "success",
@@ -1836,15 +1862,20 @@ newStudentInfosForm.addEventListener("submit", async (e) => {
       );
     } else {
       project_db.run(
-        "INSERT INTO students (fname,lname, birthyear, student_phone, parent_phone, class_room_id) VALUES (?, ?,?, ?, ?,?);",
-        [
-          fname,
-          lname,
-          birthdate,
-          studentPhone,
-          parentPhone,
-          workingClassroomId,
-        ],
+        hasLegacyBirthyear
+          ? "INSERT INTO students (fname, lname, birthdate, birthyear, student_phone, parent_phone, class_room_id, is_paused) VALUES (?, ?, ?, ?, ?, ?, ?, 0);"
+          : "INSERT INTO students (fname, lname, birthdate, student_phone, parent_phone, class_room_id, is_paused) VALUES (?, ?, ?, ?, ?, ?, 0);",
+        hasLegacyBirthyear
+          ? [
+              fname,
+              lname,
+              birthdate,
+              birthdate,
+              studentPhone,
+              parentPhone,
+              workingClassroomId,
+            ]
+          : [fname, lname, birthdate, studentPhone, parentPhone, workingClassroomId],
       );
       newStudentInfosForm.reset();
       studentIdInput.value = "";
@@ -2703,7 +2734,7 @@ window.showRequirementsHistory = function (student_id, page = 1) {
       ` SELECT dr.detail,(SELECT date FROM education_day 
         WHERE id = dr.day_id) AS day_date FROM day_requirements dr
         WHERE dr.student_id = ${student_id} ORDER BY dr.day_id DESC
-        LIMIT ${page * 5}`,
+        LIMIT ${page * 10}`,
     )[0]
     ?.values.forEach((row) => {
       requirs.push(row[0]);
