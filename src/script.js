@@ -555,8 +555,23 @@ function ensureStudentPausedColumn(db) {
   const columns = db.exec("PRAGMA table_info(students);")[0]?.values ?? [];
   if (columns.some((column) => column[1] === "is_paused")) return false;
 
-  db.run("ALTER TABLE students ADD COLUMN is_paused BOOLEAN NOT NULL DEFAULT 0;");
+  db.run(
+    "ALTER TABLE students ADD COLUMN is_paused BOOLEAN NOT NULL DEFAULT 0;",
+  );
   return true;
+}
+
+function ensureColumnsChanges(db) {
+  const birthDateColumnAdded = ensureStudentBirthDateColumn(db);
+  const phoneColumnAdded = ensureStudentPhoneColumn(db);
+  const pausedColumnAdded = ensureStudentPausedColumn(db);
+  const pausedStudentsMigrated = migratePausedStudents(db);
+  return (
+    birthDateColumnAdded ||
+    phoneColumnAdded ||
+    pausedColumnAdded ||
+    pausedStudentsMigrated
+  );
 }
 
 function migratePausedStudents(db) {
@@ -582,9 +597,7 @@ export async function loadDBFromFile(file, downloaded = false) {
   const arrayBuffer = await file.arrayBuffer();
   try {
     project_db = new SQL.Database(new Uint8Array(arrayBuffer));
-    ensureStudentBirthDateColumn(project_db);
-    ensureStudentPhoneColumn(project_db);
-    ensureStudentPausedColumn(project_db);
+    ensureColumnsChanges(project_db);
     await saveToIndexedDB(project_db.export());
     if (downloaded) localStorage.removeItem("newSaveExists");
     window.showToast("success", "تم تحميل قاعدة البيانات.");
@@ -609,9 +622,7 @@ async function fetchAndPutIntoIndexedDBFile(
     const uInt8Array = new Uint8Array(await blob.arrayBuffer());
     const db = new SQL.Database(uInt8Array);
     if (db_key === PROJECT_DB_KEY) {
-      ensureStudentBirthDateColumn(db);
-      ensureStudentPhoneColumn(db);
-      ensureStudentPausedColumn(db);
+      ensureColumnsChanges(db);
     }
     await saveToIndexedDB(db.export(), db_key);
     onSuccessCallback(db);
@@ -668,16 +679,8 @@ async function init() {
   await loadFromIndexedDB(async (savedProjectData, savedQuranData) => {
     if (savedProjectData) {
       project_db = new SQL.Database(new Uint8Array(savedProjectData));
-      const studentBirthDateColumnAdded = ensureStudentBirthDateColumn(project_db);
-      const studentPhoneColumnAdded = ensureStudentPhoneColumn(project_db);
-      const studentPausedColumnAdded = ensureStudentPausedColumn(project_db);
-      const pausedStudentsMigrated = migratePausedStudents(project_db);
-      if (
-        studentBirthDateColumnAdded ||
-        studentPhoneColumnAdded ||
-        studentPausedColumnAdded ||
-        pausedStudentsMigrated
-      ) {
+      const columnsChanged = ensureColumnsChanges(project_db);
+      if (columnsChanged) {
         await saveToIndexedDB(project_db.export());
       }
       if (savedQuranData) {
@@ -1068,29 +1071,20 @@ workingClassroomSelect.onchange = async function () {
 
 async function getStudyDays() {
   if (typeof statisticsDateInput._flatpickr === "undefined") return;
-  try {
-    monoStudyDates =
-      project_db
-        .exec(
-          `SELECT date FROM education_day WHERE second_day IS NULL AND class_room_id = ${workingClassroomId};`,
-        )[0]
-        ?.values?.map((row) => row[0]) ?? [];
+  monoStudyDates =
+    project_db
+      .exec(
+        `SELECT date FROM education_day WHERE second_day IS NULL AND class_room_id = ${workingClassroomId};`,
+      )[0]
+      ?.values?.map((row) => row[0]) ?? [];
 
-    polyStudyDates =
-      project_db
-        .exec(
-          `SELECT date FROM education_day WHERE second_day IS NOT NULL AND class_room_id = ${workingClassroomId};`,
-        )[0]
-        ?.values?.map((row) => row[0]) ?? [];
-  } catch (e) {
-    if (e.message.includes("no such table: second_day")) {
-      await project_db.run(
-        "ALTER TABLE education_day ADD COLUMN second_day text CHECK(JSON_VALID(second_day) OR second_day IS NULL);",
-      );
-      saveToIndexedDB(project_db.export());
-      getStudyDays();
-    }
-  }
+  polyStudyDates =
+    project_db
+      .exec(
+        `SELECT date FROM education_day WHERE second_day IS NOT NULL AND class_room_id = ${workingClassroomId};`,
+      )[0]
+      ?.values?.map((row) => row[0]) ?? [];
+
   statisticsDateInput._flatpickr.setDate(
     statisticsDateInput._flatpickr.selectedDates.length
       ? [
@@ -1397,7 +1391,10 @@ function sendSmsToSelectedStudents(dt, phoneColumn) {
     .map((row) => row[phoneColumn])
     .filter((phoneGroup) => typeof phoneGroup !== "string")
     .map((phoneGroup) =>
-      phoneGroup.querySelector('a[href^="tel:"]')?.getAttribute("href").slice(4),
+      phoneGroup
+        .querySelector('a[href^="tel:"]')
+        ?.getAttribute("href")
+        .slice(4),
     )
     .filter(Boolean);
 
@@ -1854,7 +1851,14 @@ newStudentInfosForm.addEventListener("submit", async (e) => {
               parentPhone,
               studentIdInput.value,
             ]
-          : [fname, lname, birthdate, studentPhone, parentPhone, studentIdInput.value],
+          : [
+              fname,
+              lname,
+              birthdate,
+              studentPhone,
+              parentPhone,
+              studentIdInput.value,
+            ],
       );
       window.showToast(
         "success",
@@ -1875,7 +1879,14 @@ newStudentInfosForm.addEventListener("submit", async (e) => {
               parentPhone,
               workingClassroomId,
             ]
-          : [fname, lname, birthdate, studentPhone, parentPhone, workingClassroomId],
+          : [
+              fname,
+              lname,
+              birthdate,
+              studentPhone,
+              parentPhone,
+              workingClassroomId,
+            ],
       );
       newStudentInfosForm.reset();
       studentIdInput.value = "";
@@ -4468,57 +4479,14 @@ addQuranSelectionBtn.onclick = () => addRequirToTable();
 
 // Evaluation Ladder
 async function initEvaluationLaddersValues(db) {
-  try {
-    Object.assign(
-      evaluationLaddersValues,
-      JSON.parse(
-        db.exec(
-          "SELECT detail FROM evaluation_ladder ORDER BY rowid DESC LIMIT 1;",
-        )[0].values[0],
-      ),
-    );
-  } catch (error) {
-    if (String(error).includes("no such table")) {
-      db.run(
-        `CREATE TABLE "evaluation_ladder" (
-            "id"	integer NOT NULL,
-            "detail"	text NOT NULL CHECK((JSON_VALID("detail") OR "detail" IS NULL)),
-            PRIMARY KEY("id" AUTOINCREMENT)
-          );
-          INSERT INTO evaluation_ladder (detail) VALUES ('${JSON.stringify(
-            evaluationLaddersValues,
-          )}');
-          -- 1. Create a temporary table with all current data
-          CREATE TABLE education_day_backup AS 
-          SELECT * FROM education_day;
-          -- 2. Drop the original table
-          DROP TABLE education_day;
-          -- 3. Create new table with the foreign key
-          CREATE TABLE education_day (
-              "id"	integer NOT NULL,
-              "date"	date NOT NULL,
-              "time"	time NOT NULL,
-              "notes"	text,
-              "class_room_id"	bigint NOT NULL,
-              -- New column with constraints
-              evaluation_ladder_id INTEGER NOT NULL DEFAULT 1,
-              -- Foreign key constraint
-              CONSTRAINT "unique_education_day" UNIQUE("date","class_room_id"),
-              PRIMARY KEY("id" AUTOINCREMENT),
-              FOREIGN KEY("class_room_id") REFERENCES "class_rooms"("id") DEFERRABLE INITIALLY DEFERRED
-                      
-              FOREIGN KEY (evaluation_ladder_id) REFERENCES evaluation_ladder(id)
-          );
-          -- 4. Copy data from backup (excluding the new column)
-          INSERT INTO education_day (id, date,time,notes,class_room_id)
-          SELECT id, date,time,notes,class_room_id
-          FROM education_day_backup;
-          -- 5. Drop the backup table
-          DROP TABLE education_day_backup;`,
-      );
-      saveToIndexedDB(db.export());
-    }
-  }
+  Object.assign(
+    evaluationLaddersValues,
+    JSON.parse(
+      db.exec(
+        "SELECT detail FROM evaluation_ladder ORDER BY rowid DESC LIMIT 1;",
+      )[0].values[0],
+    ),
+  );
 }
 
 function populateEvalSelects() {
@@ -10179,31 +10147,27 @@ async function buildAvanceChart(
     return;
   }
 
-  try {
-    if (quranData.pages.length === 0)
-      quran_db.exec("SELECT * FROM quran_pages")[0].values.forEach((row) => {
-        quranData.pages.push({
-          n: row[0],
-          ss: row[1],
-          sa: row[2],
-          es: row[3],
-          ea: row[4],
-        });
+  if (quranData.pages.length === 0)
+    quran_db.exec("SELECT * FROM quran_pages")[0].values.forEach((row) => {
+      quranData.pages.push({
+        n: row[0],
+        ss: row[1],
+        sa: row[2],
+        es: row[3],
+        ea: row[4],
       });
+    });
 
-    if (quranData.ahzab.length === 0)
-      quran_db.exec("SELECT * FROM quran_ahzab")[0].values.forEach((row) => {
-        quranData.ahzab.push({
-          n: row[0],
-          ss: row[1],
-          sa: row[2],
-          es: row[3],
-          ea: row[4],
-        });
+  if (quranData.ahzab.length === 0)
+    quran_db.exec("SELECT * FROM quran_ahzab")[0].values.forEach((row) => {
+      quranData.ahzab.push({
+        n: row[0],
+        ss: row[1],
+        sa: row[2],
+        es: row[3],
+        ea: row[4],
       });
-  } catch (e) {
-    if (e.message.includes("no such table:")) await downloadQuranDB();
-  }
+    });
 
   if (!quranData.SURAH_NAME_MAP.size)
     quranData.surahs.forEach((s) =>
