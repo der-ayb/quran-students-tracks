@@ -209,6 +209,11 @@ const studentsExportModalElement = document.getElementById(
 const studentsExportModal = studentsExportModalElement
   ? new bootstrap.Modal(studentsExportModalElement)
   : null;
+const smsCustomizeModalElement = document.getElementById("smsCustomizeModal");
+const smsCustomizeModal = smsCustomizeModalElement
+  ? new bootstrap.Modal(smsCustomizeModalElement)
+  : null;
+let pendingSmsMessage = null;
 const classroomInfosModal = new bootstrap.Modal("#newClassroomInfosModal");
 
 const requirCollapse = new bootstrap.Collapse(
@@ -1056,6 +1061,7 @@ function changeWorkingClassroomHandler(option = null) {
   obligatoryCheck.disabled = isTalkinClassroom;
   isGirls = option.dataset.sex === "إناث";
   haircutInput.disabled = isGirls;
+  smsIncludeHaircut.disabled = isGirls;
 }
 
 // classrooms tab
@@ -1691,6 +1697,62 @@ function formatStudentBirthDate(value, calendar) {
   }
   return birthDate.toFormat("yyyy-LL-dd");
 }
+
+document
+  .querySelectorAll("#smsCustomizeModal [data-sms-option]")
+  .forEach((input) => {
+    const savedOption = localStorage.getItem(
+      `smsMessageOption_${input.dataset.smsOption}`,
+    );
+    input.checked = savedOption === null ? true : savedOption === "true";
+  });
+
+document
+  .getElementById("smsSendConfirmBtn")
+  ?.addEventListener("click", function () {
+    if (!pendingSmsMessage) {
+      window.showToast("error", "تعذر إعداد رسالة SMS.");
+      return;
+    }
+
+    const selectedOptions = Array.from(
+      document.querySelectorAll("#smsCustomizeModal [data-sms-option]:checked"),
+    );
+    const message = pendingSmsMessage.isPresent
+      ? "--" +
+        pendingSmsMessage.name +
+        "------\n" +
+        selectedOptions
+          .map((input) => {
+            localStorage.setItem(
+              `smsMessageOption_${input.dataset.smsOption}`,
+              "true",
+            );
+            return pendingSmsMessage.parts[input.dataset.smsOption];
+          })
+          .filter(Boolean)
+          .join("\n")
+      : pendingSmsMessage.absenceMessage;
+
+    document
+      .querySelectorAll("#smsCustomizeModal [data-sms-option]:not(:checked)")
+      .forEach((input) =>
+        localStorage.setItem(
+          `smsMessageOption_${input.dataset.smsOption}`,
+          "false",
+        ),
+      );
+
+    if (!message.trim()) {
+      window.showToast("warning", "يرجى اختيار معلومة واحدة على الأقل.");
+      return;
+    }
+
+    const { phone } = pendingSmsMessage;
+    pendingSmsMessage = null;
+    smsCustomizeModal?.hide();
+    window.location.href = `sms:${phone}?body=${encodeURIComponent(message)}`;
+  });
 
 document
   .getElementById("studentsExportConfirmBtn")
@@ -2824,8 +2886,10 @@ window.changeObligatory = async function (switchElement, secondDay = false) {
   }
 };
 
-function isCurrentDay() {
+function isEditableDay(shouldCurrentDay = false) {
   const now = new Date();
+  if (shouldCurrentDay && now.toISOString().slice(0, 10) != workingDay)
+    return false;
   if (!currentDayEditable && now.toISOString().slice(0, 10) != workingDay)
     return false;
 
@@ -3041,7 +3105,9 @@ async function loadDayStudentsList() {
           row[result.columns.indexOf("studentFName")] +
           " " +
           row[result.columns.indexOf("studentLName")];
-
+        const detailDataJson = JSON.parse(
+          row[result.columns.indexOf("detail")] || "[]",
+        );
         // fill teacher options
         if (
           attendanceValue == "1" &&
@@ -3188,10 +3254,6 @@ async function loadDayStudentsList() {
             }, 400);
             requirTeacherInput.value = minimizeBag["teacher"];
           } else {
-            const detailDataJson = JSON.parse(
-              row[result.columns.indexOf("detail")] || "[]",
-            );
-
             if (!detailDataJson.length) {
               requirementsTable.querySelector("tbody").innerHTML = "";
               const lsR = project_db.exec(`
@@ -3205,10 +3267,7 @@ async function loadDayStudentsList() {
                 lsR.length ? JSON.parse(lsR[0].values[0][0]).at(-1) : null,
               );
             } else {
-              fillReuirementsTable(
-                JSON.parse(row[result.columns.indexOf("detail")] || "[]"),
-                student_id,
-              );
+              fillReuirementsTable(detailDataJson, student_id);
             }
             requirsMoyenneInput.value =
               row[result.columns.indexOf("requirsMoyenne")] || "0.00";
@@ -3236,7 +3295,7 @@ async function loadDayStudentsList() {
           ? document.createElement("div")
           : null;
         if (!isTalkinClassroom) {
-          const evaluationDayIcon = isCurrentDay()
+          const evaluationDayIcon = isEditableDay()
             ? document.createElement("i")
             : null;
           if (evaluationDayIcon) {
@@ -3270,7 +3329,7 @@ async function loadDayStudentsList() {
           : null;
 
         const addRequirsBtn =
-          attendanceValue && isCurrentDay()
+          attendanceValue && isEditableDay()
             ? document.createElement("i")
             : null;
         if (addRequirsBtn) {
@@ -3294,7 +3353,7 @@ async function loadDayStudentsList() {
         const attendanceText =
           attendanceValue == 1
             ? `${retardText}${
-                isCurrentDay() &&
+                isEditableDay(true) &&
                 !isTalkinClassroom &&
                 checkAuthorizedOut(requirsMoyenneValue, retardValue)
                   ? "🟢"
@@ -3302,23 +3361,101 @@ async function loadDayStudentsList() {
               }`
             : attendanceValue == 0
               ? "غياب مبرر"
-              : isCurrentDay()
+              : isEditableDay()
                 ? `<button oncontextmenu="const cscy=window.scrollY;markPresence(${student_id},${prePriorityObj ? true : false},true);window.scrollTo({top: cscy,behavior: 'instant'});" 
                            onclick="const cscy=window.scrollY;markPresence(${student_id},${prePriorityObj ? true : false});window.scrollTo({top: cscy,behavior: 'instant'});" 
-                           class="btn fa-solid fa-square-check px-1" style="transform: scale(1.3); cursor: pointer;"></button>` +
-                  (parentPhone
-                    ? `<input type="checkbox" id="sms_btn${student_id}" onclick="window.location.href='sms:${parentPhone}?body= السلام عليكم. ليكن في علمكم أن إبن${isGirls ? "ت" : ""}كم ${studentFName} غائب${
-                        isGirls ? "ة" : ""
-                      } عن حصة تحفيظ القرآن اليوم'" class="btn-check" autocomplete="off">
-                    <label class="btn fa-solid fa-comment-sms px-2" for="sms_btn${student_id}"></label>`
-                    : "")
+                           class="btn btn-sm btn-outline-primary py-1 px-1" style="transform: scale(1.3); cursor: pointer;">حاضر${isGirls ? "ة" : ""}</button>`
                 : "غائب" + (isGirls ? "ة" : "");
+
+        const requirementsSmsMessage = !detailDataJson.length
+          ? `لم ${isGirls ? "ت" : "ي"}عرض أي متطلبات اليوم.`
+          : (detailDataJson.length > 1 ? "\n*" : "") +
+            detailDataJson
+              .map((detail) => {
+                const errorsCount =
+                  detail["الأخطاء"] && detail["الأخطاء"].includes(" ")
+                    ? parseInt(detail["الأخطاء"].split(" ")[0]) +
+                      parseInt(detail["الأخطاء"].split(" ")[4])
+                    : parseInt(detail["الأخطاء"]);
+                const alertsCount = parseInt(detail["التنبيهات"]);
+                return `${detail["النوع"]} [${parseRequirment(detail["التفاصيل"], detail["الكتاب"])}] بتقدير ${formatEval(detail["التقدير"])} ${
+                  detail["الكتاب"] !== "القرآن الكريم"
+                    ? ""
+                    : "(" + `${errorsCount} أخطاء و${alertsCount} تنبيهات` + ")"
+                }`;
+              })
+              .join("\n*");
+
+        const getEvaluationLabel = (type, value) => {
+          if (value == null || Number(value) === 0) return null;
+          const entry = Object.entries(evaluationLaddersValues[type]).find(
+            ([, mark]) => Number(mark) === Number(value),
+          );
+          return entry?.[0] ?? value;
+        };
+        const smsMessageParts = {
+          retard:
+            attendanceValue == 1 && retardValue != null
+              ? `الحضور: ${
+                  retardValue <= 0 ? `في الوقت ` : `بعد ${retardValue} د `
+                }`
+              : null,
+          behavior:
+            attendanceValue == 1 &&
+            behaviorValue != null &&
+            Number(behaviorValue) !== 0
+              ? `السلوك: ${getEvaluationLabel("behavior", behaviorValue)}`
+              : null,
+          clothing:
+            attendanceValue == 1 &&
+            clothingValue != null &&
+            Number(clothingValue) !== 0
+              ? `الهندام: ${getEvaluationLabel("clothing", clothingValue)}`
+              : null,
+          haircut:
+            !isGirls &&
+            attendanceValue == 1 &&
+            haircutValue != null &&
+            Number(haircutValue) !== 0
+              ? `الحلاقة: ${getEvaluationLabel("haircut", haircutValue)}`
+              : null,
+          requirements:
+            attendanceValue == 1 ? `المطلوب:${requirementsSmsMessage}` : null,
+        };
+        const absenceSmsMessage = `السلام عليكم. ليكن في علمكم أن إبن${isGirls ? "ت" : ""}كم ${studentFName} غائب${isGirls ? "ة" : ""} عن حصة تحفيظ القرآن اليوم`;
+
+        const historyContent = document.createElement("span");
+        historyContent.innerHTML = `<i onclick="showRequirementsHistory(${row[0]})" class="fa-solid fa-clock-rotate-left"></i>`;
+        if (parentPhone && isEditableDay(true)) {
+          const smsButton = document.createElement("button");
+          smsButton.type = "button";
+          smsButton.className = "btn fa-solid fa-comment-sms px-2";
+          smsButton.setAttribute(
+            "aria-label",
+            `إنشاء رسالة SMS إلى ولي ${full_name}`,
+          );
+          smsButton.addEventListener("click", () => {
+            if (!smsCustomizeModal) {
+              window.showToast("error", "نافذة تخصيص رسالة SMS غير موجودة.");
+              return;
+            }
+            pendingSmsMessage = {
+              name: full_name,
+              phone: parentPhone,
+              isPresent: attendanceValue == 1,
+              parts: smsMessageParts,
+              absenceMessage: absenceSmsMessage,
+            };
+            smsCustomizeModal.show();
+          });
+          historyContent.appendChild(smsButton);
+        }
 
         data.push({
           select: "",
           id: student_id,
           student: full_name,
-          history: `<i onclick="showRequirementsHistory(${row[0]})" class="fa-solid fa-clock-rotate-left"></i>`,
+          history: historyContent,
           attendance: attendanceText,
           evaluation:
             attendanceValue && !isTalkinClassroom
@@ -3344,11 +3481,11 @@ async function loadDayStudentsList() {
       [
         { data: "select" },
         { data: "id", visible: false },
-        { data: "student" },
+        { data: "student", className: "fw-bold fs-5" },
         { data: "history", className: "px-0" },
         {
           data: "attendance",
-          className: "text-start",
+          className: "text-start ",
           type: "num",
           render: function (data, type, row) {
             if (type === "sort") {
@@ -3490,7 +3627,7 @@ async function loadDayStudentsList() {
               {
                 text: '<i class="fa-solid fa-pen-to-square"></i>',
                 action: async function (e, dt) {
-                  if (!isCurrentDay()) {
+                  if (!isEditableDay()) {
                     currentDayEditable = true;
                     loadDayStudentsList();
                     return;
@@ -3803,7 +3940,7 @@ async function loadDayStudentsList() {
       true,
     );
     table.columns([6, 5]).visible(!isTalkinClassroom);
-    table.columns(0).visible(isCurrentDay());
+    table.columns([0, 8]).visible(isEditableDay());
     if (!isTalkinClassroom) {
       if (studentsDayInfos.secondDayInfos === null) {
         table.buttons(1).nodes().addClass("d-none");
@@ -4488,9 +4625,7 @@ async function initEvaluationLaddersValues(db) {
         )[0].values[0],
       ),
     );
-  } catch (error) {
-    console.error("Error initializing evaluation ladders:", error);
-  }
+  } catch {}
 }
 
 function populateEvalSelects() {
@@ -4855,11 +4990,11 @@ function getStatisticsSelectedStudentsId() {
 
 function formatEval(rating) {
   if (rating == 10) return "مــمــتــاز";
-  if (rating >= 9) return "جــيــد  جــدا";
+  if (rating >= 9) return "جــيــد جــدا";
   if (rating >= 7) return "جـــيـــد";
   if (rating >= 6) return "حـــســـن";
   if (rating >= 5) return "مـتــوســط";
-  return "دون  المتوسط";
+  return "دون المتوسط";
 }
 
 // import html2canvas from "html2canvas";

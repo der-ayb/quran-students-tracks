@@ -799,6 +799,53 @@
     </div>
   </div>
 
+  <div class="modal fade" id="smsCustomizeModal" tabindex="-1" aria-labelledby="smsCustomizeModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="smsCustomizeModalLabel">تخصيص رسالة SMS</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <fieldset>
+            <legend class="fs-6">المعلومات المضمنة في الرسالة</legend>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" data-sms-option="retard" id="smsIncludeRetard" checked>
+              <label class="form-check-label" for="smsIncludeRetard">التأخر</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" data-sms-option="behavior" id="smsIncludeBehavior"
+                checked>
+              <label class="form-check-label" for="smsIncludeBehavior">السلوك</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" data-sms-option="clothing" id="smsIncludeClothing"
+                checked>
+              <label class="form-check-label" for="smsIncludeClothing">الهندام</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" data-sms-option="haircut" id="smsIncludeHaircut" checked>
+              <label class="form-check-label" for="smsIncludeHaircut">الحلاقة</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" data-sms-option="requirements"
+                id="smsIncludeRequirements" checked>
+              <label class="form-check-label" for="smsIncludeRequirements">المطلوب</label>
+            </div>
+          </fieldset>
+          <small class="text-muted">تبقى رسالة الغياب كما هي، وتُطبق هذه الخيارات على التلاميذ الحاضرين.</small>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+          <button type="button" class="btn btn-primary" id="smsSendConfirmBtn">
+            <i class="fa-solid fa-comment-sms"></i> متابعة
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal for edit students day -->
   <div class="modal fade" id="newStudentDayModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1"
     aria-labelledby="newStudentDayModalLabel" aria-hidden="true" style="z-index: 1101;">
