@@ -110,6 +110,7 @@ const dayNoteContainer = document.getElementById("dayNoteContainer");
 const statisticsDateInput = document.getElementById("statisticsrange");
 const addQuranSelectionBtn = document.getElementById("addQuranSelectionBtn");
 const retryBtn = document.getElementById("retryBtn");
+const nextRequirementBtn = document.getElementById("nextRequirementBtn");
 const retardInput = document.getElementById("retard");
 
 const requirementsTable = document.getElementById("requirementsTable");
@@ -2038,12 +2039,14 @@ requirBookInput.oninput = function () {
     audioFileBtn.style.removeProperty("display");
     requirQuantityDetailInput.style.display = "none";
     requirQuantityInput.readOnly = true;
+    nextRequirementBtn.disabled = false;
   } else {
     requirQuantityDetailInput.style.removeProperty("display");
     quranSelectionSection.style.display = "none";
     audioFileBtn.style.display = "none";
     requirQuantityInput.readOnly = false;
     requirQuantityInput.value = "0";
+    nextRequirementBtn.disabled = true;
   }
   requirQuantityDetailInput.value = "";
   requirEvaluationInput.value = "10.00";
@@ -3143,7 +3146,27 @@ async function loadDayStudentsList() {
           const preStudentsRetrys = localStorage.getItem("studentsRetrys")
             ? JSON.parse(localStorage.getItem("studentsRetrys"))
             : {};
+          const nextRequirements = localStorage.getItem("nextRequirements")
+            ? JSON.parse(localStorage.getItem("nextRequirements"))
+            : {};
           setTimeout(() => {
+            if (
+              nextRequirements[student_id] &&
+              requirBookInput.value == "القرآن الكريم"
+            ) {
+              firstSurahSelect.value =
+                nextRequirements[student_id]["firstSurah"];
+              firstSurahSelect.dispatchEvent(new Event("change"));
+              firstAyahSelect.value = nextRequirements[student_id]["firstAyah"];
+              firstAyahSelect.dispatchEvent(new Event("change"));
+              secondSurahSelect.value =
+                nextRequirements[student_id]["secondSurah"];
+              secondSurahSelect.dispatchEvent(new Event("change"));
+              secondAyahSelect.value =
+                nextRequirements[student_id]["secondAyah"];
+              secondAyahSelect.dispatchEvent(new Event("change"));
+            }
+
             requirRepitInput.value = preStudentsRetrys[student_id] || 0;
             requirRepitInput.dispatchEvent(new Event("input"));
           }, 200);
@@ -3158,6 +3181,20 @@ async function loadDayStudentsList() {
             );
             studentDayModal.hide();
           };
+          nextRequirementBtn.onclick = async () => {
+            nextRequirements[student_id] = {
+              firstSurah: firstSurahSelect.value,
+              firstAyah: firstAyahSelect.value,
+              secondSurah: secondSurahSelect.value,
+              secondAyah: secondAyahSelect.value,
+            };
+
+            localStorage.setItem(
+              "nextRequirements",
+              JSON.stringify(nextRequirements),
+            );
+            studentDayModal.hide();
+          };
 
           addQuranSelectionBtn.addEventListener(
             "click",
@@ -3166,6 +3203,11 @@ async function loadDayStudentsList() {
               localStorage.setItem(
                 "studentsRetrys",
                 JSON.stringify(preStudentsRetrys),
+              );
+              delete nextRequirements[student_id];
+              localStorage.setItem(
+                "nextRequirements",
+                JSON.stringify(nextRequirements),
               );
             },
             { once: true },
@@ -3310,10 +3352,12 @@ async function loadDayStudentsList() {
               ORDER BY t.rowid DESC 
               LIMIT 1;`,
                 )[0]?.values[0] || null,
-              ),true,false
+              ),
+              true,
+              false,
             );
           };
-          
+
           studentDayModalElement.addEventListener(
             "hide.bs.modal",
             (event) => {
@@ -3430,7 +3474,7 @@ async function loadDayStudentsList() {
                   const alertsCount = parseInt(detail["التنبيهات"]);
                   const fields = [];
                   if (selectedRequirements.has("requirementEvaluation")) {
-                    fields.push(`التقدير ${formatEval(detail["التقدير"])}`);
+                    fields.push(`بتقدير ${formatEval(detail["التقدير"])}`);
                   }
                   if (detail["الكتاب"] === "القرآن الكريم") {
                     if (selectedRequirements.has("requirementErrors")) {
@@ -3441,7 +3485,7 @@ async function loadDayStudentsList() {
                     }
                   }
                   return `${detail["النوع"]} [${parseRequirment(detail["التفاصيل"], detail["الكتاب"])}]${
-                    fields.length ? ` ${fields.join(" و")}` : ""
+                    fields.length ? ` ${fields.join(" . ")}` : ""
                   }`;
                 })
                 .join("\n*");
@@ -3484,6 +3528,17 @@ async function loadDayStudentsList() {
               ? (selectedRequirements) =>
                   `المطلوب:${requirementsSmsMessage(selectedRequirements)}`
               : null,
+          nextRequirements: localStorage.getItem("nextRequirements") && JSON.parse(localStorage.getItem("nextRequirements"))[student_id]
+            ? `المطلوب القادم:${parseRequirment(
+                `${
+                  quranData.surahs[JSON.parse(localStorage.getItem("nextRequirements"))[student_id]["firstSurah"]].name
+                }#-#${JSON.parse(localStorage.getItem("nextRequirements"))[student_id]["firstAyah"]}#إلى#${
+                  quranData.surahs[JSON.parse(localStorage.getItem("nextRequirements"))[student_id]["secondSurah"]].name
+                }#-#${JSON.parse(localStorage.getItem("nextRequirements"))[student_id]["secondAyah"]}`,
+                "القرآن الكريم",
+                false,
+              )}`
+            : null,
         };
         const absenceSmsMessage = `السلام عليكم. ليكن في علمكم أن إبن${isGirls ? "ت" : ""}كم ${studentFName} غائب${isGirls ? "ة" : ""} عن حصة تحفيظ القرآن اليوم`;
 
@@ -3498,6 +3553,12 @@ async function loadDayStudentsList() {
             `إنشاء رسالة SMS إلى ولي ${full_name}`,
           );
           smsButton.addEventListener("click", () => {
+            if (attendanceValue != 1) {
+              pendingSmsMessage = null;
+              window.location.href = `sms:${parentPhone}?body=${encodeURIComponent(absenceSmsMessage)}`;
+              return;
+            }
+
             if (!smsCustomizeModal) {
               window.showToast("error", "نافذة تخصيص رسالة SMS غير موجودة.");
               return;
@@ -4410,7 +4471,11 @@ function initializeToast() {
   }
 }
 
-function getNextRequirement(detail = null, setRequirementFields = true,setRequirementType = true) {
+function getNextRequirement(
+  detail = null,
+  setRequirementFields = true,
+  setRequirementType = true,
+) {
   let requirBookValue = "";
   let requirTypeValue;
   let firstSurahValue = "1";
@@ -4488,6 +4553,7 @@ window.editRequirement = function (button) {
   } else {
     addQuranSelectionBtn.innerText = "تحديث";
     retryBtn.disabled = true;
+    nextRequirementBtn.disabled = true;
   }
   row.lastElementChild.previousElementSibling.querySelector(
     ".btn-success",
@@ -4545,6 +4611,7 @@ window.editRequirement = function (button) {
     addRequirToTable(row);
     addQuranSelectionBtn.innerText = "إضافة";
     retryBtn.disabled = false;
+    nextRequirementBtn.disabled = false;
     addQuranSelectionBtn.onclick = () => addRequirToTable();
     requirBookInput.dispatchEvent(new Event("change"));
   };
@@ -4553,6 +4620,7 @@ window.editRequirement = function (button) {
     (event) => {
       addQuranSelectionBtn.innerText = "إضافة";
       retryBtn.disabled = false;
+      nextRequirementBtn.disabled = false;
       addQuranSelectionBtn.onclick = () => addRequirToTable();
     },
     { once: true },
