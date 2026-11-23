@@ -1707,6 +1707,20 @@ document
     input.checked = savedOption === null ? true : savedOption === "true";
   });
 
+const smsIncludeRequirements = document.getElementById(
+  "smsIncludeRequirements",
+);
+const smsRequirementDetailOptions = document.querySelectorAll(
+  '#smsCustomizeModal [data-sms-option^="requirement"]:not([data-sms-option="requirements"])',
+);
+const syncSmsRequirementOptions = () => {
+  smsRequirementDetailOptions.forEach((input) => {
+    input.disabled = !smsIncludeRequirements.checked;
+  });
+};
+smsIncludeRequirements?.addEventListener("change", syncSmsRequirementOptions);
+syncSmsRequirementOptions();
+
 document
   .getElementById("smsSendConfirmBtn")
   ?.addEventListener("click", function () {
@@ -1718,6 +1732,9 @@ document
     const selectedOptions = Array.from(
       document.querySelectorAll("#smsCustomizeModal [data-sms-option]:checked"),
     );
+    const selectedRequirementOptions = new Set(
+      selectedOptions.map((input) => input.dataset.smsOption),
+    );
     const message = pendingSmsMessage.isPresent
       ? "--" +
         pendingSmsMessage.name +
@@ -1728,7 +1745,10 @@ document
               `smsMessageOption_${input.dataset.smsOption}`,
               "true",
             );
-            return pendingSmsMessage.parts[input.dataset.smsOption];
+            const part = pendingSmsMessage.parts[input.dataset.smsOption];
+            return typeof part === "function"
+              ? part(selectedRequirementOptions)
+              : part;
           })
           .filter(Boolean)
           .join("\n")
@@ -2218,7 +2238,7 @@ function setRequirEvalInput() {
 }
 
 $([
-  requirTypeInput,
+  // requirTypeInput,
   saveStateErrorsInput,
   saveStateAlertsInput,
   requirRepitInput,
@@ -2816,10 +2836,10 @@ window.showRequirementsHistory = function (student_id, page = 1) {
   requirsDates = requirsDates.map((date) => new Date(date));
   showOffCanvas(
     `المتطلبات السابقة`,
-    `<ul> ${requirs
+    `<ul class="list-group"> ${requirs
       .map(
         (i, index) =>
-          `<li>
+          `<li class="list-group-item">
             <strong>${new Intl.DateTimeFormat("ar-DZ-u-ca-islamic-umalqura", {
               day: "numeric",
               month: "long",
@@ -2835,11 +2855,11 @@ window.showRequirementsHistory = function (student_id, page = 1) {
                 false,
               )}" class="fa-solid fa-file-audio" target="_blank" rel="noopener noreferrer"></a>`
             : "") +
-          `<ul>` +
+          `<ul class="list-group list-group-flush mt-2">` +
           JSON.parse(i)
             .map(
               (i) =>
-                `<li>${i["النوع"]} - ${parseRequirment(i["التفاصيل"], i["الكتاب"])}</li> `,
+                `<li class="list-group-item px-0 py-1">${i["النوع"]} - ${parseRequirment(i["التفاصيل"], i["الكتاب"])}</li> `,
             )
             .reverse()
             .join("") +
@@ -2848,7 +2868,7 @@ window.showRequirementsHistory = function (student_id, page = 1) {
       )
       .join(
         "",
-      )}</ul><button class="btn btn-link" onclick="showRequirementsHistory(${student_id},${page + 1})">أقدم...</button>
+      )}</ul><button class="btn btn-link text-center w-100" onclick="showRequirementsHistory(${student_id},${page + 1})">أقدم...</button>
       `,
     "start",
   );
@@ -3273,6 +3293,35 @@ async function loadDayStudentsList() {
               row[result.columns.indexOf("requirsMoyenne")] || "0.00";
           }
 
+          requirTypeInput.onchange = function () {
+            getNextRequirement(
+              JSON.parse(
+                project_db.exec(
+                  `SELECT 
+                (
+                  SELECT j.value 
+                  FROM json_each(t.detail) AS j
+                  WHERE j.value ->> '$.النوع' = '${this.value}'
+                  ORDER BY j.rowid DESC 
+                  LIMIT 1
+                ) AS last_matching_item
+              FROM day_requirements AS t
+              WHERE t.student_id = ${student_id} AND last_matching_item IS NOT NULL
+              ORDER BY t.rowid DESC 
+              LIMIT 1;`,
+                )[0]?.values[0] || null,
+              ),true,false
+            );
+          };
+          
+          studentDayModalElement.addEventListener(
+            "hide.bs.modal",
+            (event) => {
+              requirTypeInput.onchange = null;
+            },
+            { once: true },
+          );
+
           const working_day_id = workingDayID;
           studentDayFormSubmitBtn.onclick = async function () {
             if (!project_db) {
@@ -3364,27 +3413,38 @@ async function loadDayStudentsList() {
               : isEditableDay()
                 ? `<button oncontextmenu="const cscy=window.scrollY;markPresence(${student_id},${prePriorityObj ? true : false},true);window.scrollTo({top: cscy,behavior: 'instant'});" 
                            onclick="const cscy=window.scrollY;markPresence(${student_id},${prePriorityObj ? true : false});window.scrollTo({top: cscy,behavior: 'instant'});" 
-                           class="btn btn-sm btn-outline-primary py-1 px-1" style="transform: scale(1.3); cursor: pointer;">حاضر${isGirls ? "ة" : ""}</button>`
+                           class="btn btn-sm btn-outline-primary py-0 px-1" style="transform: scale(1.3); cursor: pointer;">حاضر${isGirls ? "ة" : ""}</button>`
                 : "غائب" + (isGirls ? "ة" : "");
 
-        const requirementsSmsMessage = !detailDataJson.length
-          ? `لم ${isGirls ? "ت" : "ي"}عرض أي متطلبات اليوم.`
-          : (detailDataJson.length > 1 ? "\n*" : "") +
-            detailDataJson
-              .map((detail) => {
-                const errorsCount =
-                  detail["الأخطاء"] && detail["الأخطاء"].includes(" ")
-                    ? parseInt(detail["الأخطاء"].split(" ")[0]) +
-                      parseInt(detail["الأخطاء"].split(" ")[4])
-                    : parseInt(detail["الأخطاء"]);
-                const alertsCount = parseInt(detail["التنبيهات"]);
-                return `${detail["النوع"]} [${parseRequirment(detail["التفاصيل"], detail["الكتاب"])}] بتقدير ${formatEval(detail["التقدير"])} ${
-                  detail["الكتاب"] !== "القرآن الكريم"
-                    ? ""
-                    : "(" + `${errorsCount} أخطاء و${alertsCount} تنبيهات` + ")"
-                }`;
-              })
-              .join("\n*");
+        const requirementsSmsMessage = (selectedRequirements) =>
+          !detailDataJson.length
+            ? `لم ${isGirls ? "ت" : "ي"}عرض أي متطلبات اليوم.`
+            : (detailDataJson.length > 1 ? "\n*" : "") +
+              detailDataJson
+                .map((detail) => {
+                  const errorsCount =
+                    detail["الأخطاء"] && detail["الأخطاء"].includes(" ")
+                      ? parseInt(detail["الأخطاء"].split(" ")[0]) +
+                        parseInt(detail["الأخطاء"].split(" ")[4])
+                      : parseInt(detail["الأخطاء"]);
+                  const alertsCount = parseInt(detail["التنبيهات"]);
+                  const fields = [];
+                  if (selectedRequirements.has("requirementEvaluation")) {
+                    fields.push(`التقدير ${formatEval(detail["التقدير"])}`);
+                  }
+                  if (detail["الكتاب"] === "القرآن الكريم") {
+                    if (selectedRequirements.has("requirementErrors")) {
+                      fields.push(`${errorsCount} أخطاء`);
+                    }
+                    if (selectedRequirements.has("requirementAlerts")) {
+                      fields.push(`${alertsCount} تنبيهات`);
+                    }
+                  }
+                  return `${detail["النوع"]} [${parseRequirment(detail["التفاصيل"], detail["الكتاب"])}]${
+                    fields.length ? ` ${fields.join(" و")}` : ""
+                  }`;
+                })
+                .join("\n*");
 
         const getEvaluationLabel = (type, value) => {
           if (value == null || Number(value) === 0) return null;
@@ -3420,7 +3480,10 @@ async function loadDayStudentsList() {
               ? `الحلاقة: ${getEvaluationLabel("haircut", haircutValue)}`
               : null,
           requirements:
-            attendanceValue == 1 ? `المطلوب:${requirementsSmsMessage}` : null,
+            attendanceValue == 1
+              ? (selectedRequirements) =>
+                  `المطلوب:${requirementsSmsMessage(selectedRequirements)}`
+              : null,
         };
         const absenceSmsMessage = `السلام عليكم. ليكن في علمكم أن إبن${isGirls ? "ت" : ""}كم ${studentFName} غائب${isGirls ? "ة" : ""} عن حصة تحفيظ القرآن اليوم`;
 
@@ -3481,11 +3544,11 @@ async function loadDayStudentsList() {
       [
         { data: "select" },
         { data: "id", visible: false },
-        { data: "student", className: "fw-bold fs-5" },
-        { data: "history", className: "px-0" },
+        { data: "student", className: "fw-bold fs-6 pb-0" },
+        { data: "history", className: "px-0 pb-0" },
         {
           data: "attendance",
-          className: "text-start ",
+          className: "text-start pb-0",
           type: "num",
           render: function (data, type, row) {
             if (type === "sort") {
@@ -3497,7 +3560,7 @@ async function loadDayStudentsList() {
         {
           data: "evaluation",
           visible: !isTalkinClassroom,
-          className: "text-center fw-bold fs-5",
+          className: "text-center fw-bold fs-5 pb-1",
           type: "num",
           defaultContent: "/",
           render: function (data, type, row) {
@@ -4347,7 +4410,7 @@ function initializeToast() {
   }
 }
 
-function getNextRequirement(detail = null, setRequirementFields = true) {
+function getNextRequirement(detail = null, setRequirementFields = true,setRequirementType = true) {
   let requirBookValue = "";
   let requirTypeValue;
   let firstSurahValue = "1";
@@ -4396,8 +4459,10 @@ function getNextRequirement(detail = null, setRequirementFields = true) {
     requirBookInput.value = requirBookValue;
     requirBookInput.dispatchEvent(new Event("input"));
     if (requirBookValue == "القرآن الكريم") {
-      requirTypeInput.value = requirTypeValue;
-      requirTypeInput.dispatchEvent(new Event("change"));
+      if (setRequirementType) {
+        requirTypeInput.value = requirTypeValue;
+        saveStateErrorsInput.dispatchEvent(new Event("change"));
+      }
       firstSurahSelect.value = firstSurahValue;
       firstSurahSelect.dispatchEvent(new Event("change"));
       firstAyahSelect.value = firstAyahValue;
@@ -4481,7 +4546,7 @@ window.editRequirement = function (button) {
     addQuranSelectionBtn.innerText = "إضافة";
     retryBtn.disabled = false;
     addQuranSelectionBtn.onclick = () => addRequirToTable();
-    requirTypeInput.dispatchEvent(new Event("change"));
+    requirBookInput.dispatchEvent(new Event("change"));
   };
   studentDayModalElement.addEventListener(
     "hide.bs.modal",
@@ -4532,7 +4597,7 @@ window.removeRequirItem = function (button, student_id = null) {
     requirBookInput.dispatchEvent(new Event("input"));
     requirTypeInput.value =
       row.firstElementChild.nextElementSibling.textContent;
-    requirTypeInput.dispatchEvent(new Event("change"));
+    saveStateErrorsInput.dispatchEvent(new Event("change"));
     const detail =
       row.firstElementChild.nextElementSibling.nextElementSibling.nextElementSibling.textContent.trim();
 
@@ -4574,7 +4639,7 @@ function addRequirToTable(row = false) {
     <td>${requirRepitInput.value}</td>
     <td>
     <div class="btn-group" role="group" aria-label="Vertical button group">
-      <button type="button" class="btn btn-success" onclick="editRequirement(this);"><i class="fa-solid fa-pen-to-square"></i></button>
+      <button type="button" class="btn btn-success" onclick="window.editRequirement(this);"><i class="fa-solid fa-pen-to-square"></i></button>
       <button id="${removeBtnId}" class="btn btn-danger btn-sm"><i class="fa-solid fa-xmark"></i></button>
     </div>
     <td>${studentsDayInfos.secondDayIsWorkingDay}</td>
